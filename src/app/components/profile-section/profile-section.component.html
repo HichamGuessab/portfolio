@@ -26,14 +26,18 @@
       technologies.
     </p>
     <div class="mx-10 mt-5 flex place-content-between">
-      <badge image="blue-github" redirection="www.github.com" name="Github" />
       <badge
-        image="blue-linkedin"
+        [image]="BlueImage.Github"
+        redirection="www.github.com"
+        name="Github"
+      />
+      <badge
+        [image]="BlueImage.Linkedin"
         redirection="www.linkedin.com"
         name="LinkedIn"
       />
       <badge
-        image="blue-at"
+        [image]="BlueImage.At"
         redirection="hichamgsb.pro@gmail.com"
         name="hichamgsb.pro@gmail.com"
       />

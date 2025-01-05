@@ -3,6 +3,6 @@
   (click)="redirectTo()"
   class="inline-flex gap-3 rounded-2xl bg-nightBlue px-4 py-2 text-lg text-lightBlue"
 >
-  <img class="h-7 w-7" src="assets/images/{{ image }}.png" [alt]="name" />
+  <img class="h-7 w-7" [src]="image" [alt]="name" />
   <span>{{ name }}</span>
 </div>
