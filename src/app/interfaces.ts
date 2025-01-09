@@ -9,6 +9,13 @@ export enum SkillType {
   Shiny = 'shiny',
 }
 
+export interface Project {
+  name: string;
+  description: string;
+  technologies: Image[];
+  url: string;
+}
+
 export type Image = BlueImage | ShinyImage | WhiteImage;
 
 export enum BlueImage {
@@ -39,6 +46,7 @@ export enum WhiteImage {
   Figma = 'assets/images/white-figma.png',
   Flutter = 'assets/images/white-flutter.png',
   Git = 'assets/images/white-git.png',
+  GithubMascot = 'assets/images/white-github-mascot.png',
   Gitlab = 'assets/images/white-gitlab.png',
   Ice = 'assets/images/white-ice.png',
   Ionic = 'assets/images/white-ionic.png',

@@ -1,0 +1,19 @@
+<section class="flex flex-col">
+  <div class="mb-12 flex gap-5 place-self-center">
+    <img
+      [src]="BlueImage.Stack"
+      alt="Projects"
+      class="h-14 w-14 place-self-center"
+    />
+    <h2
+      class="content-center bg-gradient-to-r from-lightBlue to-purple bg-clip-text font-analogue text-5xl font-regular text-transparent"
+    >
+      Projects
+    </h2>
+  </div>
+  <div class="no-scrollbar flex gap-7 overflow-y-auto">
+    @for (project of projects; track project) {
+      <project-item [project]="project" />
+    }
+  </div>
+</section>
