@@ -7,6 +7,7 @@ module.exports = {
         wildSand: '#F5F5F5',
         lightBlue: '#53DCFD',
         nightBlue: '#0D1953',
+        navyBlue: '#0F2C57',
         darkBlue: '#040D39',
         purple: '#A88CFF',
       },
