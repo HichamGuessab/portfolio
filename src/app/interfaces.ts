@@ -16,6 +16,13 @@ export interface Project {
   url: string;
 }
 
+export interface Degree {
+  name: string;
+  type: string;
+  institution: string;
+  date: string;
+}
+
 export type Image = BlueImage | ShinyImage | WhiteImage;
 
 export enum BlueImage {
