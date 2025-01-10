@@ -4,6 +4,7 @@ import { ProfileSectionComponent } from './components/profile-section/profile-se
 import { SkillsSectionComponent } from './components/skills-section/skills-section.component';
 import { NavMenuComponent } from './components/navigation/nav-menu/nav-menu.component';
 import { ProjectsSectionComponent } from './components/projects-section/projects-section.component';
+import { EducationSectionComponent } from './components/education-section/education-section.component';
 
 @Component({
   selector: 'app-root',
@@ -15,6 +16,7 @@ import { ProjectsSectionComponent } from './components/projects-section/projects
     SkillsSectionComponent,
     NavMenuComponent,
     ProjectsSectionComponent,
+    EducationSectionComponent,
   ],
 })
 export class AppComponent {}
