@@ -11,7 +11,9 @@
       Projects
     </h2>
   </div>
-  <div class="no-scrollbar flex gap-7 overflow-y-auto">
+  <div
+    class="no-scrollbar grid max-h-fit grid-flow-col grid-rows-2 gap-4 overflow-x-auto"
+  >
     @for (project of projects; track project) {
       <project-item [project]="project" />
     }

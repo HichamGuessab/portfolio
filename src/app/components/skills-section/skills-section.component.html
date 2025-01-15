@@ -1,6 +1,8 @@
-<section class="flex flex-col">
+<section class="flex flex-col text-nowrap">
   <h2 class="mb-12 place-self-center text-5xl font-light">Skills</h2>
-  <div class="flex justify-between">
+  <div
+    class="grid grid-cols-2 justify-items-center gap-7 lg:flex lg:flex-nowrap lg:justify-center lg:gap-14"
+  >
     <skill-category name="Design" [skills]="designSkills" />
     <skill-category name="Front-end" [skills]="frontEndSkills" />
     <skill-category name="Back-end" [skills]="backEndSkills" />

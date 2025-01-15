@@ -1,5 +1,5 @@
-<div class="rounded-2xl bg-gradient-to-b from-lightBlue to-purple p-px">
-  <div class="flex h-44 w-96 flex-col gap-6 rounded-2xl bg-nightBlue">
+<div class="w-fit rounded-2xl bg-gradient-to-b from-lightBlue to-purple p-px">
+  <div class="flex w-72 flex-col gap-6 rounded-2xl bg-nightBlue md:w-96">
     <div class="flex flex-col gap-1 py-4">
       <h3
         class="bg-gradient-to-b from-lightBlue to-purple bg-clip-text text-center text-4xl font-bold text-transparent"
@@ -10,18 +10,22 @@
         {{ project.description }}
       </p>
     </div>
-    <div class="flex place-items-center justify-between px-7">
+    <div class="mb-2 flex place-items-center justify-between px-7">
       <div
         class="flex place-items-center gap-1 rounded-2xl border border-white px-3 py-1"
       >
-        <img [src]="WhiteImage.GithubMascot" class="h-5 w-5" />
+        <img
+          [src]="WhiteImage.GithubMascot"
+          class="h-5 w-5"
+          [alt]="WhiteImage.GithubMascot"
+        />
         <a [href]="project.url" class="font-analogue font-light text-white">
           Link
         </a>
       </div>
       <div class="flex gap-1">
         @for (technology of project.technologies; track technology) {
-          <img [src]="technology" class="h-7 w-7" />
+          <img [src]="technology" class="h-7 w-7" [alt]="technology" />
         }
       </div>
     </div>
