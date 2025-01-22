@@ -7,6 +7,7 @@ import { Skill } from '../../../interfaces';
   templateUrl: './skill-category.component.html',
   standalone: true,
   imports: [SkillItemComponent],
+  host: { class: 'no-wrap flex flex-col gap-4' },
 })
 export class SkillCategoryComponent {
   name: InputSignal<string> = input.required<string>();

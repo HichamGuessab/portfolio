@@ -7,6 +7,7 @@ import { BlueImage, Skill, SkillType } from '../../../interfaces';
   templateUrl: './skill-item.component.html',
   standalone: true,
   imports: [NgOptimizedImage],
+  host: { class: 'flex place-items-center gap-2' },
 })
 export class SkillItemComponent {
   skill: InputSignal<Skill> = input.required<Skill>();

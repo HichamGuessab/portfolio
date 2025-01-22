@@ -8,6 +8,7 @@ import { Skill } from '../../interfaces';
   templateUrl: './skills-section.component.html',
   standalone: true,
   imports: [SkillCategoryComponent],
+  host: { class: 'flex flex-col text-nowrap' },
 })
 export class SkillsSectionComponent implements OnInit {
   designSkills: Skill[] = [];

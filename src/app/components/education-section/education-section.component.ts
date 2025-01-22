@@ -8,6 +8,7 @@ import { EducationItemComponent } from './education-item/education-item.componen
   templateUrl: './education-section.component.html',
   standalone: true,
   imports: [EducationItemComponent],
+  host: { class: 'flex flex-col' },
 })
 export class EducationSectionComponent implements OnInit {
   degrees: Degree[] = [];

@@ -8,6 +8,7 @@ import { ProjectItemComponent } from './project-item/project-item.component';
   templateUrl: './projects-section.component.html',
   standalone: true,
   imports: [ProjectItemComponent],
+  host: { class: 'flex flex-col' },
 })
 export class ProjectsSectionComponent implements OnInit {
   private _projectService: ProjectService = inject(ProjectService);

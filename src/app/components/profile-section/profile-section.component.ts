@@ -7,6 +7,7 @@ import { BlueImage, Link } from '../../interfaces';
   templateUrl: './profile-section.component.html',
   standalone: true,
   imports: [BadgeComponent],
+  host: { class: 'flex flex-col gap-7 text-left' },
 })
 export class ProfileSectionComponent {
   protected readonly BlueImage = BlueImage;

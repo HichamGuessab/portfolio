@@ -19,6 +19,7 @@ import { Section } from './interfaces';
     ProjectsSectionComponent,
     EducationSectionComponent,
   ],
+  host: { class: 'md:flex md:flex-row' },
 })
 export class AppComponent {
   protected readonly Section = Section;
