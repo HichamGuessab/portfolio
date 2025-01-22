@@ -23,6 +23,13 @@ export interface Degree {
   date: string;
 }
 
+export enum Section {
+  Profile = 'profile',
+  Projects = 'projects',
+  Skills = 'skills',
+  Education = 'education',
+}
+
 export type Image = BlueImage | ShinyImage | WhiteImage;
 
 export enum BlueImage {
@@ -67,4 +74,10 @@ export enum WhiteImage {
   Sql = 'assets/images/white-sql.png',
   Tailwind = 'assets/images/white-tailwind.png',
   Typescript = 'assets/images/white-typescript.png',
+}
+
+export enum Link {
+  Email = 'mailto:hichamgsb.pro@gmail.com',
+  LinkedIn = 'https://www.linkedin.com/in/hicham-g-811573222/',
+  Github = 'https://github.com/HichamGuessab',
 }
