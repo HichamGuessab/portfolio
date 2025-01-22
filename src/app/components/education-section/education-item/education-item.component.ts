@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input, Input, InputSignal } from '@angular/core';
 import { Degree } from '../../../interfaces';
 
 @Component({
@@ -8,10 +8,5 @@ import { Degree } from '../../../interfaces';
   imports: [],
 })
 export class EducationItemComponent {
-  @Input({ required: true }) education: Degree = {
-    name: '',
-    type: '',
-    institution: '',
-    date: '',
-  };
+  education: InputSignal<Degree> = input.required<Degree>();
 }

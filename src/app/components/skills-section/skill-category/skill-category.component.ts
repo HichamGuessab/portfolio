@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input, Input, InputSignal } from '@angular/core';
 import { SkillItemComponent } from '../skill-item/skill-item.component';
 import { Skill } from '../../../interfaces';
 
@@ -9,6 +9,6 @@ import { Skill } from '../../../interfaces';
   imports: [SkillItemComponent],
 })
 export class SkillCategoryComponent {
-  @Input({ required: true }) name: string = 'SkillSection';
-  @Input({ required: true }) skills: Skill[] = [];
+  name: InputSignal<string> = input.required<string>();
+  skills: InputSignal<Skill[]> = input.required<Skill[]>();
 }

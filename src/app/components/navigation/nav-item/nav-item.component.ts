@@ -1,20 +1,28 @@
-import { Component, Inject, Input } from '@angular/core';
-import { NgOptimizedImage, ViewportScroller } from '@angular/common';
+import {
+  Component,
+  input,
+  InputSignal,
+  output,
+  OutputEmitterRef,
+} from '@angular/core';
+import { NgClass, NgOptimizedImage } from '@angular/common';
+import { Section } from '../../../interfaces';
 
 @Component({
   selector: 'nav-item',
   templateUrl: './nav-item.component.html',
   standalone: true,
-  imports: [NgOptimizedImage],
+  imports: [NgOptimizedImage, NgClass],
 })
 export class NavItemComponent {
-  private viewportScroller = Inject(ViewportScroller);
+  name: InputSignal<string> = input.required<string>();
+  image: InputSignal<string> = input.required<string>();
+  section: InputSignal<Section> = input.required<Section>();
+  isActive: InputSignal<boolean> = input.required<boolean>();
 
-  @Input({ required: true }) anchor: string = '';
-  @Input({ required: true }) name: string = '';
-  @Input({ required: true }) image: string = '';
+  onClickItem: OutputEmitterRef<Section> = output<Section>();
 
   redirectTo() {
-    this.viewportScroller.scrollToAnchor(this.anchor);
+    this.onClickItem.emit(this.section());
   }
 }

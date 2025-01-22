@@ -10,12 +10,13 @@ import { ProjectItemComponent } from './project-item/project-item.component';
   imports: [ProjectItemComponent],
 })
 export class ProjectsSectionComponent implements OnInit {
-  protected readonly BlueImage = BlueImage;
+  private _projectService: ProjectService = inject(ProjectService);
+
   projects: Project[] = [];
 
-  projectService: ProjectService = inject(ProjectService);
-
   ngOnInit() {
-    this.projects = this.projectService.getProjects();
+    this.projects = this._projectService.getProjects();
   }
+
+  protected readonly BlueImage = BlueImage;
 }

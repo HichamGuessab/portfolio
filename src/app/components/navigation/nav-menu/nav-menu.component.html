@@ -1,8 +1,32 @@
 <nav
-  class="flex justify-around font-analogue font-medium text-lightBlue md:flex-col md:gap-y-8 md:justify-self-center md:text-xl"
+  class="flex justify-around font-analogue font-medium text-lightBlue md:flex-col md:gap-y-8 md:pl-8 md:text-xl"
 >
-  <nav-item anchor="#profile" image="blue-identity" name="Profile" />
-  <nav-item anchor="#skills" image="blue-technology" name="Skills" />
-  <nav-item anchor="#projects" image="blue-stack" name="Projects" />
-  <nav-item anchor="#education" image="blue-study" name="Education" />
+  <nav-item
+    image="blue-identity"
+    name="Profile"
+    [isActive]="activeSection === Section.Profile"
+    (onClickItem)="redirectTo($event)"
+    [section]="Section.Profile"
+  />
+  <nav-item
+    image="blue-technology"
+    name="Skills"
+    [isActive]="activeSection === Section.Skills"
+    (onClickItem)="redirectTo($event)"
+    [section]="Section.Skills"
+  />
+  <nav-item
+    image="blue-stack"
+    name="Projects"
+    [isActive]="activeSection === Section.Projects"
+    (onClickItem)="redirectTo($event)"
+    [section]="Section.Projects"
+  />
+  <nav-item
+    image="blue-study"
+    name="Education"
+    [isActive]="activeSection === Section.Education"
+    (onClickItem)="redirectTo($event)"
+    [section]="Section.Education"
+  />
 </nav>

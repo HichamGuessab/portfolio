@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input, Input, InputSignal } from '@angular/core';
 import { BlueImage, Project, WhiteImage } from '../../../interfaces';
 
 @Component({
@@ -8,11 +8,6 @@ import { BlueImage, Project, WhiteImage } from '../../../interfaces';
   imports: [],
 })
 export class ProjectItemComponent {
-  @Input({ required: true }) project: Project = {
-    name: '',
-    description: '',
-    technologies: [BlueImage.About],
-    url: '',
-  };
+  project: InputSignal<Project> = input.required<Project>();
   protected readonly WhiteImage = WhiteImage;
 }

@@ -4,10 +4,10 @@
       <h3
         class="bg-gradient-to-b from-lightBlue to-purple bg-clip-text text-center text-4xl font-bold text-transparent"
       >
-        {{ project.name }}
+        {{ project().name }}
       </h3>
       <p class="text-center font-analogue text-lg font-light">
-        {{ project.description }}
+        {{ project().description }}
       </p>
     </div>
     <div class="mb-2 flex place-items-center justify-between px-7">
@@ -19,12 +19,12 @@
           class="h-5 w-5"
           [alt]="WhiteImage.GithubMascot"
         />
-        <a [href]="project.url" class="font-analogue font-light text-white">
+        <a [href]="project().url" class="font-analogue font-light text-white">
           Link
         </a>
       </div>
       <div class="flex gap-1">
-        @for (technology of project.technologies; track technology) {
+        @for (technology of project().technologies; track technology) {
           <img [src]="technology" class="h-7 w-7" [alt]="technology" />
         }
       </div>

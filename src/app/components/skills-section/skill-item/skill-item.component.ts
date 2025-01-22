@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input, Input, InputSignal } from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { BlueImage, Skill, SkillType } from '../../../interfaces';
 
@@ -9,10 +9,7 @@ import { BlueImage, Skill, SkillType } from '../../../interfaces';
   imports: [NgOptimizedImage],
 })
 export class SkillItemComponent {
-  @Input({ required: true }) skill: Skill = {
-    name: '',
-    image: BlueImage.About,
-    type: SkillType.Default,
-  };
+  skill: InputSignal<Skill> = input.required<Skill>();
+
   protected readonly SkillType = SkillType;
 }

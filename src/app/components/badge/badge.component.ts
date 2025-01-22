@@ -1,5 +1,5 @@
-import { Component, Input } from '@angular/core';
-import { BlueImage, Image } from '../../interfaces';
+import { Component, input, InputSignal } from '@angular/core';
+import { Image, Link } from '../../interfaces';
 
 @Component({
   selector: 'badge',
@@ -8,9 +8,7 @@ import { BlueImage, Image } from '../../interfaces';
   imports: [],
 })
 export class BadgeComponent {
-  @Input({ required: true }) name: string = '';
-  @Input({ required: true }) image: Image = BlueImage.About;
-  @Input({ required: true }) redirection: string = '';
-
-  redirectTo() {}
+  name: InputSignal<string> = input.required<string>();
+  image: InputSignal<Image> = input.required<Image>();
+  url: InputSignal<Link> = input.required<Link>();
 }

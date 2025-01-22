@@ -2,11 +2,14 @@
   role="button"
   (click)="redirectTo()"
   class="flex w-full flex-row items-center gap-1 sm:gap-2 md:gap-3"
+  [ngClass]="{
+    underline: isActive(),
+  }"
 >
   <img
-    src="/assets/images/{{ image }}.png"
-    [alt]="name"
+    src="/assets/images/{{ image() }}.png"
+    [alt]="name()"
     class="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8"
   />
-  <span>{{ name }}</span>
+  <span>{{ name() }}</span>
 </div>
