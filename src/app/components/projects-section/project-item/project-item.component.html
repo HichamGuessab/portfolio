@@ -2,26 +2,25 @@
   <div class="flex w-72 flex-col gap-6 rounded-2xl bg-nightBlue md:w-96">
     <div class="flex flex-col gap-1 py-4">
       <h3
-        class="bg-gradient-to-b from-lightBlue to-purple bg-clip-text text-center text-4xl font-bold text-transparent"
+        class="bg-gradient-to-b from-lightBlue to-purple bg-clip-text text-center text-3xl font-bold text-transparent md:text-4xl"
       >
         {{ project().name }}
       </h3>
-      <p class="text-center font-analogue text-lg font-light">
+      <p class="px-4 text-center font-analogue text-lg font-light">
         {{ project().description }}
       </p>
     </div>
     <div class="mb-2 flex place-items-center justify-between px-7">
       <div
-        class="flex place-items-center gap-1 rounded-2xl border border-white px-3 py-1"
+        class="flex cursor-pointer place-items-center gap-1 rounded-2xl border border-white px-3 py-1"
+        (click)="openLink()"
       >
         <img
           [src]="WhiteImage.GithubMascot"
           class="h-5 w-5"
           [alt]="WhiteImage.GithubMascot"
         />
-        <a [href]="project().url" class="font-analogue font-light text-white">
-          Link
-        </a>
+        <span class="font-analogue font-light text-white">Link</span>
       </div>
       <div class="flex gap-1">
         @for (technology of project().technologies; track technology) {
