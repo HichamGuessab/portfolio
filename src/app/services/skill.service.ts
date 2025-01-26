@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Skill, SkillType, ShinyImage, WhiteImage, Image } from '../interfaces';
+import { Image, ShinyImage, Skill, SkillType, WhiteImage } from '../interfaces';
 
 @Injectable({
   providedIn: 'root',
@@ -14,6 +14,7 @@ export class SkillService {
       this.createSkill('typescript', ShinyImage.Typescript, SkillType.Shiny),
       this.createSkill('angular', ShinyImage.Angular, SkillType.Shiny),
       this.createSkill('tailwind', ShinyImage.Tailwind, SkillType.Shiny),
+      this.createSkill('redux', WhiteImage.Redux, SkillType.Default),
     ];
   }
 
