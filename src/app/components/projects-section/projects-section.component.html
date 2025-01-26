@@ -10,10 +10,15 @@
     Projects
   </h2>
 </div>
-<div
-  class="no-scrollbar grid max-h-fit grid-flow-col grid-rows-2 gap-4 overflow-x-auto"
+<swiper-container
+  effect="cards"
+  cards-effect='{"slideShadows":false}'
+  class="container"
+  grab-cursor="true"
 >
   @for (project of projects; track project) {
-    <project-item [project]="project" class="w-fit" />
+    <swiper-slide>
+      <project-item [project]="project" class="flex place-self-center" />
+    </swiper-slide>
   }
-</div>
+</swiper-container>

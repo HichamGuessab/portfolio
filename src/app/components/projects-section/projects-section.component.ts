@@ -1,4 +1,9 @@
-import { Component, inject, OnInit } from '@angular/core';
+import {
+  Component,
+  CUSTOM_ELEMENTS_SCHEMA,
+  inject,
+  OnInit,
+} from '@angular/core';
 import { BlueImage, Project } from '../../interfaces';
 import { ProjectService } from '../../services/project.service';
 import { ProjectItemComponent } from './project-item/project-item.component';
@@ -8,6 +13,7 @@ import { ProjectItemComponent } from './project-item/project-item.component';
   templateUrl: './projects-section.component.html',
   standalone: true,
   imports: [ProjectItemComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: { class: 'flex flex-col' },
 })
 export class ProjectsSectionComponent implements OnInit {
