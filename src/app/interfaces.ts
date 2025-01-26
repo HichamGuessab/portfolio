@@ -54,7 +54,9 @@ export enum ShinyImage {
 
 export enum WhiteImage {
   Angular = 'assets/images/white-angular.png',
+  Arduino = 'assets/images/white-arduino.png',
   Bash = 'assets/images/white-bash.png',
+  Cpp = 'assets/images/white-cpp.png',
   Docker = 'assets/images/white-docker.png',
   Express = 'assets/images/white-express.png',
   Figma = 'assets/images/white-figma.png',
@@ -70,10 +72,13 @@ export enum WhiteImage {
   Npm = 'assets/images/white-npm.png',
   Pgsql = 'assets/images/white-pgsql.png',
   Python = 'assets/images/white-python.png',
+  Raspberry = 'assets/images/white-raspberry-pi.png',
+  Redux = 'assets/images/white-redux.png',
   ReactNative = 'assets/images/white-reactNative.png',
   Sql = 'assets/images/white-sql.png',
   Tailwind = 'assets/images/white-tailwind.png',
   Typescript = 'assets/images/white-typescript.png',
+  XML = 'assets/images/white-xml.png',
 }
 
 export enum Link {
