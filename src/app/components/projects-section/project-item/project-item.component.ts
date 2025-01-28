@@ -5,7 +5,6 @@ import { Project, WhiteImage } from '../../../interfaces';
   selector: 'project-item',
   templateUrl: './project-item.component.html',
   standalone: true,
-  imports: [],
 })
 export class ProjectItemComponent {
   project: InputSignal<Project> = input.required<Project>();

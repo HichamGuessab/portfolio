@@ -1,10 +1,10 @@
 <img class="h-5 w-5 md:h-7 md:w-7" [src]="skill().image" [alt]="skill().name" />
 @if (skill().type === SkillType.Shiny) {
   <span
-    class="bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-xl font-bold text-transparent md:text-2xl"
+    class="bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-xl font-semibold text-transparent md:text-2xl"
   >
     {{ skill().name }}
   </span>
 } @else {
-  <span class="text-xl font-regular md:text-2xl">{{ skill().name }}</span>
+  <span class="text-xl font-light md:text-2xl">{{ skill().name }}</span>
 }

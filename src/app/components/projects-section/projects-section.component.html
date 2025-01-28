@@ -15,10 +15,12 @@
   cards-effect='{"slideShadows":false}'
   class="container"
   grab-cursor="true"
+  pagination="true"
+  navigation="true"
 >
   @for (project of projects; track project) {
     <swiper-slide>
-      <project-item [project]="project" class="flex place-self-center" />
+      <project-item [project]="project" class="flex justify-center" />
     </swiper-slide>
   }
 </swiper-container>
