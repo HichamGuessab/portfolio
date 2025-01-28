@@ -1,5 +1,10 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { BlueImage, Degree } from '../../interfaces';
+import {
+  Component,
+  OnInit,
+  inject,
+  CUSTOM_ELEMENTS_SCHEMA,
+} from '@angular/core';
+import { BlueImage, Degree, Experience } from '../../interfaces';
 import { EducationService } from '../../services/education.service';
 import { EducationItemComponent } from './education-item/education-item.component';
 
@@ -8,11 +13,11 @@ import { EducationItemComponent } from './education-item/education-item.componen
   templateUrl: './education-section.component.html',
   standalone: true,
   imports: [EducationItemComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: { class: 'flex flex-col' },
 })
 export class EducationSectionComponent implements OnInit {
   degrees: Degree[] = [];
-
   educationService: EducationService = inject(EducationService);
 
   ngOnInit(): void {

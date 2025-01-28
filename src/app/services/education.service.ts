@@ -29,7 +29,7 @@ export class EducationService {
   );
 
   constructor() {
-    this.degrees = [this.baccalaureate, this.license, this.master];
+    this.degrees = [this.master, this.license, this.baccalaureate];
   }
 
   buildEducation(
