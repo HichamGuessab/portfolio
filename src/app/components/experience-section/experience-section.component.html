@@ -1,0 +1,26 @@
+<div class="mb-12 flex gap-5 place-self-center">
+  <img
+    [src]="BlueImage.Technology"
+    alt="Experiences"
+    class="h-14 w-14 place-self-center"
+  />
+  <h2
+    class="content-center bg-gradient-to-r from-lightBlue to-purple bg-clip-text font-analogue text-5xl font-regular text-transparent"
+  >
+    Experience
+  </h2>
+</div>
+
+<swiper-container
+  navigation="true"
+  effect="cards"
+  cards-effect='{"slideShadows":false}'
+  class="container"
+  grab-cursor="true"
+>
+  @for (experience of experiences; track experience) {
+    <swiper-slide>
+      <experience-item [experience]="experience" class="flex justify-center" />
+    </swiper-slide>
+  }
+</swiper-container>

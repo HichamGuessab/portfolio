@@ -5,15 +5,18 @@
   css-mode="true"
 >
   <swiper-slide class="flex items-center justify-center">
-    <profile-section [id]="Section.Profile" class="w-3/4" />
+    <profile-section class="w-3/4" />
   </swiper-slide>
   <swiper-slide class="flex items-center justify-center">
-    <skills-section [id]="Section.Skills" class="w-2/4" />
+    <skills-section class="w-2/4" />
+  </swiper-slide>
+  <swiper-slide class="flex flex-col items-center justify-center">
+    <experience-section class="w-3/4" />
+  </swiper-slide>
+  <swiper-slide class="flex flex-col items-center justify-center">
+    <education-section class="w-3/4" />
   </swiper-slide>
   <swiper-slide class="flex items-center justify-center">
-    <projects-section [id]="Section.Projects" class="w-3/4" />
-  </swiper-slide>
-  <swiper-slide class="flex items-center justify-center">
-    <education-section [id]="Section.Education" />
+    <projects-section class="w-3/4" />
   </swiper-slide>
 </swiper-container>

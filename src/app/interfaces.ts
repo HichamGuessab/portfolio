@@ -23,11 +23,19 @@ export interface Degree {
   date: string;
 }
 
+export interface Experience {
+  name: string;
+  company: string;
+  date: string;
+  description: string;
+}
+
 export enum Section {
+  Education = 'education',
+  Experience = 'experience',
   Profile = 'profile',
   Projects = 'projects',
   Skills = 'skills',
-  Education = 'education',
 }
 
 export type Image = BlueImage | ShinyImage | WhiteImage;

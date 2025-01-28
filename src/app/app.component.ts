@@ -5,6 +5,7 @@ import { SkillsSectionComponent } from './components/skills-section/skills-secti
 import { ProjectsSectionComponent } from './components/projects-section/projects-section.component';
 import { EducationSectionComponent } from './components/education-section/education-section.component';
 import { Section } from './interfaces';
+import { ExperienceSectionComponent } from './components/experience-section/experience-section.component';
 
 @Component({
   selector: 'app-root',
@@ -16,6 +17,7 @@ import { Section } from './interfaces';
     SkillsSectionComponent,
     ProjectsSectionComponent,
     EducationSectionComponent,
+    ExperienceSectionComponent,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
