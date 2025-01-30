@@ -15,6 +15,21 @@ import { ExperienceService } from '../../services/experience.service';
   imports: [ExperienceItemComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: { class: 'flex flex-col' },
+  styles: [
+    `
+      swiper-container::part(button-prev),
+      swiper-container::part(button-next) {
+        display: none;
+      }
+
+      @media (min-width: 640px) {
+        swiper-container::part(button-prev),
+        swiper-container::part(button-next) {
+          display: block;
+        }
+      }
+    `,
+  ],
 })
 export class ExperienceSectionComponent implements OnInit {
   experiences: Experience[] = [];
