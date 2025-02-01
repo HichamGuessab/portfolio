@@ -7,11 +7,11 @@ import { Project, WhiteImage } from '../interfaces';
 export class ProjectService {
   projects: Project[] = [];
 
-  portefolioProject: Project = this.buildProject(
+  portfolio: Project = this.buildProject(
     'Portfolio',
     'My personal portfolio.',
     [WhiteImage.Angular, WhiteImage.Tailwind],
-    'https://github.com/HichamGuessab/portefolio'
+    'https://github.com/HichamGuessab/portfolio'
   );
 
   macMahon: Project = this.buildProject(
@@ -91,7 +91,7 @@ export class ProjectService {
 
   constructor() {
     this.projects = [
-      this.portefolioProject,
+      this.portfolio,
       this.pokedexNative,
       this.macMahon,
       this.ceriSoNetProject,

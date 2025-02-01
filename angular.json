@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "porteFolio": {
+    "portFolio": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:class": {
@@ -78,10 +78,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "porteFolio:build:production"
+              "buildTarget": "portFolio:build:production"
             },
             "development": {
-              "buildTarget": "porteFolio:build:development"
+              "buildTarget": "portFolio:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -89,7 +89,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "buildTarget": "porteFolio:build"
+            "buildTarget": "portFolio:build"
           }
         },
         "test": {

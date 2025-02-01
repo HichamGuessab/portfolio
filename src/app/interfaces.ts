@@ -90,7 +90,7 @@ export enum WhiteImage {
 }
 
 export enum Link {
-  Email = 'mailto:hichamgsb.pro@gmail.com',
+  Email = 'mailto:contact@hichamguessab.com',
   LinkedIn = 'https://www.linkedin.com/in/hicham-g-811573222/',
   Github = 'https://github.com/HichamGuessab',
 }
