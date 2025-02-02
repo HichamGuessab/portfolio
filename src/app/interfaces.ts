@@ -44,7 +44,7 @@ export enum BlueImage {
   About = 'assets/images/blue-about.png',
   At = 'assets/images/blue-at.png',
   Directory = 'assets/images/blue-directory.png',
-  Github = 'assets/images/blue-github.png',
+  Github = 'assets/images/blue-github.svg',
   Identity = 'assets/images/blue-identity.png',
   Linkedin = 'assets/images/blue-linkedin.png',
   Stack = 'assets/images/blue-stack.png',
