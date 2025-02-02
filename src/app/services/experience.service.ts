@@ -28,9 +28,22 @@ export class ExperienceService {
     'As a software engineer at CBA Informatique Libéral, I am responsible for developing and maintaining AgatheYou software applications (Web and Mobile) with Angular and Ionic. <br> <br> Check my LinkedIn profile to know more.'
   );
 
+  referentJeanZay: Experience = this.buildExperience(
+    'Residence referent',
+    'Jean Zay residence',
+    'September 2024 - June 2025',
+  'Referent at the Jean Zay residence, a Crous student residence for 170 people.<br> <br> ' +
+    '- Welcoming residents <br>' +
+    '- Event organization <br>' +
+    '- Problem management <br>' +
+    '- Daily report <br><br>' +
+    '6-hour a week contract'
+  );
+
   constructor() {
     this.experiences = [
       this.CBAInformatiqueLiberal,
+      this.referentJeanZay,
       this.roboticsFrenchCup,
       this.courses,
     ];
