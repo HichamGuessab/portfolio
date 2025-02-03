@@ -14,6 +14,7 @@ export class SkillService {
       this.createSkill('typescript', ShinyImage.Typescript, SkillType.Shiny),
       this.createSkill('angular', ShinyImage.Angular, SkillType.Shiny),
       this.createSkill('tailwind', ShinyImage.Tailwind, SkillType.Shiny),
+      this.createSkill('ionic', WhiteImage.Ionic, SkillType.Default),
       this.createSkill('redux', WhiteImage.Redux, SkillType.Default),
     ];
   }
