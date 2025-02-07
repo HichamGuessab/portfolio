@@ -1,0 +1,24 @@
+swiper-container::part(button-prev),
+swiper-container::part(button-next) {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  swiper-container::part(button-prev),
+  swiper-container::part(button-next) {
+    display: block;
+  }
+}
+
+swiper-container::part(bullet-active) {
+  background-color: #53dcfd;
+  transform: scale(1.5);
+}
+
+swiper-container::part(bullet) {
+  background-color: #53dcfd;
+}
+
+swiper-container::part(pagination) {
+  top: 220px;
+}

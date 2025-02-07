@@ -2,7 +2,7 @@
   class="h-fit w-fit rounded-2xl bg-gradient-to-b from-lightBlue to-purple p-px"
 >
   <div
-    class="flex h-48 w-72 flex-col justify-between gap-6 rounded-2xl bg-nightBlue md:w-96"
+    class="flex h-52 w-72 flex-col justify-between gap-6 rounded-2xl bg-nightBlue md:w-96"
   >
     <div class="flex flex-col gap-1 py-4">
       <h3
@@ -10,8 +10,8 @@
       >
         {{ project().name }}
       </h3>
-      <p class="px-4 text-center font-analogue text-lg font-light">
-        {{ project().description }}
+      <p class="px-4 text-center font-analogue text-lg font-light"
+         [innerHTML]="project().description">
       </p>
     </div>
     <div class="mb-2 flex place-items-center justify-between px-7">

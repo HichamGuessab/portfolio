@@ -15,14 +15,14 @@ export class EducationService {
   );
 
   license: Degree = this.buildEducation(
-    'Computer License',
+    "Bachelor's degree",
     'Software engineering',
     'Avignon University - CERI',
     '2020 - 2023'
   );
 
   master: Degree = this.buildEducation(
-    'Master',
+    "Master's degree",
     'Software engineering',
     'Avignon University - CERI',
     '2023 - 2025'
