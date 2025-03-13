@@ -2,7 +2,7 @@
   class="h-fit w-fit rounded-2xl bg-gradient-to-b from-lightBlue to-purple p-px"
 >
   <div
-    class="flex h-52 w-72 flex-col justify-between gap-6 rounded-2xl bg-nightBlue md:w-96"
+    class="flex h-52 w-72 flex-col justify-between rounded-2xl bg-nightBlue md:w-96"
   >
     <div class="flex flex-col gap-1 py-4">
       <h3
@@ -10,13 +10,14 @@
       >
         {{ project().name }}
       </h3>
-      <p class="px-4 text-center font-analogue text-lg font-light"
-         [innerHTML]="project().description">
-      </p>
+      <p
+        class="px-4 text-center text-lg font-light italic"
+        [innerHTML]="project().description"
+      ></p>
     </div>
     <div class="mb-2 flex place-items-center justify-between px-7">
       <div
-        class="flex cursor-pointer gap-2 rounded-2xl border border-white px-3 py-1"
+        class="flex cursor-pointer gap-2 rounded-2xl border border-white px-3 py-1 hover:bg-navyBlue"
         (click)="openLink()"
       >
         <img
@@ -24,7 +25,7 @@
           class="h-5 w-5"
           [alt]="WhiteImage.GithubMascot"
         />
-        <span class="font-analogue font-light text-white">Link</span>
+        <span class="font-light text-white">Link</span>
       </div>
       <div class="flex gap-1">
         @for (technology of project().technologies; track technology) {

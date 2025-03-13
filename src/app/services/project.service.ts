@@ -9,8 +9,8 @@ export class ProjectService {
 
   portfolio: Project = this.buildProject(
     'Portfolio',
-    'My personal portfolio, designed with Figma. <a href="https://www.figma.com/design/5EQNpkJoka4iXvDkSkv1Rs/Portfolio---Hicham-Guessab?node-id=0-1&t=MQ0xp0VIZ6Lf1iZu-1"> <u><i>See Design</i></u> </a>',
-    [WhiteImage.Angular, WhiteImage.Tailwind],
+    'My personal portfolio, designed with Figma. <br> <a class="hover:text-blue-400" href="https://www.figma.com/design/5EQNpkJoka4iXvDkSkv1Rs/Portfolio---Hicham-Guessab?node-id=0-1&t=MQ0xp0VIZ6Lf1iZu-1"> <u><i>See Design</i></u> </a>',
+    [WhiteImage.Figma, WhiteImage.Angular, WhiteImage.Tailwind],
     'https://github.com/HichamGuessab/portfolio'
   );
 

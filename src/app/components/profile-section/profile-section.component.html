@@ -16,13 +16,14 @@
     class="h-28 w-28 rounded-full bg-gradient-to-b from-lightBlue to-purple md:h-48 md:w-48"
   >
     <img
+      onload="this.classList.remove('blur-md')"
       src="assets/images/pp.png"
       alt="Profil photo"
-      class="h-full w-full rounded-full object-cover p-px md:h-48 md:w-48 md:p-1"
+      class="h-full w-full rounded-full object-cover p-px blur-md transition-all duration-500 md:h-48 md:w-48 md:p-1"
     />
   </div>
 </div>
-<p class="pl-5 font-analogue font-light sm:text-lg md:pl-8 md:text-xl">
+<p class="pl-5 font-light sm:text-lg md:pl-8 md:text-xl">
   Hello, I'm Hicham, student in my second year of a
   <strong
     class="bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-transparent"
