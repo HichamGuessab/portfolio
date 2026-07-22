@@ -1,15 +1,27 @@
 @if (visible()) {
-  <!-- Le personnage est purement décoratif (aria-hidden sur le dessin) ;
-       le bouton qui le porte sert uniquement à le renvoyer, d'où son libellé. -->
+  <!-- Duo de mascottes purement décoratif (aria-hidden sur dessins et bulles).
+       Ordinateur : un clic sur l'un des deux masque le duo.
+       Mobile : le toucher active la réaction aux mouvements du téléphone
+       (permission iOS demandée dans ce geste), l'appui long ou le bouton ×
+       ci-dessous masque le duo. Le libellé suit le geste principal. -->
+
+  <!-- Le robot -->
   <button
-    #sprite
+    #robotSprite
     type="button"
-    class="mascot-sprite"
+    class="duo-sprite robot-sprite"
     [class.is-leaving]="leaving()"
-    (click)="dismiss()"
-    aria-label="Masquer la mascotte"
-    title="Masquer la mascotte"
+    (click)="onSpriteTap('robot')"
+    [attr.aria-label]="spriteLabel()"
+    [title]="spriteLabel()"
   >
+    <!-- Bulle de dialogue : la boîte glisse pour rester dans l'écran,
+         la flèche reste au-dessus de la tête. -->
+    <span class="duo-bubble" aria-hidden="true">
+      <span class="duo-bubble-text"></span>
+    </span>
+    <span class="duo-bubble-arrow" aria-hidden="true"></span>
+
     <span class="mascot-pop">
       <span class="mascot-flip">
         <!-- Petit robot original dessiné à la main, aux couleurs de la charte :
@@ -17,7 +29,7 @@
              Il est dessiné tourné vers la droite (antenne penchée, pupilles
              décalées) : le retournement gauche/droite est un simple miroir. -->
         <svg
-          class="mascot-svg"
+          class="duo-svg mascot-svg"
           viewBox="0 0 64 78"
           width="64"
           height="78"
@@ -32,6 +44,25 @@
 
           <!-- Ombre au sol : hors du groupe qui rebondit -->
           <ellipse class="mascot-shadow" cx="32" cy="75" rx="13" ry="2.4" />
+
+          <!-- Étincelles du high-five / des célébrations -->
+          <g class="duo-sparkles">
+            <path
+              class="sparkle sparkle-1"
+              d="M12 10 L13.4 13.6 L17 15 L13.4 16.4 L12 20 L10.6 16.4 L7 15 L10.6 13.6 Z"
+              fill="var(--light-blue)"
+            />
+            <path
+              class="sparkle sparkle-2"
+              d="M52 6 L53.2 9 L56.2 10.2 L53.2 11.4 L52 14.4 L50.8 11.4 L47.8 10.2 L50.8 9 Z"
+              fill="var(--purple)"
+            />
+            <path
+              class="sparkle sparkle-3"
+              d="M30 1 L31 3.6 L33.6 4.6 L31 5.6 L30 8.2 L29 5.6 L26.4 4.6 L29 3.6 Z"
+              fill="#f5f5f5"
+            />
+          </g>
 
           <g class="mascot-figure">
             <!-- Jambes -->
@@ -53,22 +84,24 @@
             />
 
             <!-- Antenne, penchée dans le sens de la marche -->
-            <path
-              class="mascot-antenna"
-              d="M32 17 Q32.5 11 36 7.5"
-              fill="none"
-              stroke="var(--purple)"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-            <circle
-              class="mascot-antenna-glow"
-              cx="36.8"
-              cy="6"
-              r="5"
-              fill="var(--light-blue)"
-            />
-            <circle cx="36.8" cy="6" r="2.6" fill="var(--light-blue)" />
+            <g class="mascot-antenna-group">
+              <path
+                class="mascot-antenna"
+                d="M32 17 Q32.5 11 36 7.5"
+                fill="none"
+                stroke="var(--purple)"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <circle
+                class="mascot-antenna-glow"
+                cx="36.8"
+                cy="6"
+                r="5"
+                fill="var(--light-blue)"
+              />
+              <circle cx="36.8" cy="6" r="2.6" fill="var(--light-blue)" />
+            </g>
 
             <!-- Corps en dégradé signature -->
             <rect
@@ -99,7 +132,7 @@
               rx="3"
             />
 
-            <!-- Visage : yeux qui clignent, pupilles qui se lèvent vers le contenu -->
+            <!-- Visage : yeux qui clignent, pupilles qui suivent le curseur -->
             <g class="mascot-eyes">
               <circle cx="25" cy="33" r="4" fill="#f5f5f5" />
               <circle cx="40" cy="33" r="4" fill="#f5f5f5" />
@@ -124,4 +157,163 @@
       </span>
     </span>
   </button>
+
+  <!-- L'ami : un petit blob tout mignon qui sautille derrière le robot.
+       Dessiné tourné vers la droite lui aussi (pupilles décalées). -->
+  <button
+    #buddySprite
+    type="button"
+    class="duo-sprite buddy-sprite"
+    [class.is-leaving]="leaving()"
+    (click)="onSpriteTap('buddy')"
+    [attr.aria-label]="spriteLabel()"
+    [title]="spriteLabel()"
+  >
+    <span class="duo-bubble" aria-hidden="true">
+      <span class="duo-bubble-text"></span>
+    </span>
+    <span class="duo-bubble-arrow" aria-hidden="true"></span>
+
+    <span class="mascot-pop">
+      <span class="mascot-flip">
+        <svg
+          class="duo-svg buddy-svg"
+          viewBox="0 0 48 56"
+          width="48"
+          height="56"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id="buddyBodyGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="var(--purple)" />
+              <stop offset="100%" stop-color="var(--light-blue)" />
+            </linearGradient>
+          </defs>
+
+          <!-- Ombre au sol : hors du groupe qui sautille -->
+          <ellipse class="buddy-shadow" cx="24" cy="52.5" rx="11" ry="2.2" />
+
+          <!-- Étincelles du high-five -->
+          <g class="duo-sparkles">
+            <path
+              class="sparkle sparkle-1"
+              d="M8 6 L9.2 9 L12.2 10.2 L9.2 11.4 L8 14.4 L6.8 11.4 L3.8 10.2 L6.8 9 Z"
+              fill="var(--light-blue)"
+            />
+            <path
+              class="sparkle sparkle-2"
+              d="M40 4 L41.2 7 L44.2 8.2 L41.2 9.4 L40 12.4 L38.8 9.4 L35.8 8.2 L38.8 7 Z"
+              fill="#f5f5f5"
+            />
+            <path
+              class="sparkle sparkle-3"
+              d="M24 0 L25 2.6 L27.6 3.6 L25 4.6 L24 7.2 L23 4.6 L20.4 3.6 L23 2.6 Z"
+              fill="var(--purple)"
+            />
+          </g>
+
+          <g class="buddy-figure">
+            <!-- Petites oreilles rondes -->
+            <circle
+              class="buddy-ear"
+              cx="15"
+              cy="17"
+              r="3.4"
+              fill="var(--purple)"
+            />
+            <circle
+              class="buddy-ear"
+              cx="33"
+              cy="17"
+              r="3.4"
+              fill="var(--purple)"
+            />
+
+            <!-- Petits pieds -->
+            <ellipse cx="18" cy="49" rx="4.4" ry="3" fill="var(--purple)" />
+            <ellipse cx="30" cy="49" rx="4.4" ry="3" fill="var(--purple)" />
+
+            <!-- Corps blob en dégradé inversé (purple → lightBlue) -->
+            <path
+              class="buddy-body"
+              d="M24 14 C35 14 41 22 41 33 C41 44 33.5 50 24 50 C14.5 50 7 44 7 33 C7 22 13 14 24 14 Z"
+              fill="url(#buddyBodyGradient)"
+            />
+
+            <!-- Ventre clair -->
+            <ellipse
+              cx="24"
+              cy="40"
+              rx="9"
+              ry="6.5"
+              fill="#f5f5f5"
+              opacity="0.28"
+            />
+
+            <!-- Grands yeux brillants -->
+            <g class="buddy-eyes">
+              <circle cx="17.5" cy="30" r="5" fill="#f5f5f5" />
+              <circle cx="30.5" cy="30" r="5" fill="#f5f5f5" />
+              <g class="buddy-pupils">
+                <circle cx="18.6" cy="30.4" r="2.6" fill="var(--dark-blue)" />
+                <circle cx="31.6" cy="30.4" r="2.6" fill="var(--dark-blue)" />
+                <circle cx="19.5" cy="29.3" r="0.9" fill="#f5f5f5" />
+                <circle cx="32.5" cy="29.3" r="0.9" fill="#f5f5f5" />
+              </g>
+            </g>
+
+            <!-- Joues roses -->
+            <circle
+              cx="12.5"
+              cy="35.5"
+              r="2.2"
+              fill="var(--purple)"
+              opacity="0.5"
+            />
+            <circle
+              cx="35.5"
+              cy="35.5"
+              r="2.2"
+              fill="var(--purple)"
+              opacity="0.5"
+            />
+
+            <!-- Petit sourire -->
+            <path
+              class="buddy-mouth"
+              d="M21.5 37.5 Q24 40 26.5 37.5"
+              fill="none"
+              stroke="var(--dark-blue)"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </g>
+        </svg>
+      </span>
+    </span>
+  </button>
+
+  <!-- Sur mobile, le toucher des personnages sert aux capteurs : ce petit ×
+       discret (ou l'appui long) prend le relais pour masquer le duo. -->
+  @if (onMobile()) {
+    <button
+      type="button"
+      class="duo-dismiss"
+      [class.is-leaving]="leaving()"
+      (click)="dismiss()"
+      aria-label="Masquer les mascottes"
+      title="Masquer les mascottes"
+    >
+      <svg
+        viewBox="0 0 10 10"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.4"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" />
+      </svg>
+    </button>
+  }
 }

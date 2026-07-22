@@ -11,6 +11,7 @@ import { EducationSectionComponent } from './components/education-section/educat
 import { ExperienceSectionComponent } from './components/experience-section/experience-section.component';
 import { MascotComponent } from './components/mascot/mascot.component';
 import { ViewModeService } from './services/view-mode.service';
+import { MotionService } from './services/motion.service';
 
 @Component({
   selector: 'app-root',
@@ -62,4 +63,5 @@ import { ViewModeService } from './services/view-mode.service';
 })
 export class AppComponent {
   protected readonly viewMode: ViewModeService = inject(ViewModeService);
+  protected readonly motion: MotionService = inject(MotionService);
 }

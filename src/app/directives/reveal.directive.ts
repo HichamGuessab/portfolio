@@ -16,9 +16,13 @@ import {
  * identique quel que soit le mode.
  *
  * Les styles associés (.reveal / .reveal-visible) sont définis dans
- * src/styles.css, uniquement sous `prefers-reduced-motion: no-preference` :
- * un visiteur qui préfère réduire les animations ne voit jamais l'état
- * masqué, le contenu reste visible même si ce code ne s'exécute pas.
+ * src/styles.css. Quand les animations sont désactivées (préférence système
+ * `prefers-reduced-motion: reduce` sans override du visiteur — voir
+ * MotionService et la classe `force-motion` sur <html>), une règle CSS force
+ * l'état visible : le visiteur ne voit jamais l'état masqué, le contenu reste
+ * visible même si ce code ne s'exécute pas. L'observation, elle, tourne dans
+ * tous les cas : si le visiteur active l'override en cours de visite, les
+ * éléments encore hors écran se révèlent normalement au défilement.
  */
 @Directive({
   selector: '[reveal]',

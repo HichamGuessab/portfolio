@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------ */
 /* Conteneur : bande fixe le long du bas de l'écran.                   */
-/* pointer-events: none — seul le personnage lui-même est cliquable,   */
-/* la mascotte ne bloque jamais l'interaction avec la page.            */
+/* pointer-events: none — seuls les personnages sont cliquables,       */
+/* le duo ne bloque jamais l'interaction avec la page.                 */
 /* height: 0 + position: fixed — aucune incidence sur le layout.       */
 /* ------------------------------------------------------------------ */
 :host {
@@ -13,40 +13,183 @@
   pointer-events: none;
 }
 
-/* Masquée sur mobile (< md) et quand le visiteur réduit les animations.
-   Le TypeScript ne la rend pas non plus dans ces cas : ceinture et bretelles. */
-@media (max-width: 767.98px), (prefers-reduced-motion: reduce) {
-  :host {
+/* Masqué quand le système réduit les animations sans override du visiteur
+   (html.force-motion, posé par MotionService). Le TypeScript ne le rend pas
+   non plus dans ce cas : ceinture et bretelles. Vaut aussi sur mobile. */
+@media (prefers-reduced-motion: reduce) {
+  :host-context(html:not(.force-motion)) {
     display: none;
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* Sprite : le bouton qui porte le personnage.                         */
-/* Sa translation horizontale est pilotée en TypeScript (rAF).         */
+/* Sprites : les boutons qui portent les personnages.                  */
+/* Leur translation horizontale est pilotée en TypeScript (rAF).       */
 /* ------------------------------------------------------------------ */
-.mascot-sprite {
+.duo-sprite {
   position: absolute;
   bottom: 2px;
   left: 0;
-  width: 64px;
-  height: 78px;
   padding: 0;
   border: 0;
   background: transparent;
-  border-radius: 9999px; /* contour de focus arrondi (outline global) */
+  border-radius: 16px; /* contour de focus arrondi (outline global) */
   cursor: pointer;
   pointer-events: auto;
   will-change: transform;
+  /* Penchement (inclinaison du téléphone) : pivot aux pieds. */
+  transform-origin: 50% 100%;
+  /* Tactile : pas de zoom double-tap, de surbrillance ni de menu d'appui long. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.robot-sprite {
+  width: 64px;
+  height: 78px;
+  z-index: 2;
+}
+
+.buddy-sprite {
+  width: 48px;
+  height: 56px;
+  z-index: 1;
+}
+
+/* Sur mobile (< md), le duo est conservé mais réduit à ~70 % : les boutons
+   prennent la taille visuelle réduite (bulles bien posées au-dessus des
+   têtes, largeurs logiques réduites côté TypeScript) et le dessin est mis à
+   l'échelle depuis leur coin haut-gauche. Les bulles se font plus étroites
+   pour ne jamais provoquer de défilement horizontal. */
+@media (max-width: 767.98px) {
+  .robot-sprite {
+    width: 45px;
+    height: 55px;
+  }
+
+  .buddy-sprite {
+    width: 34px;
+    height: 40px;
+  }
+
+  .mascot-pop {
+    transform: scale(0.7);
+    transform-origin: 0 0;
+  }
+
+  .duo-bubble {
+    max-width: 200px;
+    font-size: 12px;
+  }
+}
+
+/* Petit bouton × (mobile) : masque le duo, le toucher des personnages étant
+   réservé aux capteurs de mouvement. */
+.duo-dismiss {
+  position: absolute;
+  right: 10px;
+  bottom: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--light-blue) 35%, transparent);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--night-blue) 85%, transparent);
+  color: var(--light-blue);
+  opacity: 0.75;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.duo-dismiss svg {
+  width: 10px;
+  height: 10px;
+}
+
+.duo-dismiss.is-leaving {
+  opacity: 0;
 }
 
 /* Couches de transformation isolées pour éviter tout conflit :
    bouton = translation (TS) → .mascot-pop = apparition/disparition
-   → .mascot-flip = retournement gauche/droite → SVG = cycles de marche. */
+   → .mascot-flip = retournement gauche/droite → SVG = cycles animés. */
 .mascot-pop,
 .mascot-flip,
-.mascot-svg {
+.duo-svg {
   display: block;
+}
+
+/* Les sauts et étincelles débordent du viewBox : pas de rognage. */
+.duo-svg {
+  overflow: visible;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bulles de dialogue : boîte nightBlue bordée lightBlue + flèche.     */
+/* La boîte glisse (--bubble-shift) pour rester dans l'écran,          */
+/* la flèche reste au-dessus de la tête du personnage.                 */
+/* ------------------------------------------------------------------ */
+.duo-bubble {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  display: block;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 12px;
+  background: var(--night-blue);
+  border: 1px solid color-mix(in srgb, var(--light-blue) 60%, transparent);
+  border-radius: 12px;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transform: translate(calc(-50% + var(--bubble-shift, 0px)), 6px) scale(0.85);
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.duo-bubble.is-visible {
+  opacity: 1;
+  transform: translate(calc(-50% + var(--bubble-shift, 0px)), 0) scale(1);
+}
+
+.duo-bubble-arrow {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--night-blue);
+  border-right: 1px solid color-mix(in srgb, var(--light-blue) 60%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--light-blue) 60%, transparent);
+  transform: translateX(-50%) rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  pointer-events: none;
+}
+
+.duo-bubble.is-visible + .duo-bubble-arrow {
+  opacity: 1;
+}
+
+.is-leaving .duo-bubble,
+.is-leaving .duo-bubble + .duo-bubble-arrow {
+  opacity: 0 !important;
 }
 
 /* ------------------------------------------------------------------ */
@@ -55,6 +198,11 @@
 .mascot-pop {
   animation: mascot-pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s
     backwards;
+}
+
+/* L'ami arrive un instant après le robot, comme s'il le suivait. */
+.buddy-sprite .mascot-pop {
+  animation-delay: 0.6s;
 }
 
 .is-leaving .mascot-pop {
@@ -76,8 +224,8 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Retournement : le personnage est dessiné tourné vers la droite,     */
-/* un miroir animé suffit à le faire regarder à gauche.                */
+/* Retournement : les personnages sont dessinés tournés vers la        */
+/* droite, un miroir animé suffit à les faire regarder à gauche.       */
 /* ------------------------------------------------------------------ */
 .mascot-flip {
   transition: transform 0.35s ease-in-out;
@@ -88,7 +236,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Parties du personnage                                               */
+/* Parties animées : transform-box pour des origines locales fiables.  */
 /* ------------------------------------------------------------------ */
 .mascot-figure,
 .mascot-leg,
@@ -96,31 +244,54 @@
 .mascot-eyes,
 .mascot-pupils,
 .mascot-shadow,
-.mascot-antenna-glow {
+.mascot-mouth,
+.mascot-antenna-group,
+.mascot-antenna-glow,
+.buddy-figure,
+.buddy-eyes,
+.buddy-pupils,
+.buddy-shadow,
+.buddy-mouth,
+.sparkle {
   transform-box: fill-box;
 }
 
-.mascot-figure {
+.mascot-figure,
+.buddy-figure {
   transform-origin: 50% 100%;
 }
 
 .mascot-leg {
   fill: var(--purple);
   transform-origin: 50% 10%; /* la jambe pivote à la hanche */
+  transition: transform 0.35s ease;
 }
 
 .mascot-arm {
   fill: var(--purple);
   transform-origin: 50% 12%; /* le bras pivote à l'épaule */
+  transition: transform 0.35s ease;
 }
 
-.mascot-shadow {
+.mascot-shadow,
+.buddy-shadow {
   fill: #000;
   opacity: 0.32;
   transform-origin: center;
 }
 
-/* Halo de l'antenne : petite pulsation lumineuse permanente */
+.mascot-antenna-group {
+  transform-origin: 50% 100%; /* l'antenne oscille depuis sa base */
+}
+
+.mascot-mouth,
+.buddy-mouth {
+  transform-origin: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Vie de base : halo d'antenne, clignements, respiration.             */
+/* ------------------------------------------------------------------ */
 .mascot-antenna-glow {
   opacity: 0.2;
   transform-origin: center;
@@ -137,10 +308,32 @@
   }
 }
 
+/* Curseur tout proche : l'antenne s'emballe. */
+.is-alert .mascot-antenna-glow {
+  animation: mascot-glow-alert 0.8s ease-in-out infinite;
+}
+
+@keyframes mascot-glow-alert {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.35);
+  }
+}
+
 /* Clignement des yeux, en continu quelle que soit la phase */
 .mascot-eyes {
   transform-origin: center;
   animation: mascot-blink 4.6s linear infinite;
+}
+
+.buddy-eyes {
+  transform-origin: center;
+  animation: mascot-blink 3.9s linear infinite;
 }
 
 @keyframes mascot-blink {
@@ -157,9 +350,21 @@
   }
 }
 
-/* Respiration discrète à l'arrêt */
-.mascot-sprite:not(.is-walking) .mascot-figure {
+/* Regards : pilotés par les variables --look-x / --look-y (TypeScript). */
+.mascot-pupils,
+.buddy-pupils {
+  transform: translate(var(--look-x, 0px), var(--look-y, 0px));
+  transition: transform 0.25s ease;
+}
+
+/* Respiration discrète par défaut ; chaque état la remplace par
+   son propre cycle (les règles à deux classes ci-dessous gagnent). */
+.mascot-figure {
   animation: mascot-breathe 3s ease-in-out infinite;
+}
+
+.buddy-figure {
+  animation: buddy-breathe 2.6s ease-in-out infinite;
 }
 
 @keyframes mascot-breathe {
@@ -172,9 +377,19 @@
   }
 }
 
+@keyframes buddy-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.03, 0.97);
+  }
+}
+
 /* ------------------------------------------------------------------ */
-/* Cycle de marche : jambes et bras en balancier, corps qui rebondit,  */
-/* ombre qui pulse au rythme des pas.                                  */
+/* Robot — cycle de marche : jambes et bras en balancier, corps qui    */
+/* rebondit, antenne qui oscille, ombre qui pulse au rythme des pas.   */
 /* ------------------------------------------------------------------ */
 .is-walking .mascot-figure {
   animation: mascot-bob 0.48s ease-in-out infinite;
@@ -194,6 +409,10 @@
 
 .is-walking .mascot-arm-back {
   animation: mascot-swing 0.96s ease-in-out infinite;
+}
+
+.is-walking .mascot-antenna-group {
+  animation: mascot-antenna-sway 0.96s ease-in-out infinite;
 }
 
 .is-walking .mascot-shadow {
@@ -230,6 +449,17 @@
   }
 }
 
+/* L'antenne suit le mouvement avec un léger retard, effet d'inertie. */
+@keyframes mascot-antenna-sway {
+  0%,
+  100% {
+    transform: rotate(5deg);
+  }
+  50% {
+    transform: rotate(-5deg);
+  }
+}
+
 @keyframes mascot-shadow-pulse {
   0%,
   100% {
@@ -243,8 +473,10 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Pauses : salut de la main, regard levé vers le contenu.             */
+/* Robot — pauses expressives                                          */
 /* ------------------------------------------------------------------ */
+
+/* Salut de la main */
 .is-waving .mascot-arm-front {
   animation: mascot-wave 1.9s ease-in-out;
 }
@@ -265,10 +497,384 @@
   }
 }
 
-.mascot-pupils {
-  transition: transform 0.4s ease;
+/* Regard levé + bras qui pointe le contenu */
+.is-looking .mascot-pupils {
+  transform: translate(1px, -2.4px);
 }
 
-.is-looking .mascot-pupils {
-  transform: translateY(-2.2px);
+.is-looking .mascot-arm-front {
+  animation: mascot-point 2.6s ease-in-out;
+}
+
+@keyframes mascot-point {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20%,
+  80% {
+    transform: rotate(-135deg);
+  }
+}
+
+/* Adossé au bord de l'écran, une jambe croisée : il souffle un peu. */
+.is-leaning .mascot-figure {
+  animation: mascot-lean 3.4s ease-in-out infinite;
+}
+
+.is-leaning .mascot-leg-front {
+  transform: rotate(20deg);
+}
+
+.is-leaning .mascot-arm-front {
+  transform: rotate(-14deg);
+}
+
+@keyframes mascot-lean {
+  0%,
+  100% {
+    transform: rotate(-6deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-6.5deg) translateY(-1.2px);
+  }
+}
+
+/* Petit saut de surprise (bascule de mode) */
+.is-jumping .mascot-figure {
+  animation: mascot-jump 0.7s cubic-bezier(0.28, 0.84, 0.42, 1);
+}
+
+.is-jumping .mascot-shadow {
+  animation: duo-shadow-jump 0.7s ease-in-out;
+}
+
+@keyframes mascot-jump {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  15% {
+    transform: translateY(2px) scale(1.06, 0.9);
+  }
+  50% {
+    transform: translateY(-13px) scale(0.97, 1.05);
+  }
+  80% {
+    transform: translateY(0) scale(1.03, 0.95);
+  }
+}
+
+@keyframes duo-shadow-jump {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.32;
+  }
+  50% {
+    transform: scaleX(0.6);
+    opacity: 0.18;
+  }
+}
+
+/* Célébration / high-five : grand saut, deux bras au ciel, étincelles. */
+.is-cheering .mascot-figure {
+  animation: mascot-cheer 0.95s cubic-bezier(0.28, 0.84, 0.42, 1);
+}
+
+.is-cheering .mascot-arm-front {
+  animation: mascot-cheer-arm-front 0.95s ease-in-out;
+}
+
+.is-cheering .mascot-arm-back {
+  animation: mascot-cheer-arm-back 0.95s ease-in-out;
+}
+
+.is-cheering .mascot-shadow {
+  animation: duo-shadow-jump 0.95s ease-in-out;
+}
+
+@keyframes mascot-cheer {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(2px) scale(1.07, 0.88);
+  }
+  55% {
+    transform: translateY(-16px) scale(0.96, 1.06);
+  }
+  85% {
+    transform: translateY(0) scale(1.04, 0.94);
+  }
+}
+
+@keyframes mascot-cheer-arm-front {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35%,
+  75% {
+    transform: rotate(-160deg);
+  }
+}
+
+@keyframes mascot-cheer-arm-back {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35%,
+  75% {
+    transform: rotate(160deg);
+  }
+}
+
+/* Fou rire : petits rebonds rapides, yeux plissés de joie. */
+.is-laughing .mascot-figure {
+  animation: mascot-laugh 0.32s ease-in-out 5;
+}
+
+.is-laughing .mascot-eyes,
+.is-laughing .buddy-eyes {
+  animation: none;
+  transform: scaleY(0.3);
+}
+
+@keyframes mascot-laugh {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(1.5deg);
+  }
+}
+
+/* Bouche qui s'anime pendant qu'une bulle est affichée. */
+.is-talking .mascot-mouth,
+.is-talking .buddy-mouth {
+  animation: duo-talk 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes duo-talk {
+  from {
+    transform: scale(1, 1);
+  }
+  to {
+    transform: scale(0.85, 1.6);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* L'ami — sautillement, trépignement, célébration, fou rire.          */
+/* ------------------------------------------------------------------ */
+.is-hopping .buddy-figure {
+  animation: buddy-hop 0.55s ease-in-out infinite;
+}
+
+.is-hopping .buddy-shadow {
+  animation: buddy-shadow-hop 0.55s ease-in-out infinite;
+}
+
+@keyframes buddy-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.05, 0.93);
+  }
+  35% {
+    transform: translateY(-9px) scale(0.95, 1.07);
+  }
+  70% {
+    transform: translateY(-1px) scale(1, 1);
+  }
+}
+
+@keyframes buddy-shadow-hop {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.32;
+  }
+  35% {
+    transform: scaleX(0.72);
+    opacity: 0.2;
+  }
+}
+
+/* Trépigne d'excitation sur place */
+.is-excited .buddy-figure {
+  animation: buddy-excited 0.34s ease-in-out infinite;
+}
+
+@keyframes buddy-excited {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-6px) scale(0.96, 1.05);
+  }
+}
+
+/* High-five : grand bond tout en étirement */
+.is-cheering .buddy-figure {
+  animation: buddy-cheer 0.95s cubic-bezier(0.28, 0.84, 0.42, 1);
+}
+
+.is-cheering .buddy-shadow {
+  animation: duo-shadow-jump 0.95s ease-in-out;
+}
+
+@keyframes buddy-cheer {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(2px) scale(1.12, 0.82);
+  }
+  55% {
+    transform: translateY(-18px) scale(0.9, 1.12);
+  }
+  85% {
+    transform: translateY(0) scale(1.08, 0.9);
+  }
+}
+
+/* Fou rire : dandinement */
+.is-laughing .buddy-figure {
+  animation: buddy-laugh 0.32s ease-in-out 5;
+}
+
+@keyframes buddy-laugh {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(4deg) translateY(-2px);
+  }
+  75% {
+    transform: rotate(-4deg) translateY(-1px);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Étincelles (déclenchées par .is-cheering, en léger décalé)          */
+/* ------------------------------------------------------------------ */
+.sparkle {
+  opacity: 0;
+  transform-origin: center;
+}
+
+.is-cheering .sparkle {
+  animation: sparkle-pop 0.7s ease-out forwards;
+}
+
+.is-cheering .sparkle-1 {
+  animation-delay: 0.35s;
+}
+
+.is-cheering .sparkle-2 {
+  animation-delay: 0.45s;
+}
+
+.is-cheering .sparkle-3 {
+  animation-delay: 0.55s;
+}
+
+@keyframes sparkle-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.3);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Capteurs de mouvement (mobile) — en fin de fichier pour prendre     */
+/* le pas sur les cycles de phase à spécificité égale.                 */
+/* ------------------------------------------------------------------ */
+
+/* Sol qui penche fort : le duo vacille et bat des bras pour tenir debout. */
+.is-offbalance .mascot-figure,
+.is-offbalance .buddy-figure {
+  animation: duo-offbalance 0.6s ease-in-out infinite;
+}
+
+.is-offbalance .mascot-arm-front {
+  transform: rotate(-72deg);
+}
+
+.is-offbalance .mascot-arm-back {
+  transform: rotate(72deg);
+}
+
+@keyframes duo-offbalance {
+  0%,
+  100% {
+    transform: rotate(2.5deg);
+  }
+  50% {
+    transform: rotate(-3.5deg) translateY(-1px);
+  }
+}
+
+/* Secousse : trébuchement paniqué, bras en l'air, grands yeux. */
+.is-stumbling .mascot-figure,
+.is-stumbling .buddy-figure {
+  animation: duo-stumble 1s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.is-stumbling .mascot-arm-front {
+  transform: rotate(-150deg);
+}
+
+.is-stumbling .mascot-arm-back {
+  transform: rotate(150deg);
+}
+
+.is-stumbling .mascot-eyes,
+.is-stumbling .buddy-eyes {
+  animation: none;
+  transform: scaleY(1.15);
+}
+
+.is-stumbling .mascot-shadow,
+.is-stumbling .buddy-shadow {
+  animation: duo-shadow-jump 0.5s ease-in-out 2;
+}
+
+@keyframes duo-stumble {
+  0% {
+    transform: translateX(0) rotate(0deg);
+  }
+  12% {
+    transform: translateX(-4px) rotate(-10deg) translateY(1px);
+  }
+  30% {
+    transform: translateX(4px) rotate(9deg);
+  }
+  48% {
+    transform: translateX(-3px) rotate(-6deg);
+  }
+  65% {
+    transform: translateX(2.5px) rotate(4deg);
+  }
+  82% {
+    transform: translateX(-1.5px) rotate(-2deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
 }

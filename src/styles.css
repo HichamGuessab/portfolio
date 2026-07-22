@@ -83,37 +83,49 @@ swiper-container::part(button-next) {
 }
 
 /* Animations d'entrée des sections (directive [reveal]).
-   L'état masqué n'existe que si le visiteur accepte les animations :
-   avec prefers-reduced-motion, le contenu reste visible en permanence.
-   Seules opacity et transform sont animées (aucun recalcul de layout). */
-@media (prefers-reduced-motion: no-preference) {
-  .reveal {
-    opacity: 0;
-    transform: translateY(14px);
-  }
+   Seules opacity et transform sont animées (aucun recalcul de layout).
 
-  /* will-change seulement tant que l'animation est à venir. */
-  .reveal:not(.reveal-visible) {
-    will-change: opacity, transform;
-  }
-
-  .reveal-visible {
-    opacity: 1;
-    transform: none;
-    transition:
-      opacity 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
-      transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
-    transition-delay: var(--reveal-delay, 0ms);
-  }
+   L'état masqué n'existe que si les animations sont acceptées : quand le
+   système réduit les animations SANS override du visiteur (html sans
+   .force-motion, classe posée par MotionService), la neutralisation
+   ci-dessous garde le contenu visible en permanence. */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
 }
 
+/* will-change seulement tant que l'animation est à venir. */
+.reveal:not(.reveal-visible) {
+  will-change: opacity, transform;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+/* Réduction des animations : appliquée quand le système la demande, SAUF si
+   le visiteur a explicitement réactivé les animations (html.force-motion,
+   via MotionService et le bouton « Activer les animations »). */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  ::before,
-  ::after {
+  html:not(.force-motion) *,
+  html:not(.force-motion) ::before,
+  html:not(.force-motion) ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Le contenu à révéler reste visible en permanence : aucun état masqué. */
+  html:not(.force-motion) .reveal {
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+    transition: none;
   }
 }

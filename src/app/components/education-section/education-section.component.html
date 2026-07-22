@@ -13,7 +13,10 @@
 >
   @for (degree of degrees; track degree) {
     <swiper-slide>
-      <education-item [education]="degree" class="flex justify-center" />
+      <!-- pt-1 : réserve la place de l'élévation au survol (hover:-translate-y-1),
+           sinon le haut de la carte sort de la slide (overflow hidden, effet cards)
+           et se fait rogner. -->
+      <education-item [education]="degree" class="flex justify-center pt-1" />
     </swiper-slide>
   }
 </swiper-container>
