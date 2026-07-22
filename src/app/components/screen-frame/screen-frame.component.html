@@ -8,7 +8,8 @@
       <stop class="frame-stop-start" offset="0" />
       <stop class="frame-stop-end" offset="1" />
     </linearGradient>
-    <!-- Trait plein blanc animé (draw) qui sert de révélateur au cadre. -->
+    <!-- Trait plein blanc animé (draw) qui sert de révélateur au cadre.
+         Largeur 12 : couvre le halo de 10 sans rogner son antialiasing. -->
     <mask id="frame-draw-mask">
       <path
         class="frame-draw"
@@ -16,38 +17,183 @@
         pathLength="1000"
         fill="none"
         stroke="white"
-        stroke-width="10"
+        stroke-width="12"
         stroke-dasharray="1000"
       />
     </mask>
   </defs>
 
+  <!-- Couches basses, révélées par le mask au dessin d'entrée. -->
   <g mask="url(#frame-draw-mask)">
-    <!-- Halo : path statique, aucun filtre CSS (coût GPU) — il donne
-         l'épaisseur lumineuse au trait. -->
+    <!-- L0 : halo d'assise — lit de lumière statique, respiration lente,
+         aucun filtre CSS (coût GPU). -->
     <path
       class="frame-halo"
       [attr.d]="framePath()"
       fill="none"
       stroke="url(#frame-gradient)"
-      stroke-width="6"
+      stroke-width="10"
     />
-    <!-- Circuit principal : tirets en dégradé, défilement continu. -->
+    <!-- L0bis : renfort du halo en excited (fondu additif). -->
+    <path
+      class="frame-halo-boost"
+      [attr.d]="framePath()"
+      fill="none"
+      stroke="url(#frame-gradient)"
+      stroke-width="10"
+    />
+    <!-- L1 : rail continu — la piste gravée, lisible en permanence. -->
+    <path
+      class="frame-rail"
+      [attr.d]="framePath()"
+      fill="none"
+      stroke="url(#frame-gradient)"
+      stroke-width="1"
+    />
+    <!-- L2 : tirets de flux — texture calme, accélérée sous attention. -->
     <path
       class="frame-dashes"
       [attr.d]="framePath()"
       pathLength="1000"
       fill="none"
       stroke="url(#frame-gradient)"
-      stroke-width="2"
+      stroke-width="1.5"
       stroke-dasharray="3 2.2"
       stroke-linecap="round"
     />
   </g>
 
-  <!-- Équerres de coin + pips, décalées vers l'extérieur (touche HUD). -->
+  <!-- Comète d'entrée : hors mask, elle EST le front de révélation
+       (même durée, même easing que frame-draw), puis s'éteint. -->
+  <g class="frame-entrance">
+    <path
+      class="frame-entrance-halo"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="6"
+      stroke-dasharray="24 976"
+      stroke-linecap="round"
+      opacity="0.25"
+    />
+    <path
+      class="frame-entrance-head"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke="#FFFFFF"
+      stroke-width="2.5"
+      stroke-dasharray="24 976"
+      stroke-linecap="round"
+      opacity="0.95"
+    />
+  </g>
+
+  <!-- Étincelle d'allumage au point de départ de l'orbite (t = 1,2s). -->
+  <circle
+    class="frame-spark"
+    [attr.cx]="sparkX"
+    [attr.cy]="sparkY"
+    r="4"
+    fill="#FFFFFF"
+  />
+
+  <!-- L3 : comète horaire — 4 couches superposées (queue longue en dégradé,
+       queue courte cyan, halo de tête, tête blanche), un tour en 7s. -->
+  <g class="frame-comet">
+    <path
+      class="frame-comet-tail-long"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke="url(#frame-gradient)"
+      stroke-width="1.5"
+      stroke-dasharray="64 936"
+      stroke-linecap="round"
+      opacity="0.25"
+    />
+    <path
+      class="frame-comet-tail-mid"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="2"
+      stroke-dasharray="32 968"
+      stroke-linecap="round"
+      opacity="0.55"
+    />
+    <path
+      class="frame-comet-halo"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="6"
+      stroke-dasharray="10 990"
+      stroke-linecap="round"
+      opacity="0.2"
+    />
+    <path
+      class="frame-comet-head"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="2.5"
+      stroke-dasharray="10 990"
+      stroke-linecap="round"
+      opacity="0.95"
+    />
+  </g>
+
+  <!-- L3bis : contre-comète violette anti-horaire — paused et invisible
+       hors excited, sa phase est préservée entre deux survols. -->
+  <g class="frame-comet-ccw">
+    <path
+      class="frame-ccw-tail-long"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="1.5"
+      stroke-dasharray="64 936"
+      stroke-linecap="round"
+      opacity="0.25"
+    />
+    <path
+      class="frame-ccw-tail-mid"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="2"
+      stroke-dasharray="32 968"
+      stroke-linecap="round"
+      opacity="0.55"
+    />
+    <path
+      class="frame-ccw-halo"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="6"
+      stroke-dasharray="10 990"
+      stroke-linecap="round"
+      opacity="0.2"
+    />
+    <path
+      class="frame-ccw-head"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke-width="2.5"
+      stroke-dasharray="10 990"
+      stroke-linecap="round"
+      opacity="0.95"
+    />
+  </g>
+
+  <!-- L4 : équerres de coin + pips — ignition au passage exact de la comète
+       (animation-delay dérivé de l'abscisse curviligne du milieu d'arc). -->
   <g
     class="frame-corner frame-corner-tl"
+    [style.animation-delay]="cornerFlareDelays().tl"
     fill="none"
     stroke="url(#frame-gradient)"
     stroke-width="2"
@@ -65,6 +211,7 @@
   </g>
   <g
     class="frame-corner frame-corner-tr"
+    [style.animation-delay]="cornerFlareDelays().tr"
     fill="none"
     stroke="url(#frame-gradient)"
     stroke-width="2"
@@ -82,6 +229,7 @@
   </g>
   <g
     class="frame-corner frame-corner-br"
+    [style.animation-delay]="cornerFlareDelays().br"
     fill="none"
     stroke="url(#frame-gradient)"
     stroke-width="2"
@@ -99,6 +247,7 @@
   </g>
   <g
     class="frame-corner frame-corner-bl"
+    [style.animation-delay]="cornerFlareDelays().bl"
     fill="none"
     stroke="url(#frame-gradient)"
     stroke-width="2"
@@ -114,4 +263,43 @@
       stroke="none"
     />
   </g>
+
+  <!-- L5 : ports mi-bord — finition usinée statique sur la ligne des
+       équerres. -->
+  <rect
+    class="frame-port"
+    [attr.x]="ports().top.x"
+    [attr.y]="ports().top.y"
+    width="6"
+    height="2"
+    rx="1"
+    fill="url(#frame-gradient)"
+  />
+  <rect
+    class="frame-port"
+    [attr.x]="ports().bottom.x"
+    [attr.y]="ports().bottom.y"
+    width="6"
+    height="2"
+    rx="1"
+    fill="url(#frame-gradient)"
+  />
+  <rect
+    class="frame-port"
+    [attr.x]="ports().left.x"
+    [attr.y]="ports().left.y"
+    width="2"
+    height="6"
+    rx="1"
+    fill="url(#frame-gradient)"
+  />
+  <rect
+    class="frame-port"
+    [attr.x]="ports().right.x"
+    [attr.y]="ports().right.y"
+    width="2"
+    height="6"
+    rx="1"
+    fill="url(#frame-gradient)"
+  />
 </svg>
