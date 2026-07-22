@@ -1,4 +1,4 @@
-<div class="flex items-center justify-between">
+<div reveal class="flex items-center justify-between">
   <div class="flex flex-col gap-3">
     <p class="text-2xl font-medium text-lightBlue md:text-3xl">
       Hello ! Je suis
@@ -16,15 +16,19 @@
     class="h-28 w-28 rounded-full bg-linear-to-b from-lightBlue to-purple md:h-48 md:w-48"
   >
     <img
-      (load)="imageLoaded = true"
-      [class.blur-md]="!imageLoaded"
+      (load)="imageLoaded.set(true)"
+      [class.blur-md]="!imageLoaded()"
       src="assets/images/pp.png"
       alt="Portrait de Hicham Guessab"
       class="h-full w-full rounded-full object-cover p-px transition-all duration-500 md:h-48 md:w-48 md:p-1"
     />
   </div>
 </div>
-<p class="pl-5 font-light sm:text-lg md:pl-8 md:text-xl">
+<p
+  reveal
+  [revealDelay]="120"
+  class="pl-5 font-light sm:text-lg md:pl-8 md:text-xl"
+>
   Aujourd'hui
   <strong class="text-gradient">Développeur web et mobile,</strong>
   je suis à la recherche de missions !
@@ -43,9 +47,23 @@
   et je peux m'adapter rapidement à d'autres technologies.
 </p>
 <div class="flex flex-wrap place-content-evenly gap-3">
-  <badge [image]="BlueImage.Github" [url]="Link.Github" name="Github" />
-  <badge [image]="BlueImage.Linkedin" [url]="Link.LinkedIn" name="LinkedIn" />
   <badge
+    reveal
+    [revealDelay]="240"
+    [image]="BlueImage.Github"
+    [url]="Link.Github"
+    name="Github"
+  />
+  <badge
+    reveal
+    [revealDelay]="320"
+    [image]="BlueImage.Linkedin"
+    [url]="Link.LinkedIn"
+    name="LinkedIn"
+  />
+  <badge
+    reveal
+    [revealDelay]="400"
     [image]="BlueImage.At"
     [url]="Link.Email"
     name="contact@hichamguessab.com"

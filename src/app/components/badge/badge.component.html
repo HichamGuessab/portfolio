@@ -2,7 +2,7 @@
   [href]="url()"
   [attr.target]="isExternal() ? '_blank' : null"
   [attr.rel]="isExternal() ? 'noopener noreferrer' : null"
-  class="inline-flex place-items-center justify-center gap-2 rounded-2xl bg-nightBlue px-4 py-2.5 text-sm text-lightBlue hover:bg-navyBlue sm:text-base md:gap-3 md:text-lg"
+  class="inline-flex place-items-center justify-center gap-2 rounded-2xl bg-nightBlue px-4 py-2.5 text-sm text-lightBlue transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-navyBlue focus-visible:bg-navyBlue sm:text-base md:gap-3 md:text-lg"
 >
   <img class="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" [src]="image()" alt="" />
   <span>{{ name() }}</span>

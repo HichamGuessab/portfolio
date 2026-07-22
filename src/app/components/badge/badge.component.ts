@@ -11,7 +11,7 @@ import { Image, Link } from '../../interfaces';
 @Component({
   selector: 'badge',
   templateUrl: './badge.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [],
 })
 export class BadgeComponent {

@@ -69,6 +69,44 @@ swiper-container::part(button-next) {
   }
 }
 
+/* Fondu doux à la création d'une vue (bascule diaporama/compact et premier
+   chargement). Pas de fill-mode : l'état final est l'état naturel, le contenu
+   reste visible même si l'animation est neutralisée. */
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.view-fade-in {
+  animation: view-fade-in 0.3s ease-out;
+}
+
+/* Animations d'entrée des sections (directive [reveal]).
+   L'état masqué n'existe que si le visiteur accepte les animations :
+   avec prefers-reduced-motion, le contenu reste visible en permanence.
+   Seules opacity et transform sont animées (aucun recalcul de layout). */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  /* will-change seulement tant que l'animation est à venir. */
+  .reveal:not(.reveal-visible) {
+    will-change: opacity, transform;
+  }
+
+  .reveal-visible {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+      transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

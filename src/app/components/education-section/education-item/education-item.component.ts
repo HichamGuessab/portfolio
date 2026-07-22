@@ -9,7 +9,7 @@ import { Degree } from '../../../interfaces';
 @Component({
   selector: 'education-item',
   templateUrl: './education-item.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [],
 })
 export class EducationItemComponent {

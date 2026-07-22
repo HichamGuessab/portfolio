@@ -1,7 +1,27 @@
 <section-header [icon]="BlueImage.Technology" title="Compétences" />
 <div class="grid grid-cols-2 gap-x-10 gap-y-16 md:grid-cols-4 md:gap-14">
-  <skill-category name="Design" [skills]="designSkills" />
-  <skill-category name="Front-end" [skills]="frontEndSkills" />
-  <skill-category name="Back-end" [skills]="backEndSkills" />
-  <skill-category name="Outils" [skills]="toolsSkills" />
+  <skill-category
+    reveal
+    [revealDelay]="100"
+    name="Design"
+    [skills]="designSkills"
+  />
+  <skill-category
+    reveal
+    [revealDelay]="180"
+    name="Front-end"
+    [skills]="frontEndSkills"
+  />
+  <skill-category
+    reveal
+    [revealDelay]="260"
+    name="Back-end"
+    [skills]="backEndSkills"
+  />
+  <skill-category
+    reveal
+    [revealDelay]="340"
+    name="Outils"
+    [skills]="toolsSkills"
+  />
 </div>

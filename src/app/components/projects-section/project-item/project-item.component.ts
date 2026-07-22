@@ -20,7 +20,7 @@ const TECH_NAME_OVERRIDES: Record<string, string> = {
 @Component({
   selector: 'project-item',
   templateUrl: './project-item.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
 })
 export class ProjectItemComponent {

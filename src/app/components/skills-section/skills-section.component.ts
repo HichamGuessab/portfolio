@@ -8,12 +8,13 @@ import { SkillCategoryComponent } from './skill-category/skill-category.componen
 import { SkillService } from '../../services/skill.service';
 import { BlueImage, Skill } from '../../interfaces';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
+import { RevealDirective } from '../../directives/reveal.directive';
 
 @Component({
   selector: 'skills-section',
   templateUrl: './skills-section.component.html',
-  imports: [SkillCategoryComponent, SectionHeaderComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  imports: [SkillCategoryComponent, SectionHeaderComponent, RevealDirective],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col' },
 })
 export class SkillsSectionComponent implements OnInit {

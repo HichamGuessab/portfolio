@@ -2,12 +2,15 @@ import {
   Component,
   CUSTOM_ELEMENTS_SCHEMA,
   ChangeDetectionStrategy,
+  inject,
 } from '@angular/core';
 import { ProfileSectionComponent } from './components/profile-section/profile-section.component';
 import { SkillsSectionComponent } from './components/skills-section/skills-section.component';
 import { ProjectsSectionComponent } from './components/projects-section/projects-section.component';
 import { EducationSectionComponent } from './components/education-section/education-section.component';
 import { ExperienceSectionComponent } from './components/experience-section/experience-section.component';
+import { MascotComponent } from './components/mascot/mascot.component';
+import { ViewModeService } from './services/view-mode.service';
 
 @Component({
   selector: 'app-root',
@@ -18,6 +21,7 @@ import { ExperienceSectionComponent } from './components/experience-section/expe
     ProjectsSectionComponent,
     EducationSectionComponent,
     ExperienceSectionComponent,
+    MascotComponent,
   ],
   styles: [
     `
@@ -53,7 +57,9 @@ import { ExperienceSectionComponent } from './components/experience-section/expe
       }
     `,
   ],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class AppComponent {}
+export class AppComponent {
+  protected readonly viewMode: ViewModeService = inject(ViewModeService);
+}

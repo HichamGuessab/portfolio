@@ -1,31 +1,91 @@
 <main>
-  <swiper-container
-    pagination="true"
-    pagination-clickable="true"
-    mousewheel="true"
-    keyboard="true"
-    direction="vertical"
-    class="h-screen w-full overflow-x-hidden text-wildSand"
-    css-mode="true"
+  <!-- Bascule d'affichage : visible uniquement sur ordinateur (md et plus) -->
+  <button
+    type="button"
+    (click)="viewMode.toggle()"
+    [attr.aria-label]="
+      viewMode.isCompact()
+        ? 'Activer le mode diaporama (une section par écran)'
+        : 'Activer le mode compact (toutes les sections sur une page)'
+    "
+    class="fixed top-6 right-6 z-50 hidden items-center gap-2 rounded-full border border-lightBlue/40 bg-nightBlue px-4 py-2 text-sm font-medium text-lightBlue shadow-lg transition duration-300 ease-out hover:border-lightBlue hover:bg-navyBlue active:scale-95 md:flex"
   >
-    <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-      <profile-section class="w-3/4" />
-    </swiper-slide>
-    <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-      <projects-section class="w-3/4" />
-    </swiper-slide>
-    <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-      <skills-section class="w-3/4" />
-    </swiper-slide>
-    <swiper-slide
-      class="flex flex-col items-center justify-center overflow-x-hidden"
+    @if (viewMode.isCompact()) {
+      <!-- Icône diaporama : une carte plein écran -->
+      <svg
+        class="h-4 w-4"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+      >
+        <rect x="1.5" y="3" width="13" height="10" rx="1.5" />
+      </svg>
+      Mode diaporama
+    } @else {
+      <!-- Icône compact : sections empilées -->
+      <svg
+        class="h-4 w-4"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M2 3.5h12M2 8h12M2 12.5h12" />
+      </svg>
+      Mode compact
+    }
+  </button>
+
+  @if (viewMode.isCompact()) {
+    <!-- Mode compact : toutes les sections sur une seule page à défilement classique -->
+    <div
+      class="view-fade-in flex w-full flex-col items-center gap-32 overflow-x-hidden py-24 text-wildSand"
     >
-      <experience-section class="w-3/4" />
-    </swiper-slide>
-    <swiper-slide
-      class="flex flex-col items-center justify-center overflow-x-hidden"
+      <profile-section class="w-3/4 max-w-5xl" />
+      <projects-section class="w-3/4 max-w-5xl" />
+      <skills-section class="w-3/4 max-w-5xl" />
+      <experience-section class="w-3/4 max-w-5xl" />
+      <education-section class="w-3/4 max-w-5xl" />
+    </div>
+  } @else {
+    <!-- Mode diaporama : une section par écran (défaut) -->
+    <swiper-container
+      pagination="true"
+      pagination-clickable="true"
+      mousewheel="true"
+      keyboard="true"
+      direction="vertical"
+      class="view-fade-in h-screen w-full overflow-x-hidden text-wildSand"
+      css-mode="true"
     >
-      <education-section class="w-3/4" />
-    </swiper-slide>
-  </swiper-container>
+      <swiper-slide class="flex items-center justify-center overflow-x-hidden">
+        <profile-section class="w-3/4" />
+      </swiper-slide>
+      <swiper-slide class="flex items-center justify-center overflow-x-hidden">
+        <projects-section class="w-3/4" />
+      </swiper-slide>
+      <swiper-slide class="flex items-center justify-center overflow-x-hidden">
+        <skills-section class="w-3/4" />
+      </swiper-slide>
+      <swiper-slide
+        class="flex flex-col items-center justify-center overflow-x-hidden"
+      >
+        <experience-section class="w-3/4" />
+      </swiper-slide>
+      <swiper-slide
+        class="flex flex-col items-center justify-center overflow-x-hidden"
+      >
+        <education-section class="w-3/4" />
+      </swiper-slide>
+    </swiper-container>
+  }
+
+  <!-- Mascotte décorative : se promène le long du bas de l'écran.
+       Position fixe, aucun impact sur le layout ; masquée sur mobile,
+       avec prefers-reduced-motion, ou après un clic du visiteur. -->
+  <app-mascot />
 </main>

@@ -11,7 +11,7 @@ import { Skill } from '../../../interfaces';
   selector: 'skill-category',
   templateUrl: './skill-category.component.html',
   imports: [SkillItemComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
 })
 export class SkillCategoryComponent {

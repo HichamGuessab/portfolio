@@ -9,14 +9,15 @@ import { ExperienceItemComponent } from './experience-item/experience-item.compo
 import { BlueImage, Experience } from '../../interfaces';
 import { ExperienceService } from '../../services/experience.service';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
+import { RevealDirective } from '../../directives/reveal.directive';
 
 @Component({
   selector: 'experience-section',
   templateUrl: './experience-section.component.html',
-  imports: [ExperienceItemComponent, SectionHeaderComponent],
+  imports: [ExperienceItemComponent, SectionHeaderComponent, RevealDirective],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: { class: 'flex flex-col' },
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
       /* Bullets de pagination aux couleurs de la charte (lightBlue) */

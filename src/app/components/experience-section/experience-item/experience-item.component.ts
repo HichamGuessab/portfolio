@@ -9,7 +9,7 @@ import { Experience } from '../../../interfaces';
 @Component({
   selector: 'experience-item',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './experience-item.component.html',
 })
 export class ExperienceItemComponent {

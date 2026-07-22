@@ -9,14 +9,15 @@ import { BlueImage, Project } from '../../interfaces';
 import { ProjectService } from '../../services/project.service';
 import { ProjectItemComponent } from './project-item/project-item.component';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
+import { RevealDirective } from '../../directives/reveal.directive';
 
 @Component({
   selector: 'projects-section',
   templateUrl: './projects-section.component.html',
-  imports: [ProjectItemComponent, SectionHeaderComponent],
+  imports: [ProjectItemComponent, SectionHeaderComponent, RevealDirective],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: { class: 'flex flex-col' },
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
       swiper-container::part(bullet) {

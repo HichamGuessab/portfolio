@@ -1,0 +1,127 @@
+@if (visible()) {
+  <!-- Le personnage est purement décoratif (aria-hidden sur le dessin) ;
+       le bouton qui le porte sert uniquement à le renvoyer, d'où son libellé. -->
+  <button
+    #sprite
+    type="button"
+    class="mascot-sprite"
+    [class.is-leaving]="leaving()"
+    (click)="dismiss()"
+    aria-label="Masquer la mascotte"
+    title="Masquer la mascotte"
+  >
+    <span class="mascot-pop">
+      <span class="mascot-flip">
+        <!-- Petit robot original dessiné à la main, aux couleurs de la charte :
+             corps en dégradé lightBlue → purple, détails darkBlue et wildSand.
+             Il est dessiné tourné vers la droite (antenne penchée, pupilles
+             décalées) : le retournement gauche/droite est un simple miroir. -->
+        <svg
+          class="mascot-svg"
+          viewBox="0 0 64 78"
+          width="64"
+          height="78"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id="mascotBodyGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="var(--light-blue)" />
+              <stop offset="100%" stop-color="var(--purple)" />
+            </linearGradient>
+          </defs>
+
+          <!-- Ombre au sol : hors du groupe qui rebondit -->
+          <ellipse class="mascot-shadow" cx="32" cy="75" rx="13" ry="2.4" />
+
+          <g class="mascot-figure">
+            <!-- Jambes -->
+            <rect
+              class="mascot-leg mascot-leg-back"
+              x="21.5"
+              y="55"
+              width="7"
+              height="17"
+              rx="3.5"
+            />
+            <rect
+              class="mascot-leg mascot-leg-front"
+              x="35.5"
+              y="55"
+              width="7"
+              height="17"
+              rx="3.5"
+            />
+
+            <!-- Antenne, penchée dans le sens de la marche -->
+            <path
+              class="mascot-antenna"
+              d="M32 17 Q32.5 11 36 7.5"
+              fill="none"
+              stroke="var(--purple)"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <circle
+              class="mascot-antenna-glow"
+              cx="36.8"
+              cy="6"
+              r="5"
+              fill="var(--light-blue)"
+            />
+            <circle cx="36.8" cy="6" r="2.6" fill="var(--light-blue)" />
+
+            <!-- Corps en dégradé signature -->
+            <rect
+              class="mascot-body"
+              x="12"
+              y="16"
+              width="40"
+              height="44"
+              rx="20"
+              fill="url(#mascotBodyGradient)"
+            />
+
+            <!-- Bras -->
+            <rect
+              class="mascot-arm mascot-arm-back"
+              x="8.5"
+              y="31"
+              width="6"
+              height="17"
+              rx="3"
+            />
+            <rect
+              class="mascot-arm mascot-arm-front"
+              x="49.5"
+              y="31"
+              width="6"
+              height="17"
+              rx="3"
+            />
+
+            <!-- Visage : yeux qui clignent, pupilles qui se lèvent vers le contenu -->
+            <g class="mascot-eyes">
+              <circle cx="25" cy="33" r="4" fill="#f5f5f5" />
+              <circle cx="40" cy="33" r="4" fill="#f5f5f5" />
+              <g class="mascot-pupils">
+                <circle cx="26.2" cy="33.4" r="1.9" fill="var(--dark-blue)" />
+                <circle cx="41.2" cy="33.4" r="1.9" fill="var(--dark-blue)" />
+              </g>
+            </g>
+            <path
+              class="mascot-mouth"
+              d="M28 42.5 Q32.5 46.5 37 42.5"
+              fill="none"
+              stroke="var(--dark-blue)"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <!-- Joues -->
+            <circle cx="19.5" cy="39.5" r="2.3" fill="#f5f5f5" opacity="0.22" />
+            <circle cx="45.5" cy="39.5" r="2.3" fill="#f5f5f5" opacity="0.22" />
+          </g>
+        </svg>
+      </span>
+    </span>
+  </button>
+}

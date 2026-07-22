@@ -9,14 +9,15 @@ import { BlueImage, Degree } from '../../interfaces';
 import { EducationService } from '../../services/education.service';
 import { EducationItemComponent } from './education-item/education-item.component';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
+import { RevealDirective } from '../../directives/reveal.directive';
 
 @Component({
   selector: 'education-section',
   templateUrl: './education-section.component.html',
-  imports: [EducationItemComponent, SectionHeaderComponent],
+  imports: [EducationItemComponent, SectionHeaderComponent, RevealDirective],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: { class: 'flex flex-col' },
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
       /* Bullets de pagination aux couleurs de la charte (lightBlue) */
