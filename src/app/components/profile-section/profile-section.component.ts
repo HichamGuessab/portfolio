@@ -1,12 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { BadgeComponent } from '../badge/badge.component';
 import { BlueImage, Link } from '../../interfaces';
 
 @Component({
-    selector: 'profile-section',
-    templateUrl: './profile-section.component.html',
-    imports: [BadgeComponent],
-    host: { class: 'flex flex-col gap-7 text-left' }
+  selector: 'profile-section',
+  templateUrl: './profile-section.component.html',
+  imports: [BadgeComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  host: { class: 'flex flex-col gap-7 text-left' },
 })
 export class ProfileSectionComponent {
   imageLoaded = false;

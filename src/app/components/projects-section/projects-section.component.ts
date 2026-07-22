@@ -3,6 +3,7 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   inject,
   OnInit,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { BlueImage, Project } from '../../interfaces';
 import { ProjectService } from '../../services/project.service';
@@ -10,13 +11,14 @@ import { ProjectItemComponent } from './project-item/project-item.component';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
-    selector: 'projects-section',
-    templateUrl: './projects-section.component.html',
-    imports: [ProjectItemComponent, SectionHeaderComponent],
-    schemas: [CUSTOM_ELEMENTS_SCHEMA],
-    host: { class: 'flex flex-col' },
-    styles: [
-        `
+  selector: 'projects-section',
+  templateUrl: './projects-section.component.html',
+  imports: [ProjectItemComponent, SectionHeaderComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  host: { class: 'flex flex-col' },
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styles: [
+    `
       swiper-container::part(bullet) {
         background-color: var(--light-blue);
       }
@@ -32,7 +34,7 @@ import { SectionHeaderComponent } from '../section-header/section-header.compone
         top: 220px;
       }
     `,
-    ]
+  ],
 })
 export class ProjectsSectionComponent implements OnInit {
   private _projectService: ProjectService = inject(ProjectService);

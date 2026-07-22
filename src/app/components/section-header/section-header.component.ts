@@ -1,9 +1,10 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { Image } from '../../interfaces';
 
 @Component({
   selector: 'section-header',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="mb-12 flex gap-5 place-self-center">
       <img [src]="icon()" alt="" class="h-14 w-14 place-self-center" />

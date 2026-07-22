@@ -1,9 +1,15 @@
-import { Component, input, InputSignal } from '@angular/core';
+import {
+  Component,
+  input,
+  InputSignal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Experience } from '../../../interfaces';
 
 @Component({
   selector: 'experience-item',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './experience-item.component.html',
 })
 export class ExperienceItemComponent {

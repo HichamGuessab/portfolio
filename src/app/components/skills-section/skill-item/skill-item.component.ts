@@ -1,10 +1,16 @@
-import { Component, input, InputSignal } from '@angular/core';
+import {
+  Component,
+  input,
+  InputSignal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { BlueImage, Skill, SkillType } from '../../../interfaces';
 
 @Component({
   selector: 'skill-item',
   templateUrl: './skill-item.component.html',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   host: { class: 'flex place-items-center gap-2' },
 })
 export class SkillItemComponent {

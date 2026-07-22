@@ -1,10 +1,18 @@
-import { Component, computed, input, InputSignal, Signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  input,
+  InputSignal,
+  Signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Image, Link } from '../../interfaces';
 
 @Component({
-    selector: 'badge',
-    templateUrl: './badge.component.html',
-    imports: []
+  selector: 'badge',
+  templateUrl: './badge.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  imports: [],
 })
 export class BadgeComponent {
   name: InputSignal<string> = input.required<string>();

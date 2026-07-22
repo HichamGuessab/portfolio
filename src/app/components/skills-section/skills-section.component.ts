@@ -1,14 +1,20 @@
-import { Component, inject, OnInit } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { SkillCategoryComponent } from './skill-category/skill-category.component';
 import { SkillService } from '../../services/skill.service';
 import { BlueImage, Skill } from '../../interfaces';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
-    selector: 'skills-section',
-    templateUrl: './skills-section.component.html',
-    imports: [SkillCategoryComponent, SectionHeaderComponent],
-    host: { class: 'flex flex-col' }
+  selector: 'skills-section',
+  templateUrl: './skills-section.component.html',
+  imports: [SkillCategoryComponent, SectionHeaderComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  host: { class: 'flex flex-col' },
 })
 export class SkillsSectionComponent implements OnInit {
   designSkills: Skill[] = [];

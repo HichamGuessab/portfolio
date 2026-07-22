@@ -1,4 +1,9 @@
-import { Component, input, InputSignal } from '@angular/core';
+import {
+  Component,
+  input,
+  InputSignal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Project, WhiteImage } from '../../../interfaces';
 
 /* Noms de marque qui ne peuvent pas être dérivés du nom de fichier
@@ -15,6 +20,7 @@ const TECH_NAME_OVERRIDES: Record<string, string> = {
 @Component({
   selector: 'project-item',
   templateUrl: './project-item.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
 })
 export class ProjectItemComponent {
