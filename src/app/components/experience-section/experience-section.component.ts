@@ -10,14 +10,13 @@ import { ExperienceService } from '../../services/experience.service';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
-  selector: 'experience-section',
-  templateUrl: './experience-section.component.html',
-  standalone: true,
-  imports: [ExperienceItemComponent, SectionHeaderComponent],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  host: { class: 'flex flex-col' },
-  styles: [
-    `
+    selector: 'experience-section',
+    templateUrl: './experience-section.component.html',
+    imports: [ExperienceItemComponent, SectionHeaderComponent],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    host: { class: 'flex flex-col' },
+    styles: [
+        `
       /* Bullets de pagination aux couleurs de la charte (lightBlue) */
       swiper-container {
         --swiper-pagination-color: var(--light-blue);
@@ -30,7 +29,7 @@ import { SectionHeaderComponent } from '../section-header/section-header.compone
         top: calc(30rem + 12px);
       }
     `,
-  ],
+    ]
 })
 export class ExperienceSectionComponent implements OnInit {
   experiences: Experience[] = [];

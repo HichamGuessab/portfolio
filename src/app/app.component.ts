@@ -6,18 +6,17 @@ import { EducationSectionComponent } from './components/education-section/educat
 import { ExperienceSectionComponent } from './components/experience-section/experience-section.component';
 
 @Component({
-  selector: 'app-root',
-  templateUrl: './app.component.html',
-  standalone: true,
-  imports: [
-    ProfileSectionComponent,
-    SkillsSectionComponent,
-    ProjectsSectionComponent,
-    EducationSectionComponent,
-    ExperienceSectionComponent,
-  ],
-  styles: [
-    `
+    selector: 'app-root',
+    templateUrl: './app.component.html',
+    imports: [
+        ProfileSectionComponent,
+        SkillsSectionComponent,
+        ProjectsSectionComponent,
+        EducationSectionComponent,
+        ExperienceSectionComponent,
+    ],
+    styles: [
+        `
       swiper-container::part(bullet) {
         width: 13px;
         height: 45px;
@@ -49,7 +48,7 @@ import { ExperienceSectionComponent } from './components/experience-section/expe
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
       }
     `,
-  ],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    ],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class AppComponent {}

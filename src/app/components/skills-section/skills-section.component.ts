@@ -5,11 +5,10 @@ import { BlueImage, Skill } from '../../interfaces';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
-  selector: 'skills-section',
-  templateUrl: './skills-section.component.html',
-  standalone: true,
-  imports: [SkillCategoryComponent, SectionHeaderComponent],
-  host: { class: 'flex flex-col' },
+    selector: 'skills-section',
+    templateUrl: './skills-section.component.html',
+    imports: [SkillCategoryComponent, SectionHeaderComponent],
+    host: { class: 'flex flex-col' }
 })
 export class SkillsSectionComponent implements OnInit {
   designSkills: Skill[] = [];

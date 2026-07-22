@@ -10,14 +10,13 @@ import { ProjectItemComponent } from './project-item/project-item.component';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
-  selector: 'projects-section',
-  templateUrl: './projects-section.component.html',
-  standalone: true,
-  imports: [ProjectItemComponent, SectionHeaderComponent],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  host: { class: 'flex flex-col' },
-  styles: [
-    `
+    selector: 'projects-section',
+    templateUrl: './projects-section.component.html',
+    imports: [ProjectItemComponent, SectionHeaderComponent],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    host: { class: 'flex flex-col' },
+    styles: [
+        `
       swiper-container::part(bullet) {
         background-color: var(--light-blue);
       }
@@ -33,7 +32,7 @@ import { SectionHeaderComponent } from '../section-header/section-header.compone
         top: 220px;
       }
     `,
-  ],
+    ]
 })
 export class ProjectsSectionComponent implements OnInit {
   private _projectService: ProjectService = inject(ProjectService);

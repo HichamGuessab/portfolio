@@ -10,14 +10,13 @@ import { EducationItemComponent } from './education-item/education-item.componen
 import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
-  selector: 'education-section',
-  templateUrl: './education-section.component.html',
-  standalone: true,
-  imports: [EducationItemComponent, SectionHeaderComponent],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  host: { class: 'flex flex-col' },
-  styles: [
-    `
+    selector: 'education-section',
+    templateUrl: './education-section.component.html',
+    imports: [EducationItemComponent, SectionHeaderComponent],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    host: { class: 'flex flex-col' },
+    styles: [
+        `
       /* Bullets de pagination aux couleurs de la charte (lightBlue) */
       swiper-container {
         --swiper-pagination-color: var(--light-blue);
@@ -31,7 +30,7 @@ import { SectionHeaderComponent } from '../section-header/section-header.compone
         top: calc(100% + 12px);
       }
     `,
-  ],
+    ]
 })
 export class EducationSectionComponent implements OnInit {
   degrees: Degree[] = [];
