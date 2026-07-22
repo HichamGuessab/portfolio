@@ -8,18 +8,9 @@
   position: fixed;
   inset: auto 0 0 0;
   height: 0;
-  z-index: 40; /* au-dessus du contenu, sous la bascule de mode (z-50) */
+  z-index: 40; /* au-dessus du contenu de la page */
   display: block;
   pointer-events: none;
-}
-
-/* Masqué quand le système réduit les animations sans override du visiteur
-   (html.force-motion, posé par MotionService). Le TypeScript ne le rend pas
-   non plus dans ce cas : ceinture et bretelles. Vaut aussi sur mobile. */
-@media (prefers-reduced-motion: reduce) {
-  :host-context(html:not(.force-motion)) {
-    display: none;
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -86,11 +77,15 @@
   }
 }
 
-/* Petit bouton × (mobile) : masque le duo, le toucher des personnages étant
-   réservé aux capteurs de mouvement. */
+/* Petit bouton × : masque le duo pour la session, le clic/toucher des
+   personnages étant pris (triple-clic surprise sur ordinateur, capteurs de
+   mouvement sur mobile).
+   Ordinateur : caché par défaut, il apparaît au-dessus du personnage survolé
+   (translation posée par la boucle rAF, .is-showing pour l'opacité).
+   Mobile (media query plus bas) : fixe en bas à droite, toujours visible. */
 .duo-dismiss {
   position: absolute;
-  right: 10px;
+  left: 0;
   bottom: 96px;
   display: flex;
   align-items: center;
@@ -102,11 +97,30 @@
   border-radius: 9999px;
   background: color-mix(in srgb, var(--night-blue) 85%, transparent);
   color: var(--light-blue);
-  opacity: 0.75;
+  opacity: 0;
   cursor: pointer;
-  pointer-events: auto;
-  transition: opacity 0.3s ease;
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity 0.25s ease;
   -webkit-tap-highlight-color: transparent;
+}
+
+.duo-dismiss.is-showing {
+  opacity: 0.8;
+  pointer-events: auto;
+}
+
+.duo-dismiss.is-showing:hover {
+  opacity: 1;
+}
+
+/* Focus clavier : le bouton reste dans l'ordre de tabulation même quand la
+   souris est loin — il doit alors se révéler (WCAG 2.4.7), sinon Entrée
+   masquerait le duo sans aucun retour visuel. Sans translation posée par la
+   boucle rAF, il apparaît à sa position de repos, en bas à gauche. */
+.duo-dismiss:focus-visible {
+  opacity: 0.8;
+  pointer-events: auto;
 }
 
 .duo-dismiss svg {
@@ -114,8 +128,20 @@
   height: 10px;
 }
 
+@media (max-width: 767.98px) {
+  .duo-dismiss {
+    left: auto;
+    right: 10px;
+    transform: none !important;
+    opacity: 0.75;
+    pointer-events: auto;
+  }
+}
+
+/* Après .is-showing et la version mobile : le départ gagne toujours. */
 .duo-dismiss.is-leaving {
-  opacity: 0;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* Couches de transformation isolées pour éviter tout conflit :

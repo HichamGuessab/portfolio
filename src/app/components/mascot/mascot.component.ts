@@ -15,8 +15,16 @@ import {
 import { MotionService } from '../../services/motion.service';
 import { ViewModeService } from '../../services/view-mode.service';
 
-/** Clé localStorage mémorisant le renvoi du duo par le visiteur. */
+/**
+ * Clé sessionStorage mémorisant le renvoi du duo par le visiteur : le
+ * masquage ne vaut que pour la session en cours, les mascottes reviennent
+ * automatiquement à la prochaine visite (elles portent le seul accès à la
+ * bascule diaporama / compact — un masquage définitif la perdrait).
+ */
 const STORAGE_KEY = 'portfolio-mascot-hidden';
+
+/** Clé localStorage : le visiteur a déjà découvert la surprise du triple-clic. */
+const SURPRISE_KEY = 'portfolio-surprise-found';
 
 /** Breakpoint md de Tailwind : en dessous, taille réduite et gestes tactiles. */
 const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
@@ -35,6 +43,30 @@ const LONG_PRESS_DURATION = 600;
 
 /** Anti-spam des petites réactions au toucher sur mobile (ms). */
 const TAP_COOLDOWN = 1600;
+
+/* --- Surprise du triple-clic (bascule diaporama / compact) --- */
+
+/** Fenêtre (ms) pendant laquelle 3 clics sur un personnage font la surprise. */
+const TRIPLE_CLICK_WINDOW = 1200;
+
+/** Durée (ms) de la bulle d'adieu avant l'animation de disparition du duo. */
+const FAREWELL_DURATION = 1700;
+
+/**
+ * Probabilité qu'une bulle ambiante soit un indice vers la surprise :
+ * insistante tant qu'elle n'a jamais été découverte, discrète ensuite.
+ */
+const HINT_CHANCE_UNDISCOVERED = 0.45;
+const HINT_CHANCE_DISCOVERED = 0.1;
+
+/* --- Bouton × de masquage (desktop : il suit le personnage survolé) --- */
+
+/** Rayons (px) d'apparition / disparition du × autour d'un personnage. */
+const DISMISS_SHOW_RADIUS = 150;
+const DISMISS_HIDE_RADIUS = 200;
+
+/** Demi-largeur (px) du bouton × (28px de côté). */
+const DISMISS_HALF = 14;
 
 /* --- Capteurs de mouvement (mobile) --- */
 
@@ -236,6 +268,49 @@ const MODE_LINES: readonly string[] = [
   'Même moi, ça me surprend encore.',
 ] as const;
 
+/* --- Surprise du triple-clic --- */
+
+/** Indices glissés dans les bulles ambiantes (desktop, viewport compatible). */
+const ROBOT_HINT_LINES: readonly string[] = [
+  'Psst… surprise si tu cliques 3 fois sur moi !',
+  'Un secret ? Clique 3 fois sur mon ami.',
+  'Il paraît que 3 clics sur moi, ça fait des miracles…',
+] as const;
+
+const BUDDY_HINT_LINES: readonly string[] = [
+  'Clique 3 fois sur moi, tu verras bien…',
+  'Chut… 3 clics sur moi, et magie !',
+] as const;
+
+/** Deuxième clic : le personnage sent que quelque chose se prépare. */
+const ALMOST_LINES: readonly string[] = [
+  'Encore un clic…',
+  'Oh, tu chauffes !',
+] as const;
+
+/** Célébration de la surprise, selon le mode d'arrivée. */
+const SURPRISE_COMPACT_LINES: readonly string[] = [
+  'Tadaaa ! Bienvenue dans mon monde compact !',
+  'Surprise ! Tout le portfolio sur un seul écran !',
+] as const;
+
+const SURPRISE_SLIDESHOW_LINES: readonly string[] = [
+  'Tadaaa ! Retour au grand diaporama !',
+  'Et hop, chaque section reprend sa scène !',
+] as const;
+
+/** Cri de joie de l'autre personnage pendant la célébration. */
+const SURPRISE_ECHO_LINE = 'Tadaaa !';
+
+/** Triple-clic sur une fenêtre trop petite pour le mode compact. */
+const SURPRISE_LOCKED_LINE = 'Agrandis la fenêtre pour découvrir la surprise !';
+
+/** Triple-tap sur mobile : la surprise reste une affaire de grand écran. */
+const SURPRISE_MOBILE_LINE = 'La surprise, c’est sur grand écran !';
+
+/** Bulle d'adieu au masquage : le duo promet de revenir à la prochaine visite. */
+const FAREWELL_LINE = 'On s’éclipse ! Rendez-vous à ta prochaine visite.';
+
 /** Commentaires contextuels par section du diaporama (variantes tirées au sort). */
 const SECTION_LINES: readonly (readonly string[])[] = [
   ['C’est lui ! C’est Hicham !', 'Quel profil ! Et quel sourire.'],
@@ -297,14 +372,22 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
  * survol des projets) et jouent de petites chorégraphies ensemble
  * (rencontre, high-five, poursuite).
  *
+ * Le duo garde aussi un secret : sur ordinateur, un TRIPLE-CLIC sur l'un des
+ * deux personnages bascule le portfolio entre diaporama et mode compact
+ * (mini-célébration à l'appui). Les mascottes glissent des indices dans
+ * leurs bulles ambiantes — avec insistance tant que la surprise n'a jamais
+ * été découverte (localStorage), plus rarement ensuite.
+ *
  * Non intrusif par construction :
  * - l'hôte est en `pointer-events: none`, seuls les personnages sont cliquables ;
- * - sur ordinateur, un clic sur l'un d'eux masque le duo (persisté) ;
+ * - sur ordinateur, chaque clic déclenche une petite réaction (et compte pour
+ *   le triple-clic) ; le masquage passe par le bouton × qui apparaît près du
+ *   personnage survolé, ou par un appui long ;
  * - sur mobile (< md), le duo est affiché à ~70 % : le toucher active la
  *   réaction aux mouvements du téléphone (permission iOS demandée dans le
  *   geste), l'appui long ou le petit bouton × le masque ;
- * - masqué quand les animations sont désactivées (préférence système sans
- *   override du visiteur, voir MotionService) ;
+ * - le masquage ne vaut que pour la session (sessionStorage) : le duo étant
+ *   le seul accès au mode compact, il revient à la visite suivante ;
  * - `position: fixed`, aucune incidence sur le layout de la page.
  *
  * Capteurs de mouvement (mobile) : l'inclinaison fait glisser et pencher le
@@ -325,7 +408,8 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MascotComponent implements OnDestroy {
-  /** Duo renvoyé d'un clic par le visiteur (persisté dans localStorage). */
+  /** Duo masqué par le visiteur (bouton × ou appui long) — persisté en
+      sessionStorage uniquement : il revient à la prochaine session. */
   private readonly _dismissed: WritableSignal<boolean> = signal(false);
 
   /** Vrai à partir du breakpoint md (768px). */
@@ -334,31 +418,26 @@ export class MascotComponent implements OnDestroy {
   /** Animation de disparition en cours, juste avant le retrait du DOM. */
   protected readonly leaving: WritableSignal<boolean> = signal(false);
 
-  /** Source de vérité sur les animations (préférence système + override). */
+  /** Source de vérité sur les animations (actives par défaut pour tous). */
   private readonly _motion: MotionService = inject(MotionService);
 
   /** Mode d'affichage courant — le duo commente la bascule. */
   private readonly _viewMode: ViewModeService = inject(ViewModeService);
 
-  /** Le duo n'est rendu que si rien ne s'y oppose.
-      Réactif : activer l'override d'animations le fait apparaître sans rechargement. */
+  /** Le duo n'est rendu que si rien ne s'y oppose (renvoi par le visiteur,
+      ou une future extension de MotionService). */
   protected readonly visible: Signal<boolean> = computed(
     () => !this._dismissed() && this._motion.motionEnabled()
-  );
-
-  /** Vrai sur mobile (< md) : gestes tactiles et bouton × dédiés. */
-  protected readonly onMobile: Signal<boolean> = computed(
-    () => !this._isDesktop()
   );
 
   /** Vrai quand la réaction aux mouvements du téléphone est active. */
   protected readonly sensorsActive: WritableSignal<boolean> = signal(false);
 
   /** Libellé accessible des personnages : le geste principal change de sens
-      entre ordinateur (clic = masquer) et mobile (toucher = capteurs). */
+      entre ordinateur (triple-clic = surprise) et mobile (toucher = capteurs). */
   protected readonly spriteLabel: Signal<string> = computed(() => {
     if (this._isDesktop()) {
-      return 'Masquer les mascottes';
+      return 'Mascotte : cliquer 3 fois pour une surprise, appui long pour la masquer';
     }
     return this.sensorsActive()
       ? 'Mascotte : appui long pour la masquer'
@@ -371,6 +450,9 @@ export class MascotComponent implements OnDestroy {
   private readonly _buddyRef: Signal<
     ElementRef<HTMLButtonElement> | undefined
   > = viewChild<ElementRef<HTMLButtonElement>>('buddySprite');
+  private readonly _dismissRef: Signal<
+    ElementRef<HTMLButtonElement> | undefined
+  > = viewChild<ElementRef<HTMLButtonElement>>('dismissBtn');
 
   private readonly _zone: NgZone = inject(NgZone);
   private readonly _mediaListeners: AbortController = new AbortController();
@@ -435,11 +517,27 @@ export class MascotComponent implements OnDestroy {
   private _inviteIn = 0;
   private _inviteShown = false;
 
+  /* --- Surprise du triple-clic --- */
+  /** Personnage visé par la rafale de clics en cours (changer = repartir à 1). */
+  private _clickTarget?: 'robot' | 'buddy';
+  private _clickCount = 0;
+  private _firstClickAt = 0;
+  /** Vrai dès que le visiteur a découvert la surprise (persisté). */
+  private _surpriseFound = false;
+  /** Bulle d'adieu en cours : les clics sont ignorés jusqu'au départ du duo. */
+  private _farewellPending = false;
+  private _farewellTimer = 0;
+
+  /* --- Bouton × (desktop : suit le personnage survolé) --- */
+  private _dismissShown = false;
+  private _dismissX = Number.NEGATIVE_INFINITY;
+
   /** Multiplie les délais des bulles/chorégraphies (cadence allégée sur mobile). */
   private _cadence = 1;
 
   constructor() {
     this.restoreDismissal();
+    this.restoreSurpriseState();
     this.observeMediaQuery(DESKTOP_MEDIA_QUERY, this._isDesktop);
 
     /* La scène démarre quand les deux sprites apparaissent dans le DOM et
@@ -470,18 +568,20 @@ export class MascotComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopScene();
     this.stopSensors();
+    clearTimeout(this._farewellTimer);
     this._mediaListeners.abort();
   }
 
   /**
    * Point d'entrée du clic/tap sur un personnage.
-   * Ordinateur : masque le duo (comportement historique).
+   * Ordinateur : chaque clic compte pour la surprise du triple-clic (petite
+   * réaction à chaque fois, bascule diaporama / compact au troisième).
    * Mobile : premier toucher = activation des capteurs de mouvement (la
-   * permission iOS exige ce geste), ensuite petite réaction amusée ;
-   * le masquage passe par l'appui long ou le bouton ×.
+   * permission iOS exige ce geste), ensuite petite réaction amusée.
+   * Le masquage, lui, passe partout par l'appui long ou le bouton ×.
    */
   protected onSpriteTap(which: 'robot' | 'buddy'): void {
-    if (this.leaving()) {
+    if (this.leaving() || this._farewellPending) {
       return;
     }
     if (this._longPressFired) {
@@ -490,33 +590,173 @@ export class MascotComponent implements OnDestroy {
       return;
     }
     if (this._isDesktop()) {
-      this.dismiss();
+      this.handleDesktopClick(which);
       return;
     }
     this._zone.runOutsideAngular(() => this.handleMobileTap(which));
   }
 
-  /** Fait disparaître le duo et mémorise ce choix pour les visites suivantes. */
+  /**
+   * Fait disparaître le duo pour la session en cours (sessionStorage) : une
+   * bulle d'adieu annonce le retour à la prochaine visite, puis l'animation
+   * de départ se joue. Le mode d'affichage courant n'est pas touché — si le
+   * mode compact était actif, il le reste.
+   */
   protected dismiss(): void {
-    if (this.leaving()) {
+    if (this.leaving() || this._farewellPending) {
       return;
     }
     this.stopSensors();
-    this.leaving.set(true);
     try {
-      localStorage.setItem(STORAGE_KEY, 'true');
+      sessionStorage.setItem(STORAGE_KEY, 'true');
     } catch {
-      // Stockage indisponible : le duo reviendra à la prochaine visite.
+      // Stockage indisponible : le masquage vaudra le temps de la page.
     }
-    /* Laisse la petite animation de disparition se jouer avant le retrait du DOM. */
+
+    const robot = this._robot;
+    if (robot) {
+      /* Petit adieu : le robot salue et rappelle que le duo reviendra. */
+      this._farewellPending = true;
+      this._zone.runOutsideAngular(() => {
+        if (this._scene !== 'free') {
+          this.backToFree();
+        }
+        this.setPhase(robot, 'wave', FAREWELL_DURATION);
+        this.say(robot, FAREWELL_LINE, FAREWELL_DURATION);
+      });
+      this._farewellTimer = window.setTimeout(
+        () => this._zone.run(() => this.beginLeave()),
+        FAREWELL_DURATION
+      );
+    } else {
+      this.beginLeave();
+    }
+  }
+
+  /** Joue l'animation de disparition puis retire le duo du DOM. */
+  private beginLeave(): void {
+    this._farewellPending = false;
+    this.leaving.set(true);
     setTimeout(() => this._dismissed.set(true), 400);
   }
 
   private restoreDismissal(): void {
     try {
-      this._dismissed.set(localStorage.getItem(STORAGE_KEY) === 'true');
+      /* Ancienne persistance (localStorage, définitive) : nettoyée pour que
+         les visiteurs qui avaient masqué le duo le retrouvent — il porte
+         désormais l'accès au mode compact. */
+      localStorage.removeItem(STORAGE_KEY);
+      this._dismissed.set(sessionStorage.getItem(STORAGE_KEY) === 'true');
     } catch {
       // Stockage indisponible : le duo s'affiche par défaut.
+    }
+  }
+
+  private restoreSurpriseState(): void {
+    try {
+      this._surpriseFound = localStorage.getItem(SURPRISE_KEY) === 'true';
+    } catch {
+      // Stockage indisponible : les indices resteront insistants.
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Surprise du triple-clic (ordinateur)                                */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Compte les clics sur un personnage : trois clics sur le même en moins de
+   * TRIPLE_CLICK_WINDOW déclenchent la surprise (bascule diaporama /
+   * compact). Chaque clic intermédiaire vaut une petite réaction complice.
+   */
+  private handleDesktopClick(which: 'robot' | 'buddy'): void {
+    const now = performance.now();
+    if (
+      this._clickTarget !== which ||
+      now - this._firstClickAt > TRIPLE_CLICK_WINDOW
+    ) {
+      this._clickTarget = which;
+      this._clickCount = 0;
+      this._firstClickAt = now;
+    }
+    this._clickCount += 1;
+
+    if (this._clickCount >= 3) {
+      this._clickCount = 0;
+      this._clickTarget = undefined;
+      this.triggerSurprise(which);
+      return;
+    }
+
+    /* Sursaut complice, puis « Encore un clic… » au deuxième. */
+    this._zone.runOutsideAngular(() => {
+      const char = which === 'robot' ? this._robot : this._buddy;
+      if (!char || this._scene !== 'free') {
+        return;
+      }
+      this.setPhase(char, which === 'robot' ? 'jump' : 'excited', 700);
+      if (this._clickCount === 2) {
+        this.say(char, this.pickLine(ALMOST_LINES, char), 1300);
+      }
+    });
+  }
+
+  /**
+   * Troisième clic : bascule diaporama / compact (persistée par
+   * ViewModeService) avec mini-célébration du duo — saut synchronisé,
+   * étincelles et bulles « Tadaaa ! ». Fenêtre trop petite pour le mode
+   * compact : une bulle l'explique, rien ne bascule.
+   */
+  private triggerSurprise(which: 'robot' | 'buddy'): void {
+    if (!this._viewMode.compactCapable()) {
+      this._zone.runOutsideAngular(() => {
+        const char = which === 'robot' ? this._robot : this._buddy;
+        if (char) {
+          this.say(char, SURPRISE_LOCKED_LINE);
+        }
+      });
+      return;
+    }
+
+    this.markSurpriseFound();
+    const goingCompact = !this._viewMode.isCompact();
+    /* La réaction générique au changement de mode (reactToModeChange) est
+       neutralisée : la célébration ci-dessous la remplace. */
+    this._contextCooldown = CONTEXT_COOLDOWN;
+    this._viewMode.toggle();
+
+    this._zone.runOutsideAngular(() => {
+      const robot = this._robot;
+      const buddy = this._buddy;
+      if (!robot || !buddy) {
+        return;
+      }
+      if (this._scene !== 'free') {
+        this.backToFree();
+      }
+      /* Grand saut à deux : .is-cheering porte aussi les étincelles. */
+      this.setPhase(robot, 'cheer', 1100);
+      this.setPhase(buddy, 'cheer', 1100);
+      const clicked = which === 'robot' ? robot : buddy;
+      const other = which === 'robot' ? buddy : robot;
+      this.say(
+        clicked,
+        this.pickLine(
+          goingCompact ? SURPRISE_COMPACT_LINES : SURPRISE_SLIDESHOW_LINES,
+          clicked
+        )
+      );
+      this.say(other, SURPRISE_ECHO_LINE, 1600);
+    });
+  }
+
+  /** Mémorise la découverte : les indices se feront ensuite discrets. */
+  private markSurpriseFound(): void {
+    this._surpriseFound = true;
+    try {
+      localStorage.setItem(SURPRISE_KEY, 'true');
+    } catch {
+      // Stockage indisponible : les indices resteront simplement insistants.
     }
   }
 
@@ -570,9 +810,9 @@ export class MascotComponent implements OnDestroy {
       passive: true,
     });
 
-    if (mobile) {
-      this.bindLongPress(robotEl, buddyEl, signal);
-    }
+    /* L'appui long masque le duo sur toutes les plateformes : le clic simple
+       est réservé au triple-clic (surprise) et aux capteurs mobiles. */
+    this.bindLongPress(robotEl, buddyEl, signal);
 
     /* Regards : la position du curseur est simplement mémorisée ici,
        le travail (variables CSS) se fait au rythme de la boucle rAF. */
@@ -651,6 +891,8 @@ export class MascotComponent implements OnDestroy {
     this._sectionCooldown = 0;
     this._projectCooldown = 0;
     this._tapCooldown = 0;
+    this._clickCount = 0;
+    this._clickTarget = undefined;
 
     /* stopScene a retiré `--duo-tilt` et `is-offbalance` des éléments (qui
        survivent au redémarrage) : l'état interne repart de zéro avec eux,
@@ -673,13 +915,16 @@ export class MascotComponent implements OnDestroy {
     this._rafId = requestAnimationFrame(this._onFrame);
   }
 
-  /** Sur mobile, l'appui long sur un personnage masque le duo. */
+  /** L'appui long (600 ms) sur un personnage masque le duo, partout. */
   private bindLongPress(
     robotEl: HTMLButtonElement,
     buddyEl: HTMLButtonElement,
     signal: AbortSignal
   ): void {
-    const startPress = (): void => {
+    const startPress = (event: PointerEvent): void => {
+      if (event.button !== 0) {
+        return;
+      }
       clearTimeout(this._pressTimer);
       this._pressTimer = window.setTimeout(() => {
         this._longPressFired = true;
@@ -718,6 +963,11 @@ export class MascotComponent implements OnDestroy {
       char.el.classList.remove('is-talking', 'is-alert', 'is-offbalance');
       char.el.style.removeProperty('--duo-tilt');
     }
+    /* Le bouton × (desktop) repart caché lui aussi. */
+    const dismissEl = this._dismissRef()?.nativeElement;
+    dismissEl?.classList.remove('is-showing');
+    this._dismissShown = false;
+    this._dismissX = Number.NEGATIVE_INFINITY;
     this._robot = undefined;
     this._buddy = undefined;
     this._script = undefined;
@@ -781,6 +1031,7 @@ export class MascotComponent implements OnDestroy {
     this.updateBubble(robot, delta);
     this.updateBubble(buddy, delta);
     this.updateGazes(robot, buddy);
+    this.tickDismissHover(robot, buddy);
     this.checkProjectHover(timestamp);
     this.tickSensors(robot, buddy, delta);
     this.tickSensorInvite(robot, delta);
@@ -867,10 +1118,28 @@ export class MascotComponent implements OnDestroy {
     const buddy = this._buddy!;
     /* Le robot parle le plus souvent, l'ami place son petit mot parfois. */
     const speaker = Math.random() < 0.7 ? robot : buddy;
-    if (speaker.bubbleRemaining <= 0) {
-      const pool = speaker === robot ? ROBOT_LINES : BUDDY_LINES;
-      this.say(speaker, this.pickLine(pool, speaker));
+    if (speaker.bubbleRemaining > 0) {
+      return;
     }
+
+    /* Indice vers la surprise du triple-clic — seulement là où elle existe
+       (ordinateur, viewport compatible) : tirage insistant tant qu'elle n'a
+       jamais été découverte, discret ensuite. */
+    const hintChance = this._surpriseFound
+      ? HINT_CHANCE_DISCOVERED
+      : HINT_CHANCE_UNDISCOVERED;
+    if (
+      this._isDesktop() &&
+      this._viewMode.compactCapable() &&
+      Math.random() < hintChance
+    ) {
+      const hints = speaker === robot ? ROBOT_HINT_LINES : BUDDY_HINT_LINES;
+      this.say(speaker, this.pickLine(hints, speaker));
+      return;
+    }
+
+    const pool = speaker === robot ? ROBOT_LINES : BUDDY_LINES;
+    this.say(speaker, this.pickLine(pool, speaker));
   }
 
   /* --- Chorégraphies à deux --- */
@@ -1139,8 +1408,30 @@ export class MascotComponent implements OnDestroy {
    * Toucher d'un personnage sur mobile (hors zone Angular).
    * Premier toucher : activation des capteurs (permission iOS demandée dans
    * ce geste). Ensuite : petite réaction amusée du personnage touché.
+   * Trois taps rapides : la surprise du triple-clic n'existe pas ici (le
+   * diaporama est forcé sous md), une bulle amusée le dit — rien ne bascule.
    */
   private handleMobileTap(which: 'robot' | 'buddy'): void {
+    const now = performance.now();
+    if (
+      this._clickTarget !== which ||
+      now - this._firstClickAt > TRIPLE_CLICK_WINDOW
+    ) {
+      this._clickTarget = which;
+      this._clickCount = 0;
+      this._firstClickAt = now;
+    }
+    this._clickCount += 1;
+    if (this._clickCount >= 3) {
+      this._clickCount = 0;
+      this._clickTarget = undefined;
+      const char = which === 'robot' ? this._robot : this._buddy;
+      if (char) {
+        this.say(char, SURPRISE_MOBILE_LINE);
+      }
+      return;
+    }
+
     switch (this._sensorState) {
       case 'pending':
         return;
@@ -1451,6 +1742,53 @@ export class MascotComponent implements OnDestroy {
       buddyLookX = -buddyLookX;
     }
     this.applyGaze(buddy, buddyLookX, buddyLookY);
+  }
+
+  /**
+   * Bouton × (ordinateur) : il se pose au-dessus du personnage le plus
+   * proche du curseur et disparaît quand la souris s'éloigne (hystérésis
+   * pour ne pas clignoter pendant le trajet vers le bouton). Sur mobile, le
+   * × est fixe en bas à droite : rien à faire ici.
+   */
+  private tickDismissHover(robot: Character, buddy: Character): void {
+    const dismissEl = this._dismissRef()?.nativeElement;
+    if (!dismissEl || !this._isDesktop()) {
+      return;
+    }
+
+    const refY = window.innerHeight - 44;
+    const robotDist = Math.hypot(
+      this._mouseX - this.centerOf(robot),
+      this._mouseY - refY
+    );
+    const buddyDist = Math.hypot(
+      this._mouseX - this.centerOf(buddy),
+      this._mouseY - refY
+    );
+    const nearest = robotDist <= buddyDist ? robot : buddy;
+    const dist = Math.min(robotDist, buddyDist);
+
+    const show = this._dismissShown
+      ? dist < DISMISS_HIDE_RADIUS
+      : dist < DISMISS_SHOW_RADIUS;
+    if (show !== this._dismissShown) {
+      this._dismissShown = show;
+      dismissEl.classList.toggle('is-showing', show);
+    }
+    if (!show) {
+      return;
+    }
+
+    /* Posé en haut à droite du personnage, borné aux bords de l'écran
+       (au-dessus des têtes, la bulle garde le centre). */
+    const x = Math.min(
+      Math.max(this.centerOf(nearest) + nearest.width / 2, EDGE_MARGIN),
+      window.innerWidth - DISMISS_HALF * 2 - 8
+    );
+    if (Math.abs(x - this._dismissX) > 0.5) {
+      this._dismissX = x;
+      dismissEl.style.transform = `translate3d(${x.toFixed(0)}px, 0, 0)`;
+    }
   }
 
   private applyGaze(char: Character, lookX: number, lookY: number): void {

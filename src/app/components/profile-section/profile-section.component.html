@@ -1,87 +1,51 @@
 @if (layout() === 'compact') {
-  <!-- Layout compact : photo en haut à gauche dans un cadre en tirets animé
-       (il se dessine à l'apparition puis ses tirets tournent lentement),
-       titre à sa droite. Même contenu que le layout hero, réagencé. -->
-  <div reveal class="flex items-center gap-12">
-    <div class="relative w-fit shrink-0 p-4">
-      <svg
-        class="pointer-events-none absolute inset-0 h-full w-full"
-        viewBox="0 0 208 208"
-        fill="none"
-        aria-hidden="true"
+  <!-- Layout compact « pont de commandement » : photo dans un liseré dégradé
+       (le cadre en tirets appartient désormais à l'écran, voir screen-frame),
+       pile serrée des titres à sa droite, accroche intégrale dessous.
+       Aucun mot supprimé : seuls les <br> doubles du layout hero sautent.
+       Le reveal est porté par la cellule du pont, pas par ce contenu. -->
+  <div class="flex min-h-0 flex-col gap-3 2xl:gap-4">
+    <div class="flex items-center gap-4 2xl:gap-5">
+      <div
+        class="shrink-0 rounded-xl bg-linear-to-b from-lightBlue to-purple p-px"
       >
-        <defs>
-          <linearGradient
-            id="profile-frame-gradient"
-            x1="0"
-            y1="0"
-            x2="208"
-            y2="208"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop class="frame-stop-start" offset="0" />
-            <stop class="frame-stop-end" offset="1" />
-          </linearGradient>
-          <!-- Trait plein blanc animé (draw) qui sert de révélateur au cadre. -->
-          <mask id="profile-frame-draw">
-            <rect
-              class="frame-draw"
-              x="7"
-              y="7"
-              width="194"
-              height="194"
-              rx="14"
-              pathLength="100"
-              stroke="white"
-              stroke-width="6"
-              stroke-dasharray="100"
-            />
-          </mask>
-        </defs>
-        <!-- Cadre principal : tirets en dégradé, défilement continu. -->
-        <g mask="url(#profile-frame-draw)">
-          <rect
-            class="frame-dashes"
-            x="7"
-            y="7"
-            width="194"
-            height="194"
-            rx="14"
-            pathLength="100"
-            stroke="url(#profile-frame-gradient)"
-            stroke-width="2"
-            stroke-dasharray="2.5 1.5"
-            stroke-linecap="round"
-          />
-        </g>
-        <!-- Coins marqués, légèrement décalés vers l'extérieur (touche tech). -->
-        <g
-          class="frame-corners"
-          stroke="url(#profile-frame-gradient)"
-          stroke-width="2"
-          stroke-linecap="round"
+        <img
+          (load)="imageLoaded.set(true)"
+          [class.blur-md]="!imageLoaded()"
+          src="assets/images/pp.png"
+          alt="Portrait de Hicham Guessab"
+          class="h-20 w-20 rounded-xl object-cover transition-all duration-500 2xl:h-24 2xl:w-24"
+        />
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="text-sm font-medium text-lightBlue">Hello ! Je suis</p>
+        <h1
+          class="inline-block text-gradient text-3xl font-medium 2xl:text-4xl"
         >
-          <path d="M20 1.5 H12 Q1.5 1.5 1.5 12 V20" />
-          <path d="M188 1.5 h8 q10.5 0 10.5 10.5 V20" />
-          <path d="M206.5 188 v8 q0 10.5 -10.5 10.5 h-8" />
-          <path d="M20 206.5 h-8 q-10.5 0 -10.5 -10.5 v-8" />
-        </g>
-      </svg>
-      <img
-        (load)="imageLoaded.set(true)"
-        [class.blur-md]="!imageLoaded()"
-        src="assets/images/pp.png"
-        alt="Portrait de Hicham Guessab"
-        class="h-44 w-44 rounded-xl object-cover transition-all duration-500"
-      />
+          Hicham Guessab
+        </h1>
+        <p class="font-analogue text-base 2xl:text-lg">Ingénieur logiciel</p>
+      </div>
     </div>
-    <div class="flex flex-col gap-3">
-      <p class="text-3xl font-medium text-lightBlue">Hello ! Je suis</p>
-      <h1 class="inline-block text-gradient text-6xl font-medium">
-        Hicham Guessab
-      </h1>
-      <p class="font-analogue text-2xl font-medium">Ingénieur logiciel</p>
-    </div>
+    <p
+      class="max-w-prose text-[13px] leading-relaxed font-light text-white/85 2xl:text-sm"
+    >
+      Aujourd'hui
+      <strong class="text-gradient">Développeur web et mobile,</strong>
+      je suis à la recherche de missions !
+      <br />
+      J'ai contribué à plusieurs projets, comme des
+      <strong class="text-gradient">SaaS</strong>
+      ou des sites vitrines.
+      <br />
+      Je suis spécialisé dans le développement
+      <strong class="text-gradient">Front-End</strong>
+      et particulièrement sur les technologies Angular et TypeScript.
+      <br />
+      Je reste
+      <strong class="text-gradient">touche à tout</strong>
+      et je peux m'adapter rapidement à d'autres technologies.
+    </p>
   </div>
 } @else {
   <!-- Layout hero (diaporama) : inchangé. -->
@@ -111,49 +75,49 @@
       />
     </div>
   </div>
+  <p
+    reveal
+    [revealDelay]="120"
+    class="pl-5 font-light sm:text-lg md:pl-8 md:text-xl"
+  >
+    Aujourd'hui
+    <strong class="text-gradient">Développeur web et mobile,</strong>
+    je suis à la recherche de missions !
+    <br />
+    J'ai contribué à plusieurs projets, comme des
+    <strong class="text-gradient">SaaS</strong>
+    ou des sites vitrines.
+    <br />
+    <br />
+    Je suis spécialisé dans le développement
+    <strong class="text-gradient">Front-End</strong>
+    et particulièrement sur les technologies Angular et TypeScript.
+    <br />
+    Je reste
+    <strong class="text-gradient">touche à tout</strong>
+    et je peux m'adapter rapidement à d'autres technologies.
+  </p>
+  <div class="flex flex-wrap place-content-evenly gap-3">
+    <badge
+      reveal
+      [revealDelay]="240"
+      [image]="BlueImage.Github"
+      [url]="Link.Github"
+      name="Github"
+    />
+    <badge
+      reveal
+      [revealDelay]="320"
+      [image]="BlueImage.Linkedin"
+      [url]="Link.LinkedIn"
+      name="LinkedIn"
+    />
+    <badge
+      reveal
+      [revealDelay]="400"
+      [image]="BlueImage.At"
+      [url]="Link.Email"
+      name="contact&#64;hichamguessab.com"
+    />
+  </div>
 }
-<p
-  reveal
-  [revealDelay]="120"
-  class="pl-5 font-light sm:text-lg md:pl-8 md:text-xl"
->
-  Aujourd'hui
-  <strong class="text-gradient">Développeur web et mobile,</strong>
-  je suis à la recherche de missions !
-  <br />
-  J'ai contribué à plusieurs projets, comme des
-  <strong class="text-gradient">SaaS</strong>
-  ou des sites vitrines.
-  <br />
-  <br />
-  Je suis spécialisé dans le développement
-  <strong class="text-gradient">Front-End</strong>
-  et particulièrement sur les technologies Angular et TypeScript.
-  <br />
-  Je reste
-  <strong class="text-gradient">touche à tout</strong>
-  et je peux m'adapter rapidement à d'autres technologies.
-</p>
-<div class="flex flex-wrap place-content-evenly gap-3">
-  <badge
-    reveal
-    [revealDelay]="240"
-    [image]="BlueImage.Github"
-    [url]="Link.Github"
-    name="Github"
-  />
-  <badge
-    reveal
-    [revealDelay]="320"
-    [image]="BlueImage.Linkedin"
-    [url]="Link.LinkedIn"
-    name="LinkedIn"
-  />
-  <badge
-    reveal
-    [revealDelay]="400"
-    [image]="BlueImage.At"
-    [url]="Link.Email"
-    name="contact@hichamguessab.com"
-  />
-</div>

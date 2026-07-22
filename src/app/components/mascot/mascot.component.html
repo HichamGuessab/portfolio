@@ -1,9 +1,11 @@
 @if (visible()) {
   <!-- Duo de mascottes purement décoratif (aria-hidden sur dessins et bulles).
-       Ordinateur : un clic sur l'un des deux masque le duo.
+       Ordinateur : chaque clic compte pour la surprise du triple-clic
+       (bascule diaporama / compact, teasée par leurs bulles).
        Mobile : le toucher active la réaction aux mouvements du téléphone
-       (permission iOS demandée dans ce geste), l'appui long ou le bouton ×
-       ci-dessous masque le duo. Le libellé suit le geste principal. -->
+       (permission iOS demandée dans ce geste).
+       Partout : l'appui long ou le bouton × ci-dessous masque le duo pour
+       la session. Le libellé suit le geste principal. -->
 
   <!-- Le robot -->
   <button
@@ -293,27 +295,29 @@
     </span>
   </button>
 
-  <!-- Sur mobile, le toucher des personnages sert aux capteurs : ce petit ×
-       discret (ou l'appui long) prend le relais pour masquer le duo. -->
-  @if (onMobile()) {
-    <button
-      type="button"
-      class="duo-dismiss"
-      [class.is-leaving]="leaving()"
-      (click)="dismiss()"
-      aria-label="Masquer les mascottes"
-      title="Masquer les mascottes"
+  <!-- Le clic sur les personnages est pris (surprise du triple-clic sur
+       ordinateur, capteurs sur mobile) : ce petit × discret (ou l'appui
+       long) masque le duo pour la session. Sur ordinateur il apparaît près
+       du personnage survolé (suivi dans la boucle rAF) ; sur mobile il est
+       fixe en bas à droite. -->
+  <button
+    #dismissBtn
+    type="button"
+    class="duo-dismiss"
+    [class.is-leaving]="leaving()"
+    (click)="dismiss()"
+    aria-label="Masquer les mascottes"
+    title="Masquer les mascottes"
+  >
+    <svg
+      viewBox="0 0 10 10"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.4"
+      stroke-linecap="round"
+      aria-hidden="true"
     >
-      <svg
-        viewBox="0 0 10 10"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.4"
-        stroke-linecap="round"
-        aria-hidden="true"
-      >
-        <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" />
-      </svg>
-    </button>
-  }
+      <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" />
+    </svg>
+  </button>
 }

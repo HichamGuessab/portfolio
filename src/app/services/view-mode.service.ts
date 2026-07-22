@@ -4,8 +4,12 @@ export type ViewMode = 'slideshow' | 'compact';
 
 const STORAGE_KEY = 'portfolio-view-mode';
 
-/** Breakpoint md de Tailwind : le mode compact n'existe que sur ordinateur. */
-const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
+/**
+ * Garde d'activation du mode compact « pont de commandement » : la grille
+ * bento 12 colonnes exige un vrai viewport d'ordinateur, en largeur ET en
+ * hauteur. En dessous de ce seuil, le diaporama reste la seule expérience.
+ */
+const COMPACT_MEDIA_QUERY = '(min-width: 1024px) and (min-height: 620px)';
 
 @Injectable({
   providedIn: 'root',
@@ -14,26 +18,35 @@ export class ViewModeService {
   /** Mode choisi par l'utilisateur (persisté dans localStorage). */
   private readonly _mode = signal<ViewMode>('slideshow');
 
-  /** Vrai à partir du breakpoint md (768px). */
-  private readonly _isDesktop = signal(false);
+  /** Vrai quand le viewport peut accueillir la grille bento du mode compact. */
+  private readonly _compactViewport = signal(false);
 
   readonly mode = this._mode.asReadonly();
 
   /**
+   * Vrai quand le viewport peut accueillir le mode compact. Exposé pour les
+   * déclencheurs (triple-clic sur une mascotte) : sur une fenêtre trop
+   * petite, la surprise est annoncée « pour grand écran » au lieu de
+   * basculer dans le vide.
+   */
+  readonly compactCapable = this._compactViewport.asReadonly();
+
+  /**
    * Vrai quand la mise en page compacte doit être rendue : mode compact
-   * choisi ET écran d'ordinateur. Sur mobile, le diaporama reste seul.
+   * choisi ET viewport assez grand (largeur et hauteur). Sur mobile et sur
+   * les petites fenêtres, le diaporama reste seul.
    */
   readonly isCompact = computed(
-    () => this._mode() === 'compact' && this._isDesktop()
+    () => this._mode() === 'compact' && this._compactViewport()
   );
 
   constructor() {
     this.restoreMode();
 
-    const query = window.matchMedia(DESKTOP_MEDIA_QUERY);
-    this._isDesktop.set(query.matches);
+    const query = window.matchMedia(COMPACT_MEDIA_QUERY);
+    this._compactViewport.set(query.matches);
     query.addEventListener('change', (event) =>
-      this._isDesktop.set(event.matches)
+      this._compactViewport.set(event.matches)
     );
   }
 

@@ -16,13 +16,9 @@ import {
  * identique quel que soit le mode.
  *
  * Les styles associés (.reveal / .reveal-visible) sont définis dans
- * src/styles.css. Quand les animations sont désactivées (préférence système
- * `prefers-reduced-motion: reduce` sans override du visiteur — voir
- * MotionService et la classe `force-motion` sur <html>), une règle CSS force
- * l'état visible : le visiteur ne voit jamais l'état masqué, le contenu reste
- * visible même si ce code ne s'exécute pas. L'observation, elle, tourne dans
- * tous les cas : si le visiteur active l'override en cours de visite, les
- * éléments encore hors écran se révèlent normalement au défilement.
+ * src/styles.css. Les animations sont actives par défaut pour tous les
+ * visiteurs (voir MotionService) ; si IntersectionObserver n'existe pas,
+ * l'état visible est posé immédiatement pour ne jamais masquer de contenu.
  */
 @Directive({
   selector: '[reveal]',
@@ -31,6 +27,15 @@ import {
 export class RevealDirective implements OnInit, OnDestroy {
   /** Délai d'apparition en millisecondes (stagger des listes). */
   revealDelay: InputSignal<number> = input(0);
+
+  /**
+   * rootMargin de l'observation. Par défaut, léger retrait en bas du
+   * viewport : l'élément n'apparaît qu'une fois réellement entré dans
+   * l'écran. À passer à '0px' pour les éléments collés au bord bas d'une
+   * vue plein écran (barre de statut du mode compact), sinon ils ne
+   * seraient jamais révélés.
+   */
+  revealMargin: InputSignal<string> = input('0px 0px -10% 0px');
 
   private readonly _element: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly _zone: NgZone = inject(NgZone);
@@ -61,9 +66,7 @@ export class RevealDirective implements OnInit, OnDestroy {
             this._observer = undefined;
           }
         },
-        /* Léger retrait en bas du viewport : en mode compact, l'élément
-           n'apparaît qu'une fois réellement entré dans l'écran. */
-        { rootMargin: '0px 0px -10% 0px' }
+        { rootMargin: this.revealMargin() }
       );
       this._observer.observe(element);
     });

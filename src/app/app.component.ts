@@ -10,8 +10,8 @@ import { ProjectsSectionComponent } from './components/projects-section/projects
 import { EducationSectionComponent } from './components/education-section/education-section.component';
 import { ExperienceSectionComponent } from './components/experience-section/experience-section.component';
 import { MascotComponent } from './components/mascot/mascot.component';
+import { CompactBoardComponent } from './components/compact-board/compact-board.component';
 import { ViewModeService } from './services/view-mode.service';
-import { MotionService } from './services/motion.service';
 
 @Component({
   selector: 'app-root',
@@ -23,6 +23,7 @@ import { MotionService } from './services/motion.service';
     EducationSectionComponent,
     ExperienceSectionComponent,
     MascotComponent,
+    CompactBoardComponent,
   ],
   styles: [
     `
@@ -63,5 +64,4 @@ import { MotionService } from './services/motion.service';
 })
 export class AppComponent {
   protected readonly viewMode: ViewModeService = inject(ViewModeService);
-  protected readonly motion: MotionService = inject(MotionService);
 }

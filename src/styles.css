@@ -56,6 +56,13 @@
   }
 }
 
+/* Mode compact « pont de commandement » : la page ne défile JAMAIS — tout
+   tient dans le viewport, seuls certains blocs internes peuvent défiler. */
+html:has(compact-board),
+body:has(compact-board) {
+  overflow: hidden;
+}
+
 /* Flèches de navigation Swiper : masquées sur mobile, visibles à partir du breakpoint sm */
 swiper-container::part(button-prev),
 swiper-container::part(button-next) {
@@ -84,11 +91,9 @@ swiper-container::part(button-next) {
 
 /* Animations d'entrée des sections (directive [reveal]).
    Seules opacity et transform sont animées (aucun recalcul de layout).
-
-   L'état masqué n'existe que si les animations sont acceptées : quand le
-   système réduit les animations SANS override du visiteur (html sans
-   .force-motion, classe posée par MotionService), la neutralisation
-   ci-dessous garde le contenu visible en permanence. */
+   Actives pour tout le monde : la directive pose .reveal-visible dès
+   l'entrée dans le viewport (ou immédiatement sans IntersectionObserver),
+   aucun contenu ne reste masqué. */
 .reveal {
   opacity: 0;
   transform: translateY(14px);
@@ -106,26 +111,4 @@ swiper-container::part(button-next) {
     opacity 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
     transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
   transition-delay: var(--reveal-delay, 0ms);
-}
-
-/* Réduction des animations : appliquée quand le système la demande, SAUF si
-   le visiteur a explicitement réactivé les animations (html.force-motion,
-   via MotionService et le bouton « Activer les animations »). */
-@media (prefers-reduced-motion: reduce) {
-  html:not(.force-motion) *,
-  html:not(.force-motion) ::before,
-  html:not(.force-motion) ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-
-  /* Le contenu à révéler reste visible en permanence : aucun état masqué. */
-  html:not(.force-motion) .reveal {
-    opacity: 1;
-    transform: none;
-    will-change: auto;
-    transition: none;
-  }
 }

@@ -1,0 +1,117 @@
+<svg
+  class="pointer-events-none fixed inset-0 z-30 h-full w-full"
+  [class.frame-excited]="excited()"
+  aria-hidden="true"
+>
+  <defs>
+    <linearGradient id="frame-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop class="frame-stop-start" offset="0" />
+      <stop class="frame-stop-end" offset="1" />
+    </linearGradient>
+    <!-- Trait plein blanc animé (draw) qui sert de révélateur au cadre. -->
+    <mask id="frame-draw-mask">
+      <path
+        class="frame-draw"
+        [attr.d]="framePath()"
+        pathLength="1000"
+        fill="none"
+        stroke="white"
+        stroke-width="10"
+        stroke-dasharray="1000"
+      />
+    </mask>
+  </defs>
+
+  <g mask="url(#frame-draw-mask)">
+    <!-- Halo : path statique, aucun filtre CSS (coût GPU) — il donne
+         l'épaisseur lumineuse au trait. -->
+    <path
+      class="frame-halo"
+      [attr.d]="framePath()"
+      fill="none"
+      stroke="url(#frame-gradient)"
+      stroke-width="6"
+    />
+    <!-- Circuit principal : tirets en dégradé, défilement continu. -->
+    <path
+      class="frame-dashes"
+      [attr.d]="framePath()"
+      pathLength="1000"
+      fill="none"
+      stroke="url(#frame-gradient)"
+      stroke-width="2"
+      stroke-dasharray="3 2.2"
+      stroke-linecap="round"
+    />
+  </g>
+
+  <!-- Équerres de coin + pips, décalées vers l'extérieur (touche HUD). -->
+  <g
+    class="frame-corner frame-corner-tl"
+    fill="none"
+    stroke="url(#frame-gradient)"
+    stroke-width="2"
+    stroke-linecap="round"
+  >
+    <path [attr.d]="corners().tl" />
+    <rect
+      x="1.5"
+      y="1.5"
+      width="2"
+      height="2"
+      fill="url(#frame-gradient)"
+      stroke="none"
+    />
+  </g>
+  <g
+    class="frame-corner frame-corner-tr"
+    fill="none"
+    stroke="url(#frame-gradient)"
+    stroke-width="2"
+    stroke-linecap="round"
+  >
+    <path [attr.d]="corners().tr" />
+    <rect
+      [attr.x]="pips().right"
+      y="1.5"
+      width="2"
+      height="2"
+      fill="url(#frame-gradient)"
+      stroke="none"
+    />
+  </g>
+  <g
+    class="frame-corner frame-corner-br"
+    fill="none"
+    stroke="url(#frame-gradient)"
+    stroke-width="2"
+    stroke-linecap="round"
+  >
+    <path [attr.d]="corners().br" />
+    <rect
+      [attr.x]="pips().right"
+      [attr.y]="pips().bottom"
+      width="2"
+      height="2"
+      fill="url(#frame-gradient)"
+      stroke="none"
+    />
+  </g>
+  <g
+    class="frame-corner frame-corner-bl"
+    fill="none"
+    stroke="url(#frame-gradient)"
+    stroke-width="2"
+    stroke-linecap="round"
+  >
+    <path [attr.d]="corners().bl" />
+    <rect
+      x="1.5"
+      [attr.y]="pips().bottom"
+      width="2"
+      height="2"
+      fill="url(#frame-gradient)"
+      stroke="none"
+    />
+  </g>
+</svg>

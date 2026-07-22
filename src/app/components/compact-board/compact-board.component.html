@@ -1,0 +1,350 @@
+<!-- Cadre-circuit plein écran : dessin à l'apparition puis marching ants. -->
+<screen-frame [excited]="frameExcited()" />
+
+<div
+  class="view-fade-in relative h-dvh w-full overflow-hidden p-[clamp(24px,2.2vw,44px)] text-wildSand"
+  (pointerover)="onCircuitOver($event)"
+  (pointerleave)="onCircuitLeave()"
+  (focusin)="onCircuitOver($event)"
+  (focusout)="onCircuitLeave()"
+>
+  <div
+    class="grid h-full grid-cols-12 grid-rows-[minmax(0,1fr)_auto] gap-[clamp(8px,1vw,20px)]"
+  >
+    <!-- Colonne gauche : identité + baie projets -->
+    <div
+      class="col-span-7 grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-[clamp(8px,1vw,20px)]"
+    >
+      <!-- A — Identité -->
+      <section
+        reveal
+        [revealDelay]="250"
+        [revealMargin]="'0px'"
+        class="relative flex min-h-0 flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+      >
+        <span
+          class="absolute top-3 right-4 text-[10px] text-lightBlue/40 tabular-nums"
+          aria-hidden="true"
+        >
+          01
+        </span>
+        <profile-section layout="compact" class="min-h-0" />
+      </section>
+
+      <!-- B — Projets : baie de modules + console de lecture -->
+      <section
+        reveal
+        [revealDelay]="350"
+        [revealMargin]="'0px'"
+        class="relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+      >
+        <section-header
+          size="mini"
+          [icon]="BlueImage.Stack"
+          title="Projets"
+          [count]="projects.length"
+          index="02"
+        />
+        <div class="grid min-h-0 grid-cols-4 grid-rows-3 gap-2">
+          @for (project of projects; track project.name; let i = $index) {
+            <a
+              [href]="project.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-circuit
+              aria-describedby="project-console"
+              (mouseenter)="activeProject.set(project)"
+              (focus)="activeProject.set(project)"
+              class="group flex min-h-0 flex-col justify-between overflow-hidden rounded-lg border border-white/8 bg-navyBlue/35 px-3 py-2 transition duration-200 hover:-translate-y-0.5 hover:border-lightBlue/50 focus-visible:-translate-y-0.5 focus-visible:border-lightBlue/50"
+            >
+              <span class="text-[9px] text-lightBlue/40 tabular-nums">
+                {{ padIndex(i) }}
+              </span>
+              <span
+                class="truncate text-[13px] font-semibold text-white group-hover:text-gradient group-focus-visible:text-gradient 2xl:text-sm"
+              >
+                {{ project.name }}
+              </span>
+              <span class="flex gap-1.5">
+                @for (technology of project.technologies; track technology) {
+                  <img
+                    [src]="technology"
+                    class="h-3.5 w-3.5 object-contain 2xl:h-4 2xl:w-4"
+                    alt=""
+                  />
+                }
+              </span>
+            </a>
+          }
+          <!-- 12e slot « libre » : simple clin d'œil « prochaine baie »,
+               ultra-discret, aucun texte porteur de sens. -->
+          <div
+            aria-hidden="true"
+            class="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10"
+          >
+            <span class="text-xs text-white/20">···</span>
+            <span class="slot-dot h-1 w-1 rounded-full bg-lightBlue"></span>
+          </div>
+        </div>
+        <!-- Console de lecture : hauteur fixe, aucun reflow. Le nœud est
+             recréé au changement de projet (track) pour rejouer le fondu. -->
+        <div
+          id="project-console"
+          class="mt-2 flex h-16 items-center gap-3 overflow-hidden rounded-lg border border-white/8 bg-darkBlue/70 px-4 py-2 2xl:h-20"
+        >
+          @for (project of [activeProject()]; track project.name) {
+            <div class="console-line flex min-w-0 flex-1 items-center gap-3">
+              <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p class="truncate text-xs font-semibold text-lightBlue">
+                  <span class="console-caret" aria-hidden="true">▍</span>
+                  {{ project.name }}
+                </p>
+                <p
+                  class="line-clamp-2 text-[11px] font-light text-white/75 italic 2xl:text-xs"
+                  [innerHTML]="project.description"
+                ></p>
+              </div>
+              <a
+                [href]="project.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="shrink-0 text-[11px] text-lightBlue/70 transition duration-200 hover:text-lightBlue focus-visible:text-lightBlue"
+              >
+                ouvrir ↗
+              </a>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <!-- Colonne droite : expérience + compétences + formation.
+         minmax(auto,2fr) : Compétences ne descend jamais sous son contenu
+         (aucune chip masquée), Expérience absorbe le reste (scroll interne
+         au besoin), Formation garde sa hauteur naturelle. -->
+    <div
+      class="col-span-5 grid min-h-0 grid-rows-[minmax(0,3fr)_minmax(auto,2fr)_auto] gap-[clamp(8px,1vw,20px)]"
+    >
+      <!-- C — Expérience : accordéon-registre -->
+      <section
+        reveal
+        [revealDelay]="450"
+        [revealMargin]="'0px'"
+        class="relative flex min-h-0 flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+      >
+        <section-header
+          size="mini"
+          [icon]="BlueImage.Work"
+          title="Expérience"
+          index="03"
+        />
+        <div
+          class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto [@media(min-height:820px)]:gap-1.5"
+        >
+          @for (
+            experience of experiences;
+            track experience.name;
+            let i = $index
+          ) {
+            <div
+              class="rounded-r-lg border-l-2 pl-3 transition duration-300"
+              [class]="
+                activeExperience() === i
+                  ? 'border-lightBlue bg-navyBlue/30'
+                  : 'border-white/10 opacity-70 hover:opacity-100'
+              "
+            >
+              <button
+                type="button"
+                data-circuit
+                class="flex w-full cursor-pointer items-baseline gap-2 py-1 text-left [@media(min-height:820px)]:py-1.5"
+                [attr.aria-expanded]="activeExperience() === i"
+                [attr.aria-controls]="'experience-panel-' + i"
+                (click)="activeExperience.set(i)"
+                (mouseenter)="activeExperience.set(i)"
+                (focus)="activeExperience.set(i)"
+              >
+                <span
+                  class="w-24 shrink-0 text-[10px] text-lightBlue/70 tabular-nums"
+                >
+                  {{ experience.date }}
+                </span>
+                <span
+                  class="shrink-0 text-[13px] font-medium text-white 2xl:text-sm"
+                >
+                  {{ experience.name }}
+                </span>
+                <span
+                  class="min-w-0 flex-1 truncate text-[11px] text-white/55 italic"
+                >
+                  {{ experience.company }}
+                </span>
+              </button>
+              <!-- Expansion grid-rows 0fr → 1fr : uniquement
+                   grid-template-rows, aucune animation de layout coûteuse. -->
+              <div
+                [id]="'experience-panel-' + i"
+                class="grid transition-[grid-template-rows] duration-300"
+                [class]="
+                  activeExperience() === i
+                    ? 'grid-rows-[1fr]'
+                    : 'grid-rows-[0fr]'
+                "
+              >
+                <!-- max-h + scroll interne : absorbe les viewports courts,
+                     plus d'air dès que la fenêtre est haute. -->
+                <div class="min-h-0 overflow-hidden">
+                  <p
+                    class="max-h-16 overflow-y-auto pr-1 pb-2 text-[11px] leading-snug font-light text-white/80 2xl:text-xs [@media(min-height:780px)]:max-h-28 [@media(min-height:860px)]:max-h-36"
+                    [innerHTML]="experience.description"
+                  ></p>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- D — Compétences : 4 baies techniques 2×2, toutes les chips
+           visibles en permanence. -->
+      <section
+        reveal
+        [revealDelay]="550"
+        [revealMargin]="'0px'"
+        class="relative flex flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+      >
+        <section-header
+          size="mini"
+          [icon]="BlueImage.Technology"
+          title="Compétences"
+          index="04"
+        />
+        <div
+          class="grid grid-cols-2 gap-x-4 gap-y-2 [@media(min-height:820px)]:gap-y-3"
+        >
+          @for (bay of skillBays; track bay.name) {
+            <div>
+              <h3
+                class="mb-1.5 text-[10px] tracking-[0.2em] text-white/45 uppercase"
+              >
+                {{ bay.name }}
+              </h3>
+              <ul class="flex flex-wrap gap-x-3 gap-y-1.5">
+                @for (skill of bay.skills; track skill.name) {
+                  <li data-circuit class="group flex items-center gap-1.5">
+                    <img
+                      [src]="skill.image"
+                      alt=""
+                      class="h-4 w-4 object-contain transition duration-200 group-hover:drop-shadow-[0_0_6px_rgba(83,220,253,0.6)] 2xl:h-5 2xl:w-5"
+                    />
+                    @if (skill.type === SkillType.Shiny) {
+                      <span
+                        class="text-gradient text-[11px] font-semibold 2xl:text-xs"
+                      >
+                        {{ skill.name }}
+                      </span>
+                    } @else {
+                      <span
+                        class="text-[11px] font-light text-white/85 transition duration-200 group-hover:text-white 2xl:text-xs"
+                      >
+                        {{ skill.name }}
+                      </span>
+                    }
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- E — Formation : timeline horizontale sur fil pointillé, dérivation
+           du circuit (mêmes tirets, même cadence que le cadre). -->
+      <section
+        reveal
+        [revealDelay]="650"
+        [revealMargin]="'0px'"
+        class="relative flex flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+      >
+        <section-header
+          size="mini"
+          [icon]="BlueImage.Study"
+          title="Formation"
+          index="05"
+        />
+        <div class="relative grid grid-cols-3 gap-3">
+          <svg
+            class="pointer-events-none absolute top-[3px] left-0 h-0.5 w-full"
+            aria-hidden="true"
+          >
+            <line class="timeline-dashes" x1="0" y1="1" x2="100%" y2="1" />
+          </svg>
+          @for (degree of degrees; track degree.name; let last = $last) {
+            <div class="group flex min-w-0 flex-col gap-0.5 leading-tight">
+              <span
+                class="mb-1 ml-1 h-2 w-2 rounded-full bg-linear-to-b from-lightBlue to-purple transition-transform duration-200 group-hover:scale-125"
+                [class]="last ? 'shadow-[0_0_8px_rgba(168,140,255,0.8)]' : ''"
+              ></span>
+              <p class="text-[13px] font-medium">{{ degree.name }}</p>
+              <p class="text-gradient text-[11px]">{{ degree.type }}</p>
+              <p
+                class="truncate text-[10px] text-white/55 transition duration-200 group-hover:text-white/85"
+              >
+                {{ degree.institution }}
+              </p>
+              <p class="text-[10px] text-lightBlue/70 tabular-nums">
+                {{ degree.date }}
+              </p>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <!-- F — Barre de statut : contacts + sol des mascottes + readout HUD.
+         Pas de carte : elle appartient au sol du pont. -->
+    <div
+      reveal
+      [revealDelay]="750"
+      [revealMargin]="'0px'"
+      class="col-span-12 flex h-12 items-center gap-4 px-1 2xl:h-14"
+    >
+      <!-- relative z-50 : les liens de contact passent au-dessus du duo de
+           mascottes (hôte fixe z-40) — un personnage qui se promène devant
+           un badge ne vole jamais le clic (sinon trois clics insistants sur
+           « Github » déclencheraient la surprise du triple-clic). -->
+      <div class="relative z-50 flex items-center gap-2">
+        <badge
+          data-circuit
+          size="sm"
+          [image]="BlueImage.Github"
+          [url]="Link.Github"
+          name="Github"
+        />
+        <badge
+          data-circuit
+          size="sm"
+          [image]="BlueImage.Linkedin"
+          [url]="Link.LinkedIn"
+          name="LinkedIn"
+        />
+        <badge
+          data-circuit
+          size="sm"
+          [image]="BlueImage.At"
+          [url]="Link.Email"
+          name="contact&#64;hichamguessab.com"
+        />
+      </div>
+      <!-- Sol pointillé sur lequel le duo de mascottes (fixed, z-40) semble
+           marcher — dérivation discrète du circuit. -->
+      <div
+        class="mb-1 flex-1 self-end border-t border-dashed border-white/12"
+        aria-hidden="true"
+      ></div>
+      <p class="shrink-0 text-[10px] text-white/30 tabular-nums">
+        {{ viewportWidth() }} × {{ viewportHeight() }}
+      </p>
+    </div>
+  </div>
+</div>
