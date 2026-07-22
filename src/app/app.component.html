@@ -1,28 +1,31 @@
-<swiper-container
-  pagination="true"
-  pagination-clickable="true"
-  mousewheel="true"
-  direction="vertical"
-  class="h-screen w-full overflow-x-hidden text-white"
-  css-mode="true"
->
-  <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-    <profile-section class="w-3/4" />
-  </swiper-slide>
-  <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-    <skills-section class="w-3/4" />
-  </swiper-slide>
-  <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-    <projects-section class="w-3/4" />
-  </swiper-slide>
-  <swiper-slide
-    class="flex flex-col items-center justify-center overflow-x-hidden"
+<main>
+  <swiper-container
+    pagination="true"
+    pagination-clickable="true"
+    mousewheel="true"
+    keyboard="true"
+    direction="vertical"
+    class="h-screen w-full overflow-x-hidden text-wildSand"
+    css-mode="true"
   >
-    <experience-section class="w-3/4" />
-  </swiper-slide>
-  <swiper-slide
-    class="flex flex-col items-center justify-center overflow-x-hidden"
-  >
-    <education-section class="w-3/4" />
-  </swiper-slide>
-</swiper-container>
+    <swiper-slide class="flex items-center justify-center overflow-x-hidden">
+      <profile-section class="w-3/4" />
+    </swiper-slide>
+    <swiper-slide class="flex items-center justify-center overflow-x-hidden">
+      <projects-section class="w-3/4" />
+    </swiper-slide>
+    <swiper-slide class="flex items-center justify-center overflow-x-hidden">
+      <skills-section class="w-3/4" />
+    </swiper-slide>
+    <swiper-slide
+      class="flex flex-col items-center justify-center overflow-x-hidden"
+    >
+      <experience-section class="w-3/4" />
+    </swiper-slide>
+    <swiper-slide
+      class="flex flex-col items-center justify-center overflow-x-hidden"
+    >
+      <education-section class="w-3/4" />
+    </swiper-slide>
+  </swiper-container>
+</main>

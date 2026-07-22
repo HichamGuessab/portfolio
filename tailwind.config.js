@@ -12,8 +12,14 @@ module.exports = {
         purple: '#A88CFF',
       },
       fontFamily: {
-        vremena: ['"Vremena Grotesk"', 'sans-serif'],
-        analogue: ['"Analogue Reduced"', 'serif'],
+        sans: [
+          'system-ui',
+          '-apple-system',
+          '"Segoe UI"',
+          'Roboto',
+          'sans-serif',
+        ],
+        analogue: ['Georgia', 'serif'],
       },
       fontWeight: {
         light: '300',

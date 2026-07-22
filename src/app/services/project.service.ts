@@ -9,21 +9,21 @@ export class ProjectService {
 
   portfolio: Project = this.buildProject(
     'Portfolio',
-    'My personal portfolio, designed with Figma. <br> <a class="hover:text-blue-400" href="https://www.figma.com/design/5EQNpkJoka4iXvDkSkv1Rs/Portfolio---Hicham-Guessab?node-id=0-1&t=MQ0xp0VIZ6Lf1iZu-1"> <u><i>See Design</i></u> </a>',
+    'Mon portfolio personnel, maquetté sur Figma. <br> <a class="hover:text-lightBlue" href="https://www.figma.com/design/5EQNpkJoka4iXvDkSkv1Rs/Portfolio---Hicham-Guessab?node-id=0-1&t=MQ0xp0VIZ6Lf1iZu-1"> <u><i>Voir la maquette</i></u> </a>',
     [WhiteImage.Figma, WhiteImage.Angular, WhiteImage.Tailwind],
     'https://github.com/HichamGuessab/portfolio'
   );
 
   macMahon: Project = this.buildProject(
     'MacMahon',
-    'A MacMahon game.',
+    'Un jeu de MacMahon.',
     [WhiteImage.Cpp],
     'https://github.com/HichamGuessab/MacMahon'
   );
 
   ceriSoNetProject: Project = this.buildProject(
     'CERISoNet',
-    'A social network for CERI.',
+    'Un réseau social pour le CERI.',
     [
       WhiteImage.Angular,
       WhiteImage.Nodejs,
@@ -35,56 +35,56 @@ export class ProjectService {
 
   pokedexNative: Project = this.buildProject(
     'Pokedex Native',
-    'A simple pokedex using pokeapi.',
+    'Un pokédex simple utilisant PokéAPI.',
     [WhiteImage.ReactNative],
     'https://github.com/HichamGuessab/pokedex-native'
   );
 
   poorMansSpotifyProject: Project = this.buildProject(
     "Poor man's Spotify",
-    'A music player.',
+    'Un lecteur de musique.',
     [WhiteImage.Ionic, WhiteImage.Ice],
     'https://github.com/HichamGuessab/SpotifyDuPauvre'
   );
 
   rsaImplementation: Project = this.buildProject(
     'RSA Algorithm',
-    'RSA implementation for security.',
+    'Implémentation de RSA pour la sécurité.',
     [WhiteImage.Python],
     'https://github.com/HichamGuessab/RSA_Implementation'
   );
 
   testingTechniques: Project = this.buildProject(
     'Testing techniques',
-    'Introduction to Testing techniques.',
+    'Introduction aux techniques de test.',
     [WhiteImage.Java],
     'https://github.com/HichamGuessab/ceri-m1-techniques-de-test'
   );
 
   wineShazamProject: Project = this.buildProject(
     'WineShazam',
-    'Shazam, but for wine.',
+    'Shazam, mais pour le vin.',
     [WhiteImage.Flutter],
     'https://github.com/HichamGuessab/WineShazam'
   );
 
   MQTTRasberryPiToArduinoEthernet: Project = this.buildProject(
     'MQTT',
-    'Communicating a Raspberry Pi 4 with an Arduino Ethernet.',
+    'Communication entre un Raspberry Pi 4 et un Arduino Ethernet.',
     [WhiteImage.Raspberry, WhiteImage.Arduino],
     'https://github.com/HichamGuessab/MQTT_RaspberryPi_To_ArduinoEthernet'
   );
 
   pdfToTxt: Project = this.buildProject(
     'Pdf to Txt',
-    'Convert a PDF file to a TXT one.',
+    'Convertir un fichier PDF en fichier TXT.',
     [WhiteImage.Python],
     'https://github.com/HichamGuessab/PdfToTxt'
   );
 
   xmlManipulationLab: Project = this.buildProject(
     'XML Lab',
-    'A lab for XML manipulation.',
+    'Un TP de manipulation XML.',
     [WhiteImage.XML],
     'https://github.com/HichamGuessab/XMLManipulationLab'
   );

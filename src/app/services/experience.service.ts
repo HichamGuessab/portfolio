@@ -8,36 +8,36 @@ export class ExperienceService {
   experiences: Experience[] = [];
 
   courses: Experience = this.buildExperience(
-    'Teacher',
-    'Private lessons',
+    'Professeur particulier',
+    'Cours particuliers',
     '2020 - 2022',
-    'Alongside my studies, I have given occasional private lessons in mathematics and computer science.'
+    "En parallèle de mes études, j'ai donné ponctuellement des cours particuliers de mathématiques et d'informatique."
   );
 
   roboticsFrenchCup: Experience = this.buildExperience(
-    'Lidar Operator',
+    'Opérateur Lidar',
     'Asso R2T2',
     '2022 - 2023',
-    'Coupe de France de Robotique as Lidar operator in a team of 5 people within the R2T2 association. <br> <br> Grading : 27/90'
+    "Coupe de France de Robotique en tant qu'opérateur Lidar dans une équipe de 5 personnes au sein de l'association R2T2. <br> <br> Résultat : 27/90"
   );
 
   CBAInformatiqueLiberal: Experience = this.buildExperience(
-    'Software Engineer',
+    'Ingénieur logiciel',
     'CBA Informatique Libéral',
     '2023 - 2025',
-    'As a software engineer at CBA Informatique Libéral, I am responsible for developing and maintaining AgatheYou software applications (Web and Mobile) with Angular and Ionic. <br> <br> Check my LinkedIn profile to know more.'
+    "En tant qu'ingénieur logiciel chez CBA Informatique Libéral, j'étais chargé du développement et de la maintenance des applications AgatheYou (Web et Mobile) avec Angular et Ionic. <br> <br> Consultez mon profil LinkedIn pour en savoir plus."
   );
 
   referentJeanZay: Experience = this.buildExperience(
-    'Residence referent',
-    'Jean Zay residence',
-    'September 2024 - June 2025',
-  'Referent at the Jean Zay residence, a Crous student residence for 170 people.<br> <br> ' +
-    '- Welcoming residents <br>' +
-    '- Event organization <br>' +
-    '- Problem management <br>' +
-    '- Daily report <br><br>' +
-    '6-hour a week contract'
+    'Référent de résidence',
+    'Résidence Jean Zay',
+    'Septembre 2024 - Juin 2025',
+    'Référent à la résidence Jean Zay, une résidence étudiante du Crous accueillant 170 personnes.<br> <br> ' +
+      '- Accueil des résidents <br>' +
+      "- Organisation d'événements <br>" +
+      '- Gestion des problèmes <br>' +
+      '- Rapport quotidien <br><br>' +
+      'Contrat de 6 heures par semaine'
   );
 
   constructor() {

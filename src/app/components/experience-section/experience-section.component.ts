@@ -7,26 +7,27 @@ import {
 import { ExperienceItemComponent } from './experience-item/experience-item.component';
 import { BlueImage, Experience } from '../../interfaces';
 import { ExperienceService } from '../../services/experience.service';
+import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
   selector: 'experience-section',
   templateUrl: './experience-section.component.html',
   standalone: true,
-  imports: [ExperienceItemComponent],
+  imports: [ExperienceItemComponent, SectionHeaderComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: { class: 'flex flex-col' },
   styles: [
     `
-      swiper-container::part(button-prev),
-      swiper-container::part(button-next) {
-        display: none;
+      /* Bullets de pagination aux couleurs de la charte (lightBlue) */
+      swiper-container {
+        --swiper-pagination-color: var(--light-blue);
+        --swiper-pagination-bullet-inactive-color: var(--light-blue);
       }
 
-      @media (min-width: 640px) {
-        swiper-container::part(button-prev),
-        swiper-container::part(button-next) {
-          display: block;
-        }
+      /* Place la pagination juste sous la carte (min-h-[30rem] + 12px
+         d'écart), comme pour la section projets. */
+      swiper-container::part(pagination) {
+        top: calc(30rem + 12px);
       }
     `,
   ],

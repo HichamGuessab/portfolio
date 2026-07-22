@@ -1,60 +1,45 @@
 <div class="flex items-center justify-between">
   <div class="flex flex-col gap-3">
-    <h2 class="text-2xl font-medium text-lightBlue md:text-3xl">
+    <p class="text-2xl font-medium text-lightBlue md:text-3xl">
       Hello ! Je suis
-    </h2>
+    </p>
     <h1
-      class="text-gradient inline-block bg-gradient-to-r from-lightBlue to-purple bg-clip-text pl-5 text-4xl font-medium text-transparent md:pl-8 md:text-6xl"
+      class="text-gradient inline-block pl-5 text-4xl font-medium md:pl-8 md:text-6xl"
     >
       Hicham Guessab
     </h1>
     <p class="pl-5 font-analogue text-lg font-medium md:pl-8 md:text-2xl">
-      Ingenieur Logiciel
+      Ingénieur logiciel
     </p>
   </div>
   <div
     class="h-28 w-28 rounded-full bg-gradient-to-b from-lightBlue to-purple md:h-48 md:w-48"
   >
     <img
-      onload="this.classList.remove('blur-md')"
+      (load)="imageLoaded = true"
+      [class.blur-md]="!imageLoaded"
       src="assets/images/pp.png"
-      alt="Profil photo"
-      class="h-full w-full rounded-full object-cover p-px blur-md transition-all duration-500 md:h-48 md:w-48 md:p-1"
+      alt="Portrait de Hicham Guessab"
+      class="h-full w-full rounded-full object-cover p-px transition-all duration-500 md:h-48 md:w-48 md:p-1"
     />
   </div>
 </div>
 <p class="pl-5 font-light sm:text-lg md:pl-8 md:text-xl">
   Aujourd'hui
-  <strong
-    class="bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-transparent"
-  >
-    Développeur web et mobile,
-  </strong>
+  <strong class="text-gradient">Développeur web et mobile,</strong>
   je suis à la recherche de missions !
   <br />
   J'ai contribué à plusieurs projets, comme des
-  <strong
-    class="bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-transparent"
-  >
-    SaaS
-  </strong>
+  <strong class="text-gradient">SaaS</strong>
   ou des sites vitrines.
   <br />
   <br />
   Je suis spécialisé dans le développement
-  <strong
-    class="bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-transparent"
-  >
-    Front-End
-  </strong>
+  <strong class="text-gradient">Front-End</strong>
   et particulièrement sur les technologies Angular et TypeScript.
   <br />
   Je reste
-  <strong
-    class="bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-transparent"
-  >
-    touche à tout
-  </strong>
+  <strong class="text-gradient">touche à tout</strong>
   et je peux m'adapter rapidement à d'autres technologies.
 </p>
 <div class="flex flex-wrap place-content-evenly gap-3">

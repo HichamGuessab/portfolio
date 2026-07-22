@@ -2,14 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  /* Hide scrollbar for Chrome, Safari and Opera */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+:root {
+  --light-blue: #53dcfd;
+  --purple: #a88cff;
+  --navy-blue: #0f2c57;
+  --night-blue: #0d1953;
+  --dark-blue: #040d39;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--light-blue);
+    outline-offset: 2px;
   }
-  /* Hide scrollbar for IE, Edge and Firefox */
-  .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+}
+
+@layer components {
+  .text-gradient {
+    @apply bg-gradient-to-r from-lightBlue to-purple bg-clip-text text-transparent;
+  }
+}
+
+/* Flèches de navigation Swiper : masquées sur mobile, visibles à partir du breakpoint sm */
+swiper-container::part(button-prev),
+swiper-container::part(button-next) {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  swiper-container::part(button-prev),
+  swiper-container::part(button-next) {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

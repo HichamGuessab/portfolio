@@ -1,4 +1,4 @@
-import { Component, input, InputSignal } from '@angular/core';
+import { Component, computed, input, InputSignal, Signal } from '@angular/core';
 import { Image, Link } from '../../interfaces';
 
 @Component({
@@ -11,4 +11,10 @@ export class BadgeComponent {
   name: InputSignal<string> = input.required<string>();
   image: InputSignal<Image> = input.required<Image>();
   url: InputSignal<Link> = input.required<Link>();
+
+  /* Un lien mailto ne doit pas s'ouvrir dans un nouvel onglet
+     (onglet vide dans certains navigateurs). */
+  isExternal: Signal<boolean> = computed(
+    () => !this.url().startsWith('mailto:')
+  );
 }

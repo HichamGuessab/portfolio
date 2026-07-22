@@ -10,6 +10,8 @@ import { BlueImage, Link } from '../../interfaces';
   host: { class: 'flex flex-col gap-7 text-left' },
 })
 export class ProfileSectionComponent {
+  imageLoaded = false;
+
   protected readonly BlueImage = BlueImage;
   protected readonly Link = Link;
 }

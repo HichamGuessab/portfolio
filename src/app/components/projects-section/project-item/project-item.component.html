@@ -5,9 +5,7 @@
     class="flex h-52 w-72 flex-col justify-between rounded-2xl bg-nightBlue md:w-96"
   >
     <div class="flex flex-col gap-1 py-4">
-      <h3
-        class="bg-gradient-to-b from-lightBlue to-purple bg-clip-text text-center text-3xl font-bold text-transparent md:text-4xl"
-      >
+      <h3 class="text-gradient text-center text-3xl font-bold md:text-4xl">
         {{ project().name }}
       </h3>
       <p
@@ -16,20 +14,22 @@
       ></p>
     </div>
     <div class="mb-2 flex place-items-center justify-between px-7">
-      <div
+      <a
+        [href]="project().url"
+        target="_blank"
+        rel="noopener noreferrer"
         class="flex cursor-pointer gap-2 rounded-2xl border border-white px-3 py-1 hover:bg-navyBlue"
-        (click)="openLink()"
       >
-        <img
-          [src]="WhiteImage.GithubMascot"
-          class="h-5 w-5"
-          [alt]="WhiteImage.GithubMascot"
-        />
-        <span class="font-light text-white">Link</span>
-      </div>
+        <img [src]="WhiteImage.GithubMascot" class="h-5 w-5" alt="" />
+        <span class="font-light text-white">Voir le code</span>
+      </a>
       <div class="flex gap-1">
         @for (technology of project().technologies; track technology) {
-          <img [src]="technology" class="h-7 w-7" [alt]="technology" />
+          <img
+            [src]="technology"
+            class="h-7 w-7"
+            [alt]="techName(technology)"
+          />
         }
       </div>
     </div>

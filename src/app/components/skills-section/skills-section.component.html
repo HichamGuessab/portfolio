@@ -1,9 +1,7 @@
-<h2 class="mb-12 place-self-center text-5xl font-light">Skills</h2>
-<div
-  class="grid grid-cols-2 gap-x-10 gap-y-16 md:flex md:flex-nowrap md:justify-center md:gap-14"
->
+<section-header [icon]="BlueImage.Technology" title="Compétences" />
+<div class="grid grid-cols-2 gap-x-10 gap-y-16 md:grid-cols-4 md:gap-14">
   <skill-category name="Design" [skills]="designSkills" />
   <skill-category name="Front-end" [skills]="frontEndSkills" />
   <skill-category name="Back-end" [skills]="backEndSkills" />
-  <skill-category name="Tools" [skills]="toolsSkills" />
+  <skill-category name="Outils" [skills]="toolsSkills" />
 </div>

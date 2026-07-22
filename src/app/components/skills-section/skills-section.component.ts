@@ -1,14 +1,15 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { SkillCategoryComponent } from './skill-category/skill-category.component';
 import { SkillService } from '../../services/skill.service';
-import { Skill } from '../../interfaces';
+import { BlueImage, Skill } from '../../interfaces';
+import { SectionHeaderComponent } from '../section-header/section-header.component';
 
 @Component({
   selector: 'skills-section',
   templateUrl: './skills-section.component.html',
   standalone: true,
-  imports: [SkillCategoryComponent],
-  host: { class: 'flex flex-col text-nowrap' },
+  imports: [SkillCategoryComponent, SectionHeaderComponent],
+  host: { class: 'flex flex-col' },
 })
 export class SkillsSectionComponent implements OnInit {
   designSkills: Skill[] = [];
@@ -24,4 +25,6 @@ export class SkillsSectionComponent implements OnInit {
     this.backEndSkills = this.skillService.getBackEndSkills();
     this.toolsSkills = this.skillService.getToolsSkills();
   }
+
+  protected readonly BlueImage = BlueImage;
 }

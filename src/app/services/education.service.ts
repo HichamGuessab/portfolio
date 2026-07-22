@@ -8,23 +8,23 @@ export class EducationService {
   degrees: Degree[] = [];
 
   baccalaureate: Degree = this.buildEducation(
-    'Baccalaureate',
-    'Scientific',
+    'Baccalauréat',
+    'Scientifique',
     'Villeneuve-Lez-Avignon',
     '2017 - 2020'
   );
 
   license: Degree = this.buildEducation(
-    "Bachelor's degree",
-    'Software engineering',
-    'Avignon University - CERI',
+    'Licence',
+    'Génie logiciel',
+    "Université d'Avignon - CERI",
     '2020 - 2023'
   );
 
   master: Degree = this.buildEducation(
-    "Master's degree",
-    'Software engineering',
-    'Avignon University - CERI',
+    'Master',
+    'Génie logiciel',
+    "Université d'Avignon - CERI",
     '2023 - 2025'
   );
 
@@ -41,7 +41,7 @@ export class EducationService {
     return { name, type, institution, date };
   }
 
-  getProjects(): Degree[] {
+  getDegrees(): Degree[] {
     return this.degrees;
   }
 }
