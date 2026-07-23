@@ -18,26 +18,8 @@ const FRAME_INSET = 10;
 /** Rayon des coins du cadre — écho du rounded-2xl (16px) des cellules. */
 const FRAME_RADIUS = 18;
 
-/** Retrait des équerres de coin : 4px vers l'extérieur du cadre. */
-const CORNER_INSET = FRAME_INSET - 4;
-
-/** Longueur d'un bras d'équerre depuis le coin (px). */
-const CORNER_ARM = 24;
-
-/** Début de la courbure de l'équerre (px depuis le bord). */
-const CORNER_CURVE = 15;
-
-/**
- * Période d'orbite de la comète horaire, en secondes.
- * SENTINELLE : doit rester égale à --comet-period (styles ci-dessous).
- */
-const COMET_PERIOD = 7;
-
-/**
- * Départ de la croisière après l'activation, en secondes.
- * SENTINELLE : doit rester égal au delay des animations comet-orbit-*.
- */
-const COMET_LAUNCH = 1.25;
+/** Ligne des ports mi-bord : 4px vers l'extérieur du cadre. */
+const PORT_INSET = FRAME_INSET - 4;
 
 /**
  * « Comète de lumière » : le cadre du mode compact devient un conduit
@@ -55,9 +37,7 @@ const COMET_LAUNCH = 1.25;
  *
  * À l'activation, une comète d'entrée chevauche exactement le front du mask
  * révélateur (même durée, même easing), une étincelle marque l'allumage,
- * puis la croisière démarre à t=1,25s. Les équerres de coin « s'enflamment »
- * au passage exact de la comète : leurs animation-delay sont dérivés en TS
- * de l'abscisse curviligne des milieux d'arc (voir cornerFlareDelays).
+ * puis la croisière démarre à t=1,25s.
  *
  * Budget animation : stroke-dashoffset, opacity, transform uniquement —
  * aucun filtre ni box-shadow animé, le bloom de tête est fait par
@@ -74,7 +54,7 @@ const COMET_LAUNCH = 1.25;
     `
       svg {
         --frame-speed: 1.4s;
-        --comet-period: 7s; /* SENTINELLE : = COMET_PERIOD (TS). */
+        --comet-period: 7s;
         --comet-ccw-period: 5.6s;
       }
 
@@ -295,7 +275,8 @@ const COMET_LAUNCH = 1.25;
          excited — modifier animation-duration en vol ferait sauter la
          position de la comète. L'excitation passe par l'intensité et la
          contre-comète.
-         SENTINELLE : delay 1.25s = COMET_LAUNCH (TS). */
+         SENTINELLE : delay 1.25s = fin de la séquence d'entrée
+         (frame-comet-wake). */
       .frame-comet path {
         animation-duration: var(--comet-period);
         animation-timing-function: linear;
@@ -349,7 +330,7 @@ const COMET_LAUNCH = 1.25;
          transition ; sans fill-mode, l'état naturel opacity 0 reprend
          ensuite. animation-play-state étant une propriété séparée (sur les
          paths), la préservation de phase n'est pas affectée.
-         SENTINELLE : durée 1.25s = COMET_LAUNCH (TS). */
+         SENTINELLE : durée 1.25s = delay de croisière (.frame-comet path). */
       @keyframes ccw-entrance-guard {
         from,
         to {
@@ -379,75 +360,6 @@ const COMET_LAUNCH = 1.25;
 
       .frame-excited .frame-comet-ccw path {
         animation-play-state: running;
-      }
-
-      /* ---- L4 : équerres de coin ------------------------------------- */
-
-      /* Pop d'apparition avec overshoot ; le stagger horaire TL→TR→BR→BL
-         est encodé dans les DURÉES (fenêtre à partir de 79%), pas dans un
-         delay : l'état naturel reste l'état visible final. */
-      @keyframes frame-corner-pop {
-        0%,
-        79% {
-          opacity: 0;
-          transform: scale(0.6);
-        }
-        89% {
-          opacity: 1;
-          transform: scale(1.06);
-        }
-        100% {
-          opacity: 0.9;
-          transform: scale(1);
-        }
-      }
-
-      /* Ignition au passage exact de la comète : delay = 1,25s + f·7s posé
-         en inline par cornerFlareDelays (fraction curviligne du milieu
-         d'arc). Synchro mathématiquement exacte : orbite linéaire sur
-         pathLength normalisé. */
-      @keyframes frame-corner-flare {
-        0% {
-          opacity: 0.9;
-          transform: scale(1);
-        }
-        1.5% {
-          opacity: 1;
-          transform: scale(1.12);
-        }
-        6%,
-        100% {
-          opacity: 0.9;
-          transform: scale(1);
-        }
-      }
-
-      .frame-corner {
-        opacity: 0.9;
-        transform-box: fill-box;
-        animation-name: frame-corner-pop, frame-corner-flare;
-        animation-timing-function: ease-out, linear;
-        animation-iteration-count: 1, infinite;
-      }
-
-      .frame-corner-tl {
-        transform-origin: 0% 0%;
-        animation-duration: 1.39s, var(--comet-period);
-      }
-
-      .frame-corner-tr {
-        transform-origin: 100% 0%;
-        animation-duration: 1.48s, var(--comet-period);
-      }
-
-      .frame-corner-br {
-        transform-origin: 100% 100%;
-        animation-duration: 1.57s, var(--comet-period);
-      }
-
-      .frame-corner-bl {
-        transform-origin: 0% 100%;
-        animation-duration: 1.66s, var(--comet-period);
       }
 
       /* ---- L5 : ports mi-bord ---------------------------------------- */
@@ -494,71 +406,9 @@ export class ScreenFrameComponent {
     ].join(' ');
   });
 
-  /** Équerres de coin (décalées 4px vers l'extérieur du cadre). */
-  protected readonly corners: Signal<{
-    tl: string;
-    tr: string;
-    br: string;
-    bl: string;
-  }> = computed(() => {
-    const w = this._width();
-    const h = this._height();
-    const i = CORNER_INSET;
-    const a = CORNER_ARM;
-    const c = CORNER_CURVE;
-    return {
-      tl: `M ${a} ${i} H ${c} Q ${i} ${i} ${i} ${c} V ${a}`,
-      tr: `M ${w - a} ${i} H ${w - c} Q ${w - i} ${i} ${w - i} ${c} V ${a}`,
-      br: `M ${w - i} ${h - a} V ${h - c} Q ${w - i} ${h - i} ${w - c} ${h - i} H ${w - a}`,
-      bl: `M ${a} ${h - i} H ${c} Q ${i} ${h - i} ${i} ${h - c} V ${h - a}`,
-    };
-  });
-
-  /**
-   * Delays des ignitions de coin, au format « pop, flare » (le pop garde son
-   * delay nul). f = abscisse curviligne du milieu d'arc / périmètre ; la
-   * comète étant linéaire sur pathLength normalisé, delay = 1,25 + f·7 la
-   * fait coïncider exactement avec l'équerre. Recalculé au resize : le
-   * changement de delay re-phase les boucles depuis leur start time
-   * d'origine (css-animations-1), la synchro avec la comète reste donc
-   * exacte ; seul un flare en cours (fenêtre de 6% ≈ 0,42s) peut être
-   * coupé par le saut de phase pendant le drag, acceptable.
-   */
-  protected readonly cornerFlareDelays: Signal<{
-    tl: string;
-    tr: string;
-    br: string;
-    bl: string;
-  }> = computed(() => {
-    const w = this._width();
-    const h = this._height();
-    const i = FRAME_INSET;
-    const r = FRAME_RADIUS;
-    const top = w - 2 * i - 2 * r;
-    const side = h - 2 * i - 2 * r;
-    const quarter = (Math.PI * r) / 2;
-    const perimeter = 2 * top + 2 * side + 4 * quarter;
-    const delay = (arc: number): string =>
-      `0s, ${(COMET_LAUNCH + (arc / perimeter) * COMET_PERIOD).toFixed(3)}s`;
-    return {
-      tr: delay(top + quarter / 2),
-      br: delay(top + quarter + side + quarter / 2),
-      bl: delay(2 * top + 2 * quarter + side + quarter / 2),
-      tl: delay(perimeter - quarter / 2),
-    };
-  });
-
-  /** Position des pips carrés 2×2px, un par coin. */
-  protected readonly pips: Signal<{ right: number; bottom: number }> = computed(
-    () => ({
-      right: this._width() - 3.5,
-      bottom: this._height() - 3.5,
-    })
-  );
-
   /**
    * Ports mi-bord : un rect 6×2 (ou 2×6) arrondi par bord, centré sur la
-   * ligne des équerres (CORNER_INSET) — finition usinée, statique.
+   * ligne extérieure du cadre (PORT_INSET) — finition usinée, statique.
    */
   protected readonly ports: Signal<{
     top: { x: number; y: number };
@@ -568,7 +418,7 @@ export class ScreenFrameComponent {
   }> = computed(() => {
     const w = this._width();
     const h = this._height();
-    const line = CORNER_INSET;
+    const line = PORT_INSET;
     return {
       top: { x: w / 2 - 3, y: line - 1 },
       bottom: { x: w / 2 - 3, y: h - line - 1 },

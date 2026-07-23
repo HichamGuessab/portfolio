@@ -189,83 +189,8 @@
     />
   </g>
 
-  <!-- L4 : équerres de coin + pips — ignition au passage exact de la comète
-       (animation-delay dérivé de l'abscisse curviligne du milieu d'arc). -->
-  <g
-    class="frame-corner frame-corner-tl"
-    [style.animation-delay]="cornerFlareDelays().tl"
-    fill="none"
-    stroke="url(#frame-gradient)"
-    stroke-width="2"
-    stroke-linecap="round"
-  >
-    <path [attr.d]="corners().tl" />
-    <rect
-      x="1.5"
-      y="1.5"
-      width="2"
-      height="2"
-      fill="url(#frame-gradient)"
-      stroke="none"
-    />
-  </g>
-  <g
-    class="frame-corner frame-corner-tr"
-    [style.animation-delay]="cornerFlareDelays().tr"
-    fill="none"
-    stroke="url(#frame-gradient)"
-    stroke-width="2"
-    stroke-linecap="round"
-  >
-    <path [attr.d]="corners().tr" />
-    <rect
-      [attr.x]="pips().right"
-      y="1.5"
-      width="2"
-      height="2"
-      fill="url(#frame-gradient)"
-      stroke="none"
-    />
-  </g>
-  <g
-    class="frame-corner frame-corner-br"
-    [style.animation-delay]="cornerFlareDelays().br"
-    fill="none"
-    stroke="url(#frame-gradient)"
-    stroke-width="2"
-    stroke-linecap="round"
-  >
-    <path [attr.d]="corners().br" />
-    <rect
-      [attr.x]="pips().right"
-      [attr.y]="pips().bottom"
-      width="2"
-      height="2"
-      fill="url(#frame-gradient)"
-      stroke="none"
-    />
-  </g>
-  <g
-    class="frame-corner frame-corner-bl"
-    [style.animation-delay]="cornerFlareDelays().bl"
-    fill="none"
-    stroke="url(#frame-gradient)"
-    stroke-width="2"
-    stroke-linecap="round"
-  >
-    <path [attr.d]="corners().bl" />
-    <rect
-      x="1.5"
-      [attr.y]="pips().bottom"
-      width="2"
-      height="2"
-      fill="url(#frame-gradient)"
-      stroke="none"
-    />
-  </g>
-
-  <!-- L5 : ports mi-bord — finition usinée statique sur la ligne des
-       équerres. -->
+  <!-- L5 : ports mi-bord — finition usinée statique sur la ligne extérieure
+       du cadre. -->
   <rect
     class="frame-port"
     [attr.x]="ports().top.x"

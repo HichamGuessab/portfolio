@@ -16,15 +16,26 @@ import { MotionService } from '../../services/motion.service';
 import { ViewModeService } from '../../services/view-mode.service';
 
 /**
- * Clé sessionStorage mémorisant le renvoi du duo par le visiteur : le
- * masquage ne vaut que pour la session en cours, les mascottes reviennent
- * automatiquement à la prochaine visite (elles portent le seul accès à la
- * bascule diaporama / compact — un masquage définitif la perdrait).
+ * Ancienne clé (session + localStorage) du masquage du duo, retiré : les
+ * mascottes sont désormais permanentes (elles portent le seul accès à la
+ * bascule diaporama / compact). La clé est nettoyée au démarrage pour que
+ * les visiteurs de la session en cours retrouvent le duo immédiatement.
  */
-const STORAGE_KEY = 'portfolio-mascot-hidden';
+const LEGACY_DISMISS_KEY = 'portfolio-mascot-hidden';
 
 /** Clé localStorage : le visiteur a déjà découvert la surprise du triple-clic. */
 const SURPRISE_KEY = 'portfolio-surprise-found';
+
+/**
+ * Clé localStorage du mode QA (testabilité) :
+ * - 'fast' : cadence frénétique (perchoirs en quelques secondes) ;
+ * - 'perch-only' : tirage exclusif et séquentiel des comportements perchés.
+ * Usage : localStorage.setItem('portfolio-mascot-qa','fast'); location.reload()
+ * Retrait : localStorage.removeItem('portfolio-mascot-qa')
+ * Quand la clé est présente, window.__mascotQa = { trigger(name) } permet de
+ * déclencher un comportement nommé à la demande. Sans la clé : aucune surface.
+ */
+const QA_KEY = 'portfolio-mascot-qa';
 
 /** Breakpoint md de Tailwind : en dessous, taille réduite et gestes tactiles. */
 const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
@@ -38,9 +49,6 @@ const MOBILE_SCALE = 0.7;
 /** Cadence des bulles et chorégraphies sur mobile : plus espacées. */
 const MOBILE_CADENCE = 1.7;
 
-/** Durée d'un appui long (ms) qui masque le duo sur mobile. */
-const LONG_PRESS_DURATION = 600;
-
 /** Anti-spam des petites réactions au toucher sur mobile (ms). */
 const TAP_COOLDOWN = 1600;
 
@@ -49,9 +57,6 @@ const TAP_COOLDOWN = 1600;
 /** Fenêtre (ms) pendant laquelle 3 clics sur un personnage font la surprise. */
 const TRIPLE_CLICK_WINDOW = 1200;
 
-/** Durée (ms) de la bulle d'adieu avant l'animation de disparition du duo. */
-const FAREWELL_DURATION = 1700;
-
 /**
  * Probabilité qu'une bulle ambiante soit un indice vers la surprise :
  * insistante tant qu'elle n'a jamais été découverte, discrète ensuite.
@@ -59,14 +64,43 @@ const FAREWELL_DURATION = 1700;
 const HINT_CHANCE_UNDISCOVERED = 0.45;
 const HINT_CHANCE_DISCOVERED = 0.1;
 
-/* --- Bouton × de masquage (desktop : il suit le personnage survolé) --- */
+/* --- Perchoirs : le duo escalade l'interface (voir « moteur perchoir ») --- */
 
-/** Rayons (px) d'apparition / disparition du × autour d'un personnage. */
-const DISMISS_SHOW_RADIUS = 150;
-const DISMISS_HIDE_RADIUS = 200;
+/** Cadence des comportements perchés : soutenue — le duo doit visiblement
+    vivre dans le décor (premier perchage sous ~10 s, puis régulier). */
+const PERCH_FIRST_DELAY = { min: 5000, max: 10000 } as const;
+const PERCH_DELAY = { min: 16000, max: 32000 } as const;
 
-/** Demi-largeur (px) du bouton × (28px de côté). */
-const DISMISS_HALF = 14;
+/** Facteur de cadence supplémentaire sur mobile (en plus du ×1.7 global). */
+const PERCH_MOBILE_FACTOR = 2;
+
+/** Délais de grâce avant tout scan DOM : les rects mentent pendant les
+    transitions (view-fade-in + reveals + dessin du cadre / effet cards). */
+const PERCH_GRACE_MODE = 1400;
+const PERCH_GRACE_SLIDE = 450;
+
+/** Après une bascule de mode, premier tirage forcé à ≥ 5 s : le visiteur
+    découvre le nouveau décor avant que le duo ne l'escalade. */
+const PERCH_AFTER_MODE_MIN = 5000;
+
+/** Re-mesure de l'ancre active pendant une assise (couvre l'accordéon 300 ms). */
+const PERCH_REMEASURE = 300;
+
+/** Pas de bulle quand la tête du perché est trop près du haut de l'écran. */
+const BUBBLE_MIN_TOP = 120;
+
+/** Dérive tolérée (px) de l'ancre avant glissement doux vers sa position. */
+const PERCH_DRIFT_TOLERANCE = 4;
+
+/** Vitesse du funambule : la moitié de la vitesse de croisière du robot. */
+const TIGHTROPE_SPEED = 12;
+
+/** Fenêtre (ms) pendant laquelle un changement de console autorise le
+    « Coucou console ». */
+const CONSOLE_PEEK_WINDOW = 8000;
+
+/** Plafond des sauts sur mobile : 40 % du viewport. */
+const MOBILE_JUMP_CAP = 0.4;
 
 /* --- Capteurs de mouvement (mobile) --- */
 
@@ -118,13 +152,14 @@ const TURN_PROBABILITY = 0.35;
 /** Au bord de l'écran, le robot s'y adosse parfois pour souffler. */
 const LEAN_PROBABILITY = 0.35;
 
-/** Cadence des bulles ambiantes : une première rapide, puis toutes les 15-30 s. */
-const AMBIENT_FIRST_DELAY = { min: 6000, max: 11000 } as const;
-const AMBIENT_DELAY = { min: 15000, max: 30000 } as const;
+/** Cadence des bulles ambiantes : une première rapide, puis toutes les 12-24 s. */
+const AMBIENT_FIRST_DELAY = { min: 4000, max: 8000 } as const;
+const AMBIENT_DELAY = { min: 12000, max: 24000 } as const;
 
-/** Cadence des chorégraphies à deux (rencontre, high-five, poursuite). */
-const DUO_FIRST_DELAY = { min: 12000, max: 20000 } as const;
-const DUO_DELAY = { min: 20000, max: 38000 } as const;
+/** Cadence des chorégraphies à deux (rencontre, high-five, poursuite) :
+    fréquentes — le duo doit interagir souvent, c'est le cœur du charme. */
+const DUO_FIRST_DELAY = { min: 7000, max: 12000 } as const;
+const DUO_DELAY = { min: 12000, max: 24000 } as const;
 
 /** Garde-fous anti-spam des réactions contextuelles (en ms). */
 const CONTEXT_COOLDOWN = 6000;
@@ -151,7 +186,17 @@ type Phase =
   | 'laugh'
   | 'excited'
   | 'jump'
-  | 'stumble';
+  | 'stumble'
+  | 'crouch'
+  | 'sit'
+  | 'tightrope'
+  | 'wobble'
+  | 'point'
+  | 'push'
+  | 'slide'
+  | 'brace'
+  | 'nest'
+  | 'twirl';
 
 /** Classe CSS portée par chaque phase (le déplacement dépend du personnage). */
 const PHASE_CLASS: Partial<Record<Phase, string>> = {
@@ -163,6 +208,16 @@ const PHASE_CLASS: Partial<Record<Phase, string>> = {
   excited: 'is-excited',
   jump: 'is-jumping',
   stumble: 'is-stumbling',
+  crouch: 'is-crouching',
+  sit: 'is-sitting',
+  tightrope: 'is-tightrope',
+  wobble: 'is-wobbling',
+  point: 'is-pointing',
+  push: 'is-pushing',
+  slide: 'is-sliding',
+  brace: 'is-bracing',
+  nest: 'is-nesting',
+  twirl: 'is-twirling',
 };
 
 const ALL_PHASE_CLASSES = [
@@ -176,7 +231,35 @@ const ALL_PHASE_CLASSES = [
   'is-excited',
   'is-jumping',
   'is-stumbling',
+  'is-crouching',
+  'is-sitting',
+  'is-tightrope',
+  'is-wobbling',
+  'is-pointing',
+  'is-pushing',
+  'is-sliding',
+  'is-bracing',
+  'is-nesting',
+  'is-twirling',
 ] as const;
+
+/**
+ * Vol balistique d'un personnage (saut parabolique ou glissade), interpolé
+ * dans la boucle rAF : x suit un ease-in-out, y un lerp + arche 4h·t(1-t).
+ * `ease: 'inQuad'` remplace l'arche par une accélération douce (glissade
+ * de mât, chute contrôlée).
+ */
+interface Flight {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  height: number;
+  duration: number;
+  t: number;
+  ease?: 'inQuad';
+  onLand?: () => void;
+}
 
 /** État complet d'un personnage, piloté hors zone Angular. */
 interface Character {
@@ -184,10 +267,15 @@ interface Character {
   bubble: HTMLElement;
   bubbleText: HTMLElement;
   width: number;
+  height: number;
   /** Classe de déplacement : le robot marche, l'ami sautille. */
   moveClass: 'is-walking' | 'is-hopping';
   speed: number;
   x: number;
+  /** Élévation (px) au-dessus du sol de promenade — 0 = au sol. */
+  y: number;
+  /** Vol en cours (saut parabolique, glissade, chute contrôlée). */
+  flight?: Flight;
   maxX: number;
   dir: 1 | -1;
   phase: Phase;
@@ -209,13 +297,98 @@ interface Character {
 }
 
 /** Scènes de la petite machine à états qui pilote le duo. */
-type Scene = 'free' | 'approach' | 'duo' | 'chase';
+type Scene = 'free' | 'approach' | 'duo' | 'chase' | 'perch';
 
 /** Étape d'une chorégraphie scriptée : une action à un instant donné. */
 interface ScriptStep {
   at: number;
   run: () => void;
 }
+
+/* ------------------------------------------------------------------ */
+/* Moteur perchoir — types                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Étape séquentielle d'un comportement perché. Contrairement aux scripts
+ * duo (temps absolus), chaque étape se termine avant que la suivante ne
+ * démarre : les trajets à durée variable (marches, vols) s'enchaînent sans
+ * calcul de timing manuel. Les cibles sont des fonctions : elles lisent le
+ * rect frais de l'ancre au moment où l'étape démarre (jamais en avance).
+ */
+type PerchStep =
+  | { kind: 'walk'; to: () => number | null; speedFactor?: number }
+  | { kind: 'pose'; phase: Phase; ms: number }
+  | {
+      kind: 'jump';
+      to: () => { x: number; y: number } | null;
+      height: number;
+      ms?: number;
+      /** Pose portée pendant le vol (vrille, glissade) — 'rest' par défaut. */
+      phase?: Phase;
+    }
+  | { kind: 'sit'; phase: Phase; ms: number; follow?: boolean }
+  | { kind: 'traverse'; to: () => number | null; speed: number }
+  | { kind: 'slide'; ms: number }
+  | { kind: 'orbit'; ms: number }
+  | { kind: 'do'; run: () => void };
+
+/** Ancre d'un perchoir : élément + fonction qui déduit le point d'assise
+    d'un rect frais (re-mesure pendant l'assise, suivi doux). */
+interface PerchAnchor {
+  el: Element;
+  point: (rect: DOMRect) => { x: number; y: number };
+}
+
+/** Noms des comportements perchés (tirage pondéré + hook QA). */
+type PerchName =
+  | 'vigie'
+  | 'funambule'
+  | 'trampoline'
+  | 'attache'
+  | 'coucou'
+  | 'tuile'
+  | 'baie'
+  | 'sommet';
+
+/**
+ * Table de sélecteurs des perchoirs — centralisée ici (lecture seule :
+ * querySelectorAll + getBoundingClientRect, jamais de mutation des hôtes).
+ * Alternative au marquage data-perch : aucun autre composant n'est touché.
+ */
+const PERCH_SELECTORS = {
+  /** Tuiles projets de la grille 4×3 du mode compact. */
+  tile: "a[data-circuit][aria-describedby='project-console']",
+  /** Console de lecture (bord supérieur net : fil de funambule). */
+  console: '#project-console',
+  /** Rangées d'accordéon Expérience (conteneur en overflow-y-auto !). */
+  row: "button[aria-controls^='experience-panel-']",
+  /** Rangée d'expérience actuellement dépliée. */
+  activeRow: "button[aria-controls^='experience-panel-'][aria-expanded='true']",
+  /** Chips de compétences (coussins de rebond uniquement). */
+  chip: 'li[data-circuit]',
+  /** Badges de contact de la barre de statut du pont. */
+  badgeCompact: '.compact-contacts badge a',
+  /** Bords supérieurs des 5 cellules bento (marches d'escalade). */
+  cell: 'section.rounded-2xl',
+  /** Point pulsant du 12e slot « libre » (gag « Ma baie à moi »). */
+  slotDot: '.slot-dot',
+  /** Photo de profil ronde (diaporama : « sommet du monde »). */
+  photo: "img[alt='Portrait de Hicham Guessab']",
+  /** Badges de la slide profil (diaporama). */
+  badgeSlideshow: 'profile-section badge a',
+  /** Carte active de l'effet cards, par index de slide du diaporama.
+      Combinateur enfant obligatoire : la slide VERTICALE active porte aussi
+      `swiper-slide-active` et contient TOUT le deck — en descendant,
+      querySelector renverrait toujours la carte n°1 du DOM. La slide
+      verticale a pour enfant direct la section (jamais un item) : seul le
+      swiper imbriqué peut matcher. */
+  activeCard: {
+    1: 'swiper-slide.swiper-slide-active > project-item > div',
+    3: 'swiper-slide.swiper-slide-active > experience-item > div',
+    4: 'swiper-slide.swiper-slide-active > education-item > div',
+  } as Record<number, string>,
+} as const;
 
 /* ------------------------------------------------------------------ */
 /* Dialogues — humour léger et compliments exagérés, jamais de faits.  */
@@ -308,8 +481,46 @@ const SURPRISE_LOCKED_LINE = 'Agrandis la fenêtre pour découvrir la surprise !
 /** Triple-tap sur mobile : la surprise reste une affaire de grand écran. */
 const SURPRISE_MOBILE_LINE = 'La surprise, c’est sur grand écran !';
 
-/** Bulle d'adieu au masquage : le duo promet de revenir à la prochaine visite. */
-const FAREWELL_LINE = 'On s’éclipse ! Rendez-vous à ta prochaine visite.';
+/* --- Bulles des comportements perchés --- */
+
+/** Chute contrôlée quand le décor disparaît sous les pieds (bascule de mode). */
+const PERCH_FALL_LINE = 'Oh, le décor bouge !';
+
+/** La vigie des modules (1 fois sur 2, variantes). */
+const VIGIE_LINES: readonly string[] = [
+  'D’ici, on voit tous ses projets. Impressionnant.',
+  'Module {index} : aucun bug détecté.',
+] as const;
+
+/** Le funambule, au faux pas scripté de mi-parcours. */
+const FUNAMBULE_LINE = 'Oups… tout va bien, tout va bien.';
+
+/** Trampoline de chips, au 3e rebond. */
+const TRAMPOLINE_LINE = 'Pouf ! Pouf ! Pouf ! C’est moelleux, les compétences.';
+
+/** L'attaché de presse, selon le badge vanté. */
+const PRESS_GITHUB_LINE = 'Tout son code est là-dessous !';
+const PRESS_EMAIL_LINE = 'Un message et il répond dans la journée !';
+const PRESS_DEFAULT_LINE = 'Clique là, il répond vite !';
+
+/** Coucou console (petite bulle, 1 fois sur 3). */
+const CONSOLE_PEEK_LINE = 'Ooooh. J’adore celui-là.';
+
+/** La tuile récalcitrante, après l'échec théâtral. */
+const TILE_PUSH_LINE = 'Elle est bien fixée. C’est du solide, ce portfolio.';
+
+/** La glissade du cadre (1 fois sur 2). */
+const FRAME_SLIDE_LINE = 'Wiiiii !';
+
+/** Le sommet du monde (jamais si la photo touche le haut de l'écran). */
+const SUMMIT_LINE = 'La meilleure vue du portfolio !';
+
+/** La courte échelle (chorégraphie duo, mode compact). */
+const LADDER_ROBOT_LINE = 'Alors, qu’est-ce que ça dit ?';
+const LADDER_BUDDY_LINE = 'Que des missions réussies !';
+
+/** Ma baie à moi : le blob squatte le 12e slot libre. */
+const NEST_LINE = 'En attendant le prochain projet… c’est chez moi ici.';
 
 /** Commentaires contextuels par section du diaporama (variantes tirées au sort). */
 const SECTION_LINES: readonly (readonly string[])[] = [
@@ -378,16 +589,25 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
  * leurs bulles ambiantes — avec insistance tant que la surprise n'a jamais
  * été découverte (localStorage), plus rarement ensuite.
  *
+ * L'interface est aussi leur TERRAIN DE JEU : à cadence calme (40-75 s), un
+ * comportement perché se joue — le robot escalade la baie projets, marche en
+ * funambule sur la console ou la carte active, vante les badges de contact ;
+ * le blob rebondit sur les chips de compétences, glisse le long du cadre
+ * comète, squatte le 12e slot libre ou conquiert le sommet de la photo.
+ * Deux règles d'or : le monde est INTOUCHABLE (lecture seule des rects,
+ * toutes les illusions physiques vivent sur les sprites — zéro layout
+ * shift) et les perchoirs restent des MOMENTS (la promenade au sol est
+ * l'état de base).
+ *
  * Non intrusif par construction :
  * - l'hôte est en `pointer-events: none`, seuls les personnages sont cliquables ;
  * - sur ordinateur, chaque clic déclenche une petite réaction (et compte pour
- *   le triple-clic) ; le masquage passe par le bouton × qui apparaît près du
- *   personnage survolé, ou par un appui long ;
+ *   le triple-clic), même sur un personnage perché ;
  * - sur mobile (< md), le duo est affiché à ~70 % : le toucher active la
  *   réaction aux mouvements du téléphone (permission iOS demandée dans le
- *   geste), l'appui long ou le petit bouton × le masque ;
- * - le masquage ne vaut que pour la session (sessionStorage) : le duo étant
- *   le seul accès au mode compact, il revient à la visite suivante ;
+ *   geste) ;
+ * - le duo est permanent : aucun masquage — il porte le seul accès au mode
+ *   compact ;
  * - `position: fixed`, aucune incidence sur le layout de la page.
  *
  * Capteurs de mouvement (mobile) : l'inclinaison fait glisser et pencher le
@@ -408,15 +628,8 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MascotComponent implements OnDestroy {
-  /** Duo masqué par le visiteur (bouton × ou appui long) — persisté en
-      sessionStorage uniquement : il revient à la prochaine session. */
-  private readonly _dismissed: WritableSignal<boolean> = signal(false);
-
   /** Vrai à partir du breakpoint md (768px). */
   private readonly _isDesktop: WritableSignal<boolean> = signal(false);
-
-  /** Animation de disparition en cours, juste avant le retrait du DOM. */
-  protected readonly leaving: WritableSignal<boolean> = signal(false);
 
   /** Source de vérité sur les animations (actives par défaut pour tous). */
   private readonly _motion: MotionService = inject(MotionService);
@@ -424,10 +637,10 @@ export class MascotComponent implements OnDestroy {
   /** Mode d'affichage courant — le duo commente la bascule. */
   private readonly _viewMode: ViewModeService = inject(ViewModeService);
 
-  /** Le duo n'est rendu que si rien ne s'y oppose (renvoi par le visiteur,
-      ou une future extension de MotionService). */
-  protected readonly visible: Signal<boolean> = computed(
-    () => !this._dismissed() && this._motion.motionEnabled()
+  /** Le duo est permanent : MotionService (signal readonly toujours vrai)
+      reste l'unique point d'extension documenté — aucune voie de masquage. */
+  protected readonly visible: Signal<boolean> = computed(() =>
+    this._motion.motionEnabled()
   );
 
   /** Vrai quand la réaction aux mouvements du téléphone est active. */
@@ -437,11 +650,11 @@ export class MascotComponent implements OnDestroy {
       entre ordinateur (triple-clic = surprise) et mobile (toucher = capteurs). */
   protected readonly spriteLabel: Signal<string> = computed(() => {
     if (this._isDesktop()) {
-      return 'Mascotte : cliquer 3 fois pour une surprise, appui long pour la masquer';
+      return 'Mascotte : cliquer 3 fois pour une surprise';
     }
     return this.sensorsActive()
-      ? 'Mascotte : appui long pour la masquer'
-      : 'Mascotte : toucher pour activer la réaction aux mouvements du téléphone, appui long pour la masquer';
+      ? 'Mascotte'
+      : 'Mascotte : toucher pour activer la réaction aux mouvements du téléphone';
   });
 
   private readonly _robotRef: Signal<
@@ -450,9 +663,6 @@ export class MascotComponent implements OnDestroy {
   private readonly _buddyRef: Signal<
     ElementRef<HTMLButtonElement> | undefined
   > = viewChild<ElementRef<HTMLButtonElement>>('buddySprite');
-  private readonly _dismissRef: Signal<
-    ElementRef<HTMLButtonElement> | undefined
-  > = viewChild<ElementRef<HTMLButtonElement>>('dismissBtn');
 
   private readonly _zone: NgZone = inject(NgZone);
   private readonly _mediaListeners: AbortController = new AbortController();
@@ -481,6 +691,49 @@ export class MascotComponent implements OnDestroy {
   private _sectionCooldown = 0;
   private _projectCooldown = 0;
   private _lastGreetIndex = -1;
+
+  /* --- Moteur perchoir --- */
+  /** Compte à rebours du prochain tirage perchoir (gelé hors scène 'free'). */
+  private _nextPerchIn = 0;
+  /** Délai de grâce anti-rects-mensongers (bascule de mode, slide). */
+  private _perchGrace = 0;
+  /** Personnage perché (l'autre continue sa vie libre au sol). */
+  private _perchWho?: Character;
+  private _perchSteps: PerchStep[] = [];
+  private _perchIndex = -1;
+  /** Temps restant de l'étape posée/assise en cours. */
+  private _perchWait = 0;
+  /** Ancre active, re-mesurée toutes les PERCH_REMEASURE ms pendant l'assise. */
+  private _perchAnchor?: PerchAnchor;
+  private _perchFollow = false;
+  private _perchTargetX = 0;
+  private _perchTargetY = 0;
+  private _perchRemeasureIn = 0;
+  /** Traversée funambule en cours (cible x, pilotée au sol par tickPerch). */
+  private _perchTraverse?: { toX: number; speed: number };
+  /** Glissade circulaire (descente signature du sommet du monde). */
+  private _perchOrbit?: {
+    cx: number;
+    cy: number;
+    r: number;
+    from: number;
+    to: number;
+    ms: number;
+    t: number;
+  };
+  /** Courte échelle : le robot est escorté (il ne vit pas en tickFree). */
+  private _perchEscort = false;
+  /** Index de la slide active du diaporama (écouteur swiperslidechange). */
+  private _activeSlide = 0;
+  /** Horodatage du dernier changement de projet dans la console (compact). */
+  private _consoleChangedAt = Number.NEGATIVE_INFINITY;
+  private _consoleObserver?: MutationObserver;
+  private _consoleObserverTimer = 0;
+
+  /* --- Hook QA (clé localStorage 'portfolio-mascot-qa') --- */
+  private _qaMode: '' | 'fast' | 'perch-only' = '';
+  /** Rotation séquentielle déterministe du mode 'perch-only'. */
+  private _qaRotation = 0;
 
   /** Position du curseur, consommée dans la boucle rAF (regards, alerte). */
   private _mouseX = Number.NEGATIVE_INFINITY;
@@ -511,8 +764,6 @@ export class MascotComponent implements OnDestroy {
 
   /* --- Gestes tactiles (mobile) --- */
   private _tapCooldown = 0;
-  private _pressTimer = 0;
-  private _longPressFired = false;
   /** Compte à rebours de la bulle « Touche-moi pour activer les capteurs ! ». */
   private _inviteIn = 0;
   private _inviteShown = false;
@@ -524,71 +775,58 @@ export class MascotComponent implements OnDestroy {
   private _firstClickAt = 0;
   /** Vrai dès que le visiteur a découvert la surprise (persisté). */
   private _surpriseFound = false;
-  /** Bulle d'adieu en cours : les clics sont ignorés jusqu'au départ du duo. */
-  private _farewellPending = false;
-  private _farewellTimer = 0;
-
-  /* --- Bouton × (desktop : suit le personnage survolé) --- */
-  private _dismissShown = false;
-  private _dismissX = Number.NEGATIVE_INFINITY;
 
   /** Multiplie les délais des bulles/chorégraphies (cadence allégée sur mobile). */
   private _cadence = 1;
 
   constructor() {
-    this.restoreDismissal();
+    this.cleanupLegacyDismissal();
     this.restoreSurpriseState();
     this.observeMediaQuery(DESKTOP_MEDIA_QUERY, this._isDesktop);
 
     /* La scène démarre quand les deux sprites apparaissent dans le DOM et
-       s'arrête dès qu'ils en sortent (animations désactivées, renvoi par le
-       visiteur). Elle redémarre au passage du breakpoint md : tailles, cadence
-       et gestes sont recalculés. Pendant l'animation de départ, tout est figé. */
+       s'arrête dès qu'ils en sortent. Elle redémarre au passage du
+       breakpoint md : tailles, cadence et gestes sont recalculés. */
     effect((onCleanup) => {
       const robotEl = this._robotRef()?.nativeElement;
       const buddyEl = this._buddyRef()?.nativeElement;
       this._isDesktop();
-      if (robotEl && buddyEl && !this.leaving()) {
+      if (robotEl && buddyEl) {
         this._zone.runOutsideAngular(() => this.startScene(robotEl, buddyEl));
         onCleanup(() => this.stopScene());
       }
     });
 
-    /* Réaction à la bascule diaporama / compact : petit saut + commentaire. */
+    /* Réaction à la bascule diaporama / compact : petit saut + commentaire.
+       Les perchoirs disparaissent avec le décor : chute contrôlée du perché,
+       purge du registre et délai de grâce avant tout nouveau scan (les rects
+       mentent pendant view-fade-in + reveals + dessin du cadre). */
     effect(() => {
       const compact = this._viewMode.isCompact();
       const known = this._knownCompact;
       this._knownCompact = compact;
       if (known !== undefined && known !== compact) {
-        this._zone.runOutsideAngular(() => this.reactToModeChange());
+        this._zone.runOutsideAngular(() => this.onModeSwitched());
       }
+      this._zone.runOutsideAngular(() => this.syncConsoleObserver(compact));
     });
   }
 
   ngOnDestroy(): void {
     this.stopScene();
     this.stopSensors();
-    clearTimeout(this._farewellTimer);
     this._mediaListeners.abort();
   }
 
   /**
    * Point d'entrée du clic/tap sur un personnage.
    * Ordinateur : chaque clic compte pour la surprise du triple-clic (petite
-   * réaction à chaque fois, bascule diaporama / compact au troisième).
+   * réaction à chaque fois, bascule diaporama / compact au troisième) — un
+   * personnage perché reste cliquable, le compteur fonctionne en l'air.
    * Mobile : premier toucher = activation des capteurs de mouvement (la
    * permission iOS exige ce geste), ensuite petite réaction amusée.
-   * Le masquage, lui, passe partout par l'appui long ou le bouton ×.
    */
   protected onSpriteTap(which: 'robot' | 'buddy'): void {
-    if (this.leaving() || this._farewellPending) {
-      return;
-    }
-    if (this._longPressFired) {
-      /* Le clic qui suit un appui long (déjà traité) est avalé. */
-      this._longPressFired = false;
-      return;
-    }
     if (this._isDesktop()) {
       this.handleDesktopClick(which);
       return;
@@ -597,58 +835,16 @@ export class MascotComponent implements OnDestroy {
   }
 
   /**
-   * Fait disparaître le duo pour la session en cours (sessionStorage) : une
-   * bulle d'adieu annonce le retour à la prochaine visite, puis l'animation
-   * de départ se joue. Le mode d'affichage courant n'est pas touché — si le
-   * mode compact était actif, il le reste.
+   * Nettoyage one-shot de l'ancien masquage (bouton × / appui long, retiré) :
+   * les visiteurs de la session en cours qui avaient masqué le duo le
+   * retrouvent immédiatement — il est désormais permanent.
    */
-  protected dismiss(): void {
-    if (this.leaving() || this._farewellPending) {
-      return;
-    }
-    this.stopSensors();
+  private cleanupLegacyDismissal(): void {
     try {
-      sessionStorage.setItem(STORAGE_KEY, 'true');
+      sessionStorage.removeItem(LEGACY_DISMISS_KEY);
+      localStorage.removeItem(LEGACY_DISMISS_KEY);
     } catch {
-      // Stockage indisponible : le masquage vaudra le temps de la page.
-    }
-
-    const robot = this._robot;
-    if (robot) {
-      /* Petit adieu : le robot salue et rappelle que le duo reviendra. */
-      this._farewellPending = true;
-      this._zone.runOutsideAngular(() => {
-        if (this._scene !== 'free') {
-          this.backToFree();
-        }
-        this.setPhase(robot, 'wave', FAREWELL_DURATION);
-        this.say(robot, FAREWELL_LINE, FAREWELL_DURATION);
-      });
-      this._farewellTimer = window.setTimeout(
-        () => this._zone.run(() => this.beginLeave()),
-        FAREWELL_DURATION
-      );
-    } else {
-      this.beginLeave();
-    }
-  }
-
-  /** Joue l'animation de disparition puis retire le duo du DOM. */
-  private beginLeave(): void {
-    this._farewellPending = false;
-    this.leaving.set(true);
-    setTimeout(() => this._dismissed.set(true), 400);
-  }
-
-  private restoreDismissal(): void {
-    try {
-      /* Ancienne persistance (localStorage, définitive) : nettoyée pour que
-         les visiteurs qui avaient masqué le duo le retrouvent — il porte
-         désormais l'accès au mode compact. */
-      localStorage.removeItem(STORAGE_KEY);
-      this._dismissed.set(sessionStorage.getItem(STORAGE_KEY) === 'true');
-    } catch {
-      // Stockage indisponible : le duo s'affiche par défaut.
+      // Stockage indisponible : rien à nettoyer.
     }
   }
 
@@ -731,7 +927,11 @@ export class MascotComponent implements OnDestroy {
       if (!robot || !buddy) {
         return;
       }
-      if (this._scene !== 'free') {
+      if (this._scene === 'perch') {
+        /* Descente express, sans cérémonie : la célébration se joue au sol
+           pendant que le perché redescend en 300 ms. */
+        this.abortPerch(300);
+      } else if (this._scene !== 'free') {
         this.backToFree();
       }
       /* Grand saut à deux : .is-cheering porte aussi les étincelles. */
@@ -791,12 +991,14 @@ export class MascotComponent implements OnDestroy {
 
     this._robot = this.createCharacter(robotEl, {
       width: Math.round(ROBOT_WIDTH * scale),
+      height: Math.round(78 * scale),
       moveClass: 'is-walking',
       speed: ROBOT_SPEED,
       x: EDGE_MARGIN + 12,
     });
     this._buddy = this.createCharacter(buddyEl, {
       width: Math.round(BUDDY_WIDTH * scale),
+      height: Math.round(56 * scale),
       moveClass: 'is-hopping',
       speed: BUDDY_SPEED,
       x: EDGE_MARGIN + Math.round(ROBOT_WIDTH * scale) + 72,
@@ -805,14 +1007,29 @@ export class MascotComponent implements OnDestroy {
     this._sceneListeners = new AbortController();
     const signal = this._sceneListeners.signal;
 
-    window.addEventListener('resize', () => this.updateBounds(), {
-      signal,
-      passive: true,
-    });
+    window.addEventListener(
+      'resize',
+      () => {
+        this.updateBounds();
+        /* Un perché re-mesure son ancre immédiatement : glissement doux si
+           elle a bougé, descente si elle a disparu. */
+        if (this._scene === 'perch') {
+          this._perchRemeasureIn = 0;
+        }
+      },
+      {
+        signal,
+        passive: true,
+      }
+    );
 
-    /* L'appui long masque le duo sur toutes les plateformes : le clic simple
-       est réservé au triple-clic (surprise) et aux capteurs mobiles. */
-    this.bindLongPress(robotEl, buddyEl, signal);
+    /* Pas de menu contextuel sur les personnages : il gênerait les taps
+       rapides sur mobile (menu d'appui long système). */
+    for (const el of [robotEl, buddyEl]) {
+      el.addEventListener('contextmenu', (event) => event.preventDefault(), {
+        signal,
+      });
+    }
 
     /* Regards : la position du curseur est simplement mémorisée ici,
        le travail (variables CSS) se fait au rythme de la boucle rAF. */
@@ -832,12 +1049,23 @@ export class MascotComponent implements OnDestroy {
     document.addEventListener(
       'swiperslidechange',
       (event) => {
+        /* Diaporama : TOUT changement de slide (sections verticales comme
+           cartes de l'effet cards) invalide les perchoirs — saut au sol
+           immédiat, le sprite touche terre avant la fin de la transition
+           (~400 ms), puis délai de grâce avant tout re-scan. */
+        if (this._scene === 'perch' && !this._viewMode.isCompact()) {
+          this.abortPerch(350);
+        }
+        if (!this._viewMode.isCompact()) {
+          this._perchGrace = Math.max(this._perchGrace, PERCH_GRACE_SLIDE);
+        }
         const target = event.target as HTMLElement | null;
         if (target?.getAttribute?.('direction') !== 'vertical') {
           return;
         }
         const index = (event as CustomEvent).detail?.[0]?.activeIndex;
         if (typeof index === 'number') {
+          this._activeSlide = index;
           this.reactToSectionChange(index);
         }
       },
@@ -880,13 +1108,26 @@ export class MascotComponent implements OnDestroy {
     this.applyPosition(this._robot);
     this.applyPosition(this._buddy);
 
+    /* Hook QA : la clé est lue UNE fois par démarrage de scène (redémarrage
+       de scène = re-lecture). Sans la clé : cadence normale, aucune surface
+       exposée. */
+    this.readQaMode();
+
     /* Entrée en scène : le robot salue, l'ami trépigne, puis chacun sa vie. */
     this._scene = 'free';
     this._script = undefined;
     this.setPhase(this._robot, 'wave', 2600);
     this.setPhase(this._buddy, 'excited', 2200);
-    this._nextTalkIn = this.randomDuration(AMBIENT_FIRST_DELAY) * this._cadence;
-    this._nextDuoIn = this.randomDuration(DUO_FIRST_DELAY) * this._cadence;
+    this._nextTalkIn =
+      this.randomDuration(this.qaAmbient(AMBIENT_FIRST_DELAY)) * this._cadence;
+    this._nextDuoIn =
+      this.randomDuration(this.qaAmbient(DUO_FIRST_DELAY)) * this._cadence;
+    this._nextPerchIn = this.nextPerchDelay(true);
+    this._perchGrace = 0;
+    /* L'index de slide est relu depuis le swiper réel : le franchissement du
+       breakpoint md redémarre la scène SANS toucher au diaporama, un reset
+       aveugle à 0 désynchroniserait les perchoirs (cibles hors viewport). */
+    this.syncActiveSlide();
     this._contextCooldown = 0;
     this._sectionCooldown = 0;
     this._projectCooldown = 0;
@@ -915,40 +1156,9 @@ export class MascotComponent implements OnDestroy {
     this._rafId = requestAnimationFrame(this._onFrame);
   }
 
-  /** L'appui long (600 ms) sur un personnage masque le duo, partout. */
-  private bindLongPress(
-    robotEl: HTMLButtonElement,
-    buddyEl: HTMLButtonElement,
-    signal: AbortSignal
-  ): void {
-    const startPress = (event: PointerEvent): void => {
-      if (event.button !== 0) {
-        return;
-      }
-      clearTimeout(this._pressTimer);
-      this._pressTimer = window.setTimeout(() => {
-        this._longPressFired = true;
-        this._zone.run(() => this.dismiss());
-      }, LONG_PRESS_DURATION);
-    };
-    const cancelPress = (): void => clearTimeout(this._pressTimer);
-
-    for (const el of [robotEl, buddyEl]) {
-      el.addEventListener('pointerdown', startPress, { signal, passive: true });
-      for (const type of ['pointerup', 'pointerleave', 'pointercancel']) {
-        el.addEventListener(type, cancelPress, { signal, passive: true });
-      }
-      /* Pas de menu contextuel au milieu de l'appui long. */
-      el.addEventListener('contextmenu', (event) => event.preventDefault(), {
-        signal,
-      });
-    }
-  }
-
   private stopScene(): void {
     cancelAnimationFrame(this._rafId);
     this._rafId = 0;
-    clearTimeout(this._pressTimer);
     this._sceneListeners?.abort();
     this._sceneListeners = undefined;
     /* Les éléments DOM survivent au redémarrage de la scène (bascule du
@@ -963,22 +1173,23 @@ export class MascotComponent implements OnDestroy {
       char.el.classList.remove('is-talking', 'is-alert', 'is-offbalance');
       char.el.style.removeProperty('--duo-tilt');
     }
-    /* Le bouton × (desktop) repart caché lui aussi. */
-    const dismissEl = this._dismissRef()?.nativeElement;
-    dismissEl?.classList.remove('is-showing');
-    this._dismissShown = false;
-    this._dismissX = Number.NEGATIVE_INFINITY;
     this._robot = undefined;
     this._buddy = undefined;
     this._script = undefined;
     this._hoveredProject = undefined;
     this._hoverSince = 0;
+    this.resetPerchState();
+    this.disconnectConsoleObserver();
+    if (this._qaMode) {
+      delete (window as unknown as Record<string, unknown>)['__mascotQa'];
+    }
   }
 
   private createCharacter(
     el: HTMLButtonElement,
     init: {
       width: number;
+      height: number;
       moveClass: 'is-walking' | 'is-hopping';
       speed: number;
       x: number;
@@ -989,9 +1200,11 @@ export class MascotComponent implements OnDestroy {
       bubble: el.querySelector<HTMLElement>('.duo-bubble')!,
       bubbleText: el.querySelector<HTMLElement>('.duo-bubble-text')!,
       width: init.width,
+      height: init.height,
       moveClass: init.moveClass,
       speed: init.speed,
       x: init.x,
+      y: 0,
       maxX: init.x,
       dir: 1,
       phase: 'rest',
@@ -1027,14 +1240,20 @@ export class MascotComponent implements OnDestroy {
     this._sectionCooldown -= delta;
     this._projectCooldown -= delta;
     this._tapCooldown -= delta;
+    this._perchGrace -= delta;
 
     this.updateBubble(robot, delta);
     this.updateBubble(buddy, delta);
     this.updateGazes(robot, buddy);
-    this.tickDismissHover(robot, buddy);
     this.checkProjectHover(timestamp);
     this.tickSensors(robot, buddy, delta);
     this.tickSensorInvite(robot, delta);
+
+    /* Vols balistiques (sauts paraboliques, glissades, chutes) : interpolés
+       ici quelle que soit la scène — un personnage en vol n'est jamais
+       piloté par tickFree en parallèle. */
+    this.tickFlight(robot, delta);
+    this.tickFlight(buddy, delta);
 
     switch (this._scene) {
       case 'free':
@@ -1042,6 +1261,7 @@ export class MascotComponent implements OnDestroy {
         this.tickFree(buddy, delta);
         this.tickAmbientTalk(delta);
         this.tickDuoCountdown(delta);
+        this.tickPerchCountdown(delta);
         break;
       case 'approach':
         this.tickApproach(robot, delta);
@@ -1059,6 +1279,12 @@ export class MascotComponent implements OnDestroy {
       case 'duo':
         this.tickScript(delta);
         break;
+      case 'perch':
+        /* Le perché est piloté par ses étapes ; l'autre continue sa vie
+           libre au sol (sauf escorte de la courte échelle). _nextDuoIn et
+           _nextPerchIn sont GELÉS pendant ce temps. */
+        this.tickPerch(delta);
+        break;
     }
 
     this._rafId = requestAnimationFrame(this._onFrame);
@@ -1067,6 +1293,16 @@ export class MascotComponent implements OnDestroy {
   /* --- Vie libre : chacun se promène, s'arrête, repart --- */
 
   private tickFree(char: Character, delta: number): void {
+    if (char.flight) {
+      /* En vol (retombée de perchoir, célébration en l'air) : la boucle de
+         vol pilote seule la position jusqu'à l'atterrissage. */
+      return;
+    }
+    if (char.y > 0.5) {
+      /* Filet de sécurité : jamais suspendu sans vol — retombée douce. */
+      this.launchFlight(char, char.x, 0, 0, 400, 'inQuad');
+      return;
+    }
     char.phaseRemaining -= delta;
 
     if (char.phase === 'move') {
@@ -1108,16 +1344,19 @@ export class MascotComponent implements OnDestroy {
 
   /* --- Bulles ambiantes --- */
 
-  private tickAmbientTalk(delta: number): void {
+  /** `only` : pendant un perchoir, seul le personnage au sol bavarde
+      (le perché a ses bulles scriptées). */
+  private tickAmbientTalk(delta: number, only?: Character): void {
     this._nextTalkIn -= delta;
     if (this._nextTalkIn > 0) {
       return;
     }
-    this._nextTalkIn = this.randomDuration(AMBIENT_DELAY) * this._cadence;
+    this._nextTalkIn =
+      this.randomDuration(this.qaAmbient(AMBIENT_DELAY)) * this._cadence;
     const robot = this._robot!;
     const buddy = this._buddy!;
     /* Le robot parle le plus souvent, l'ami place son petit mot parfois. */
-    const speaker = Math.random() < 0.7 ? robot : buddy;
+    const speaker = only ?? (Math.random() < 0.7 ? robot : buddy);
     if (speaker.bubbleRemaining > 0) {
       return;
     }
@@ -1149,14 +1388,25 @@ export class MascotComponent implements OnDestroy {
     if (this._nextDuoIn > 0) {
       return;
     }
-    this._nextDuoIn = this.randomDuration(DUO_DELAY) * this._cadence;
+    this._nextDuoIn =
+      this.randomDuration(this.qaAmbient(DUO_DELAY)) * this._cadence;
     this.startDuoEvent();
   }
 
-  /** Tire au sort la prochaine chorégraphie : rencontre, high-five ou poursuite. */
+  /** Tire au sort la prochaine chorégraphie : rencontre, high-five ou poursuite.
+      En mode compact, 1 chorégraphie sur 4 devient « la courte échelle ». */
   private startDuoEvent(): void {
     const robot = this._robot!;
     const buddy = this._buddy!;
+
+    if (
+      this._viewMode.isCompact() &&
+      this._perchGrace <= 0 &&
+      Math.random() < 0.25 &&
+      this.startCourteEchelle()
+    ) {
+      return;
+    }
     const roll = Math.random();
 
     if (roll < 0.7) {
@@ -1342,8 +1592,1604 @@ export class MascotComponent implements OnDestroy {
   }
 
   /* ------------------------------------------------------------------ */
+  /* Moteur perchoir — vols, assises, registre d'ancres                  */
+  /*                                                                     */
+  /* Le monde est INTOUCHABLE : lecture seule (querySelectorAll +        */
+  /* getBoundingClientRect) au déclenchement d'un comportement, puis     */
+  /* re-mesure de LA seule ancre active toutes les 300 ms pendant        */
+  /* l'assise. Aucune classe, aucun style, aucun transform sur les       */
+  /* éléments de la page : toutes les illusions physiques (poussée,      */
+  /* rebond, glissade) vivent sur les sprites.                           */
+  /* ------------------------------------------------------------------ */
+
+  /** Borne un x de sprite dans l'écran (les perchoirs vont jusqu'aux bords). */
+  private clampX(char: Character, x: number): number {
+    return Math.min(Math.max(x, 4), window.innerWidth - char.width - 4);
+  }
+
+  /** Élévation (y) qui pose le BAS du sprite à `screenY` px du haut du viewport. */
+  private elevationTo(screenY: number): number {
+    return Math.max(0, window.innerHeight - 2 - screenY);
+  }
+
+  /** Vrai si le rect est entièrement visible dans le viewport — les slides
+      verticales hors écran restent rendues (css-mode), leurs rects mentent. */
+  private rectInViewport(rect: DOMRect): boolean {
+    return rect.top >= 0 && rect.bottom <= window.innerHeight;
+  }
+
+  /** Resynchronise `_activeSlide` sur l'instance réelle du swiper vertical
+      (absente en compact ou juste après recréation : slide 0 dans les deux cas). */
+  private syncActiveSlide(): void {
+    const host = document.querySelector(
+      'swiper-container[direction="vertical"]'
+    ) as { swiper?: { activeIndex?: number } } | null;
+    this._activeSlide = host?.swiper?.activeIndex ?? 0;
+  }
+
+  /** Position écran du haut du sprite (règle « pas de bulle trop haut »). */
+  private spriteTop(char: Character): number {
+    return window.innerHeight - 2 - char.y - char.height;
+  }
+
+  /** Bulle d'un perché : jamais quand elle sortirait par le haut de l'écran. */
+  private sayPerched(char: Character, text: string, duration?: number): void {
+    if (this.spriteTop(char) < BUBBLE_MIN_TOP) {
+      return;
+    }
+    this.say(char, text, duration);
+  }
+
+  /** Scan ponctuel d'un sélecteur : 1 querySelectorAll + N getBoundingClientRect. */
+  private rectsOf(selector: string): { el: Element; rect: DOMRect }[] {
+    const found: { el: Element; rect: DOMRect }[] = [];
+    document.querySelectorAll(selector).forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        found.push({ el, rect });
+      }
+    });
+    return found;
+  }
+
+  private firstRect(selector: string): { el: Element; rect: DOMRect } | null {
+    const el = document.querySelector(selector);
+    if (!el) {
+      return null;
+    }
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 ? { el, rect } : null;
+  }
+
+  /**
+   * Lance un vol balistique. La durée par défaut est plafonnée par la
+   * distance (durée = clamp(dist / 0.9 px·ms⁻¹, 350, 900 ms)).
+   */
+  private launchFlight(
+    char: Character,
+    toX: number,
+    toY: number,
+    height: number,
+    duration?: number,
+    ease?: 'inQuad',
+    onLand?: () => void
+  ): void {
+    const clampedX = this.clampX(char, toX);
+    const dist = Math.hypot(clampedX - char.x, toY - char.y);
+    const ms = duration ?? Math.min(900, Math.max(350, dist / 0.9));
+    if (Math.abs(clampedX - char.x) > 2) {
+      char.dir = clampedX >= char.x ? 1 : -1;
+      this.applyDirection(char);
+    }
+    char.flight = {
+      fromX: char.x,
+      fromY: char.y,
+      toX: clampedX,
+      toY,
+      height,
+      duration: ms,
+      t: 0,
+      ease,
+      onLand,
+    };
+  }
+
+  /** Interpole le vol en cours : x en ease-in-out, y en arche parabolique. */
+  private tickFlight(char: Character, delta: number): void {
+    const flight = char.flight;
+    if (!flight) {
+      return;
+    }
+    flight.t = Math.min(1, flight.t + delta / flight.duration);
+    const t = flight.t;
+    const eased = t * t * (3 - 2 * t);
+    char.x = flight.fromX + (flight.toX - flight.fromX) * eased;
+    const vertical = flight.ease === 'inQuad' ? t * t : t;
+    char.y =
+      flight.fromY +
+      (flight.toY - flight.fromY) * vertical +
+      flight.height * 4 * t * (1 - t);
+    this.applyPosition(char);
+    if (t >= 1) {
+      char.flight = undefined;
+      char.x = flight.toX;
+      char.y = flight.toY;
+      this.applyPosition(char);
+      flight.onLand?.();
+    }
+  }
+
+  /* --- Cadence et tirage --- */
+
+  private nextPerchDelay(first = false): number {
+    const range = this._qaMode
+      ? first
+        ? { min: 1500, max: 3000 }
+        : { min: 4000, max: 7000 }
+      : first
+        ? PERCH_FIRST_DELAY
+        : PERCH_DELAY;
+    /* Mobile : ×2 en plus de la cadence globale ×1.7 (~1 perchoir / 2-4 min). */
+    const mobileFactor = this._isDesktop() ? 1 : PERCH_MOBILE_FACTOR;
+    return this.randomDuration(range) * this._cadence * mobileFactor;
+  }
+
+  /** Divise les cadences ambiantes/duo par 5 en mode QA. */
+  private qaAmbient(range: { min: number; max: number }): {
+    min: number;
+    max: number;
+  } {
+    return this._qaMode ? { min: range.min / 5, max: range.max / 5 } : range;
+  }
+
+  /** Divise les durées d'assise par 2 en mode QA 'fast'. */
+  private qaSit(ms: number): number {
+    return this._qaMode === 'fast' ? ms / 2 : ms;
+  }
+
+  /** Compte à rebours du prochain perchoir — décrémenté en scène 'free'
+      uniquement (gelé pendant approach / duo / chase / perch). */
+  private tickPerchCountdown(delta: number): void {
+    this._nextPerchIn -= delta;
+    if (this._nextPerchIn > 0) {
+      return;
+    }
+    this._nextPerchIn = this.nextPerchDelay();
+    if (this._perchGrace > 0) {
+      return;
+    }
+    /* Mobile : jamais de perchoir quand le sol penche (zone morte du tilt). */
+    if (!this._isDesktop() && Math.abs(this._tilt) > TILT_DEADZONE) {
+      return;
+    }
+    this.drawPerchBehavior();
+  }
+
+  /**
+   * Sélection pondérée par mode. Un comportement indisponible (ancre
+   * absente, condition non remplie) est retiré du tirage et un autre est
+   * tenté — le tour est simplement sauté si rien n'est possible.
+   */
+  private drawPerchBehavior(): void {
+    const compact = this._viewMode.isCompact();
+    const table: { name: PerchName; weight: number }[] = compact
+      ? [
+          { name: 'vigie', weight: 20 },
+          { name: 'funambule', weight: 15 },
+          { name: 'trampoline', weight: 15 },
+          { name: 'attache', weight: 20 },
+          { name: 'coucou', weight: 10 },
+          { name: 'tuile', weight: 10 },
+          { name: 'baie', weight: 10 },
+        ]
+      : this._isDesktop()
+        ? [
+            { name: 'funambule', weight: 40 },
+            { name: 'attache', weight: 30 },
+            { name: 'sommet', weight: 30 },
+          ]
+        : [
+            /* Mobile : seuls le funambule (carte active) et l'attaché de
+               presse (slide profil) sont retenus. */
+            { name: 'funambule', weight: 60 },
+            { name: 'attache', weight: 40 },
+          ];
+
+    if (this._qaMode === 'perch-only') {
+      /* Rotation séquentielle déterministe : tout observer sans hasard. */
+      for (let i = 0; i < table.length; i += 1) {
+        const pick = table[(this._qaRotation + i) % table.length].name;
+        if (this.startPerchBehavior(pick)) {
+          this._qaRotation = (this._qaRotation + i + 1) % table.length;
+          return;
+        }
+      }
+      return;
+    }
+
+    const pool = [...table];
+    while (pool.length > 0) {
+      const total = pool.reduce((sum, entry) => sum + entry.weight, 0);
+      let roll = Math.random() * total;
+      let index = 0;
+      for (; index < pool.length - 1; index += 1) {
+        roll -= pool[index].weight;
+        if (roll <= 0) {
+          break;
+        }
+      }
+      if (this.startPerchBehavior(pool[index].name)) {
+        return;
+      }
+      pool.splice(index, 1);
+    }
+  }
+
+  /** Construit et lance un comportement nommé. Faux si indisponible. */
+  private startPerchBehavior(name: PerchName): boolean {
+    const robot = this._robot;
+    const buddy = this._buddy;
+    if (!robot || !buddy || this._scene !== 'free') {
+      return false;
+    }
+    let plan: { who: Character; steps: PerchStep[] } | null = null;
+    switch (name) {
+      case 'vigie':
+        plan = this.buildVigie(robot);
+        break;
+      case 'funambule':
+        plan = this.buildFunambule(robot);
+        break;
+      case 'trampoline':
+        plan = this.buildTrampoline(buddy);
+        break;
+      case 'attache':
+        plan = this.buildAttache(robot);
+        break;
+      case 'coucou':
+        plan = this.buildCoucou(buddy);
+        break;
+      case 'tuile':
+        plan = this.buildTuile(robot);
+        break;
+      case 'baie':
+        plan = this.buildBaie(buddy);
+        break;
+      case 'sommet':
+        plan = this.buildSommet(buddy);
+        break;
+    }
+    if (!plan) {
+      return false;
+    }
+    this._scene = 'perch';
+    this._perchWho = plan.who;
+    this._perchSteps = plan.steps;
+    this._perchIndex = -1;
+    this._perchWait = 0;
+    this._perchEscort = false;
+    this._perchAnchor = undefined;
+    this._perchFollow = false;
+    plan.who.speedFactor = 1;
+    this.advancePerch();
+    return true;
+  }
+
+  /* --- Exécution séquentielle des étapes --- */
+
+  private advancePerch(): void {
+    const who = this._perchWho;
+    if (!who) {
+      return;
+    }
+    this._perchIndex += 1;
+    this._perchTraverse = undefined;
+    this._perchOrbit = undefined;
+    this._perchFollow = false;
+    if (this._perchIndex >= this._perchSteps.length) {
+      this.endPerch(who.flight ? who : undefined);
+      return;
+    }
+    const step = this._perchSteps[this._perchIndex];
+    switch (step.kind) {
+      case 'do':
+        step.run();
+        this.advancePerch();
+        return;
+      case 'walk': {
+        const to = step.to();
+        if (to === null) {
+          this.controlledFall();
+          return;
+        }
+        /* Trajet borné à ~6 s : un perchoir à l'autre bout de l'écran se
+           rejoint au petit trot, pas en 30 s de marche contemplative. */
+        const distance = Math.abs(
+          Math.min(Math.max(to, EDGE_MARGIN), who.maxX) - who.x
+        );
+        who.speedFactor = Math.min(
+          4,
+          Math.max(step.speedFactor ?? 1.2, distance / (who.speed * 6))
+        );
+        who.targetX = Math.min(Math.max(to, EDGE_MARGIN), who.maxX);
+        who.arrived = Math.abs(who.x - who.targetX) < 2;
+        who.dir = who.targetX >= who.x ? 1 : -1;
+        this.applyDirection(who);
+        this.setPhase(who, who.arrived ? 'rest' : 'move', 60000);
+        if (who.arrived) {
+          this.advancePerch();
+        }
+        return;
+      }
+      case 'pose':
+        this.setPhase(who, step.phase, step.ms + 500);
+        this._perchWait = step.ms;
+        return;
+      case 'jump': {
+        const to = step.to();
+        if (to === null) {
+          this.controlledFall();
+          return;
+        }
+        this.setPhase(who, step.phase ?? 'rest', (step.ms ?? 900) + 300);
+        this.launchFlight(
+          who,
+          to.x,
+          to.y,
+          step.height,
+          step.ms,
+          undefined,
+          () => this.advancePerch()
+        );
+        return;
+      }
+      case 'sit':
+        this.setPhase(who, step.phase, step.ms + 1000);
+        this._perchWait = step.ms;
+        this._perchFollow = step.follow === true;
+        this._perchTargetX = who.x;
+        this._perchTargetY = who.y;
+        this._perchRemeasureIn = 0;
+        return;
+      case 'traverse': {
+        const to = step.to();
+        if (to === null) {
+          this.controlledFall();
+          return;
+        }
+        this._perchTraverse = { toX: this.clampX(who, to), speed: step.speed };
+        who.dir = this._perchTraverse.toX >= who.x ? 1 : -1;
+        this.applyDirection(who);
+        this.setPhase(who, 'tightrope', 60000);
+        this._perchFollow = true;
+        this._perchTargetX = who.x;
+        this._perchTargetY = who.y;
+        this._perchRemeasureIn = 0;
+        return;
+      }
+      case 'slide': {
+        const ms = step.ms || Math.min(900, Math.max(500, who.y * 1.2));
+        this.setPhase(who, 'slide', ms + 300);
+        this.launchFlight(who, who.x, 0, 0, ms, 'inQuad', () =>
+          this.advancePerch()
+        );
+        return;
+      }
+      case 'orbit': {
+        const anchor = this._perchAnchor;
+        const rect =
+          anchor && anchor.el.isConnected
+            ? anchor.el.getBoundingClientRect()
+            : undefined;
+        if (!rect || rect.width === 0) {
+          this.controlledFall();
+          return;
+        }
+        const radius = rect.width / 2;
+        const side = who.x + who.width / 2 >= rect.left + radius ? 1 : -1;
+        this._perchOrbit = {
+          cx: rect.left + radius,
+          cy: rect.top + radius,
+          r: radius,
+          from: -Math.PI / 2,
+          to: side === 1 ? 0 : -Math.PI,
+          ms: step.ms,
+          t: 0,
+        };
+        this.setPhase(who, 'slide', step.ms + 300);
+        return;
+      }
+    }
+  }
+
+  /** Boucle de la scène 'perch' : le perché suit ses étapes, l'autre vit. */
+  private tickPerch(delta: number): void {
+    const robot = this._robot!;
+    const buddy = this._buddy!;
+    const who = this._perchWho;
+    if (!who) {
+      this.endPerch();
+      return;
+    }
+    const grounded = who === robot ? buddy : robot;
+
+    /* Le personnage au sol continue sa vie libre (bulles ambiantes
+       comprises) — sauf pendant la courte échelle où il est acteur. */
+    if (!this._perchEscort) {
+      this.tickFree(grounded, delta);
+      this.tickAmbientTalk(delta, grounded);
+    } else if (!grounded.arrived) {
+      this.tickApproach(grounded, delta);
+    }
+
+    const step = this._perchSteps[this._perchIndex];
+    if (!step) {
+      /* Chute contrôlée en cours : le vol vers le sol termine la scène. */
+      return;
+    }
+
+    /* Re-mesure de LA seule ancre active (~1 lecture layout / 300 ms —
+       couvre la transition 300 ms de l'accordéon et le scroll interne). */
+    if (this._perchFollow && this._perchAnchor) {
+      this._perchRemeasureIn -= delta;
+      if (this._perchRemeasureIn <= 0) {
+        this._perchRemeasureIn = PERCH_REMEASURE;
+        if (!this.remeasureAnchor(who)) {
+          return;
+        }
+      }
+    }
+
+    switch (step.kind) {
+      case 'walk':
+        if (who.flight) {
+          /* Encore en l'air (retombée express) : la marche attend le sol. */
+          return;
+        }
+        if (!who.arrived) {
+          this.tickApproach(who, delta);
+        }
+        if (who.arrived) {
+          this.advancePerch();
+        }
+        return;
+      case 'pose':
+      case 'sit': {
+        this._perchWait -= delta;
+        if (step.kind === 'sit' && this._perchFollow) {
+          /* Glissement doux vers l'ancre (hover -translate-y, accordéon,
+             scroll interne) : lerp temporel, jamais de saut sec. */
+          const k = Math.min(1, delta / 140);
+          who.x += (this._perchTargetX - who.x) * k;
+          who.y += (this._perchTargetY - who.y) * k;
+          this.applyPosition(who);
+        }
+        if (this._perchWait <= 0) {
+          this.advancePerch();
+        }
+        return;
+      }
+      case 'traverse': {
+        const traverse = this._perchTraverse;
+        if (!traverse) {
+          this.advancePerch();
+          return;
+        }
+        const stride = (traverse.speed * delta) / 1000;
+        const remaining = traverse.toX - who.x;
+        const k = Math.min(1, delta / 140);
+        who.y += (this._perchTargetY - who.y) * k;
+        if (Math.abs(remaining) <= stride) {
+          who.x = traverse.toX;
+          this.applyPosition(who);
+          this.advancePerch();
+          return;
+        }
+        who.x += Math.sign(remaining) * stride;
+        this.applyPosition(who);
+        return;
+      }
+      case 'orbit': {
+        const orbit = this._perchOrbit;
+        if (!orbit) {
+          this.advancePerch();
+          return;
+        }
+        orbit.t = Math.min(1, orbit.t + delta / orbit.ms);
+        const angle = orbit.from + (orbit.to - orbit.from) * orbit.t;
+        const px = orbit.cx + Math.cos(angle) * orbit.r;
+        const py = orbit.cy + Math.sin(angle) * orbit.r;
+        who.x = this.clampX(who, px - who.width / 2);
+        who.y = this.elevationTo(py);
+        this.applyPosition(who);
+        if (orbit.t >= 1) {
+          this.advancePerch();
+        }
+        return;
+      }
+      default:
+        /* jump / slide : le vol appelle advancePerch à l'atterrissage. */
+        return;
+    }
+  }
+
+  /** Mémorise l'ancre re-mesurée pendant les assises suivies. */
+  private setPerchAnchor(
+    el: Element,
+    point: (rect: DOMRect) => { x: number; y: number }
+  ): void {
+    this._perchAnchor = { el, point };
+    this._perchRemeasureIn = 0;
+  }
+
+  /** Re-mesure l'ancre active. Faux si elle a disparu (chute déclenchée). */
+  private remeasureAnchor(who: Character): boolean {
+    const anchor = this._perchAnchor;
+    if (!anchor) {
+      return true;
+    }
+    if (!anchor.el.isConnected) {
+      this.controlledFall();
+      return false;
+    }
+    const rect = anchor.el.getBoundingClientRect();
+    if (
+      rect.width === 0 ||
+      rect.height === 0 ||
+      rect.bottom < 0 ||
+      rect.top > window.innerHeight
+    ) {
+      this.controlledFall();
+      return false;
+    }
+    const point = anchor.point(rect);
+    const x = this.clampX(who, point.x);
+    if (
+      Math.abs(x - this._perchTargetX) > PERCH_DRIFT_TOLERANCE ||
+      Math.abs(point.y - this._perchTargetY) > PERCH_DRIFT_TOLERANCE
+    ) {
+      this._perchTargetX = x;
+      this._perchTargetY = point.y;
+    }
+    return true;
+  }
+
+  /**
+   * Chute contrôlée : l'ancre a disparu ou le décor a changé. Elle ne
+   * dépend que de x/y du sprite (aucune lecture du DOM cible) : gravité
+   * douce, réception trébuchante, bulle optionnelle, retour à la vie libre.
+   */
+  private controlledFall(line?: string): void {
+    const who = this._perchWho;
+    if (!who) {
+      return;
+    }
+    this._perchSteps = [];
+    this._perchIndex = 0;
+    this._perchFollow = false;
+    this._perchAnchor = undefined;
+    this._perchTraverse = undefined;
+    this._perchOrbit = undefined;
+    if (who.y < 1 && !who.flight) {
+      this.setPhase(who, 'stumble', 1000);
+      if (line) {
+        this.say(who, line);
+      }
+      this.endPerch(who);
+      return;
+    }
+    this.launchFlight(who, who.x, 0, 0, 450, 'inQuad', () => {
+      this.setPhase(who, 'stumble', 1000);
+      if (line) {
+        this.say(who, line);
+      }
+      this.endPerch(who);
+    });
+  }
+
+  /**
+   * Descente express (triple-clic, changement de slide) : saut direct au
+   * sol, sans cérémonie — la scène redevient 'free' immédiatement, le
+   * compteur de clics et la célébration ne sont pas retardés.
+   */
+  private abortPerch(ms: number): void {
+    const who = this._perchWho;
+    this.resetPerchState();
+    this._scene = 'free';
+    if (!who) {
+      return;
+    }
+    who.speedFactor = 1;
+    if (who.y > 0.5 || who.flight) {
+      this.launchFlight(who, who.x, 0, 0, ms, 'inQuad');
+    }
+    this.setPhase(who, 'rest', this.randomDuration(IDLE_DURATION));
+  }
+
+  /** Fin de scène perchée : retour à la vie libre (le personnage `preserve`
+      garde sa phase — réception trébuchante, fou rire…). */
+  private endPerch(preserve?: Character): void {
+    const robot = this._robot;
+    const buddy = this._buddy;
+    this.resetPerchState();
+    this._scene = 'free';
+    for (const char of [robot, buddy]) {
+      if (!char) {
+        continue;
+      }
+      char.speedFactor = 1;
+      if (char !== preserve && !char.flight) {
+        this.setPhase(char, 'rest', this.randomDuration(IDLE_DURATION));
+      }
+    }
+  }
+
+  private resetPerchState(): void {
+    this._perchWho = undefined;
+    this._perchSteps = [];
+    this._perchIndex = -1;
+    this._perchWait = 0;
+    this._perchAnchor = undefined;
+    this._perchFollow = false;
+    this._perchTraverse = undefined;
+    this._perchOrbit = undefined;
+    this._perchEscort = false;
+  }
+
+  /* --- Comportements — mode compact --- */
+
+  /**
+   * « La vigie des modules » : le robot escalade la baie Projets et s'assoit
+   * au coin d'une tuile de la RANGÉE DU HAUT (rien au-dessus à recouvrir),
+   * jambes pendantes, avant de redescendre d'un saut.
+   */
+  private buildVigie(
+    robot: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const tiles = this.rectsOf(PERCH_SELECTORS.tile);
+    if (tiles.length === 0) {
+      return null;
+    }
+    const minTop = Math.min(...tiles.map((tile) => tile.rect.top));
+    const topRow = tiles.filter((tile) => tile.rect.top - minTop < 8);
+    const pick = topRow[Math.floor(Math.random() * topRow.length)];
+    const moduleIndex = tiles.indexOf(pick) + 1;
+    const bay = pick.el.closest('section');
+    if (!bay) {
+      return null;
+    }
+    const tileEl = pick.el;
+    /* Assise au COIN de la tuile : elle reste lisible. */
+    const corner = Math.random() < 0.5 ? 0.16 : 0.84;
+    const point = (rect: DOMRect) => ({
+      x: rect.left + rect.width * corner - robot.width / 2,
+      y: this.elevationTo(rect.top + 6),
+    });
+    const underX = this.clampX(
+      robot,
+      pick.rect.left + pick.rect.width * corner - robot.width / 2
+    );
+    const line = this.pickLine(VIGIE_LINES, robot).replace(
+      '{index}',
+      String(moduleIndex).padStart(2, '0')
+    );
+    return {
+      who: robot,
+      steps: [
+        { kind: 'walk', to: () => underX },
+        { kind: 'pose', phase: 'crouch', ms: 250 },
+        {
+          kind: 'jump',
+          to: () => {
+            const rect = bay.getBoundingClientRect();
+            return rect.height > 0
+              ? { x: underX, y: this.elevationTo(rect.bottom) }
+              : null;
+          },
+          height: 70,
+          ms: 580,
+        },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!tileEl.isConnected) {
+              return null;
+            }
+            const rect = tileEl.getBoundingClientRect();
+            return rect.height > 0 ? point(rect) : null;
+          },
+          height: 90,
+          ms: 660,
+        },
+        { kind: 'do', run: () => this.setPerchAnchor(tileEl, point) },
+        {
+          kind: 'do',
+          run: () => {
+            if (Math.random() < 0.5) {
+              this.sayPerched(robot, line);
+            }
+          },
+        },
+        {
+          kind: 'sit',
+          phase: 'sit',
+          ms: this.qaSit(6000 + Math.random() * 3000),
+          follow: true,
+        },
+        {
+          kind: 'jump',
+          to: () => ({
+            x: robot.x + (Math.random() < 0.5 ? -80 : 80),
+            y: 0,
+          }),
+          height: 50,
+          ms: 650,
+        },
+        { kind: 'pose', phase: 'crouch', ms: 140 },
+      ],
+    };
+  }
+
+  /**
+   * « Le funambule » : traversée lente (12 px/s) d'un bord supérieur — la
+   * console de lecture en compact, la carte active de l'effet cards en
+   * diaporama — avec un faux pas scripté à mi-parcours pour le suspense.
+   */
+  private buildFunambule(
+    robot: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    let info: { el: Element; rect: DOMRect } | null;
+    if (this._viewMode.isCompact()) {
+      info = this.firstRect(PERCH_SELECTORS.console);
+    } else {
+      const selector = PERCH_SELECTORS.activeCard[this._activeSlide];
+      if (!selector) {
+        return null;
+      }
+      info = this.firstRect(selector);
+    }
+    if (!info || info.rect.top < 60 || !this.rectInViewport(info.rect)) {
+      return null;
+    }
+    const el = info.el;
+    const topY = this.elevationTo(info.rect.top + 2);
+    if (!this._isDesktop() && topY > window.innerHeight * MOBILE_JUMP_CAP) {
+      return null;
+    }
+    /* Traversée limitée à ~110 px (12 px/s pendant 8-10 s au total). */
+    const span = Math.min(info.rect.width - robot.width - 16, 110);
+    if (span < 40) {
+      return null;
+    }
+    const fromLeft = Math.random() < 0.5;
+    const startX = fromLeft
+      ? info.rect.left + 8
+      : info.rect.right - robot.width - 8;
+    const dir = fromLeft ? 1 : -1;
+    const point = (rect: DOMRect) => ({
+      x: this._perchWho?.x ?? startX,
+      y: this.elevationTo(rect.top + 2),
+    });
+    return {
+      who: robot,
+      steps: [
+        { kind: 'walk', to: () => this.clampX(robot, startX) },
+        { kind: 'pose', phase: 'crouch', ms: 220 },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!el.isConnected) {
+              return null;
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.height > 0
+              ? { x: startX, y: this.elevationTo(rect.top + 2) }
+              : null;
+          },
+          height: 70,
+          ms: 600,
+        },
+        { kind: 'do', run: () => this.setPerchAnchor(el, point) },
+        {
+          kind: 'traverse',
+          to: () => startX + (dir * span) / 2,
+          speed: TIGHTROPE_SPEED,
+        },
+        /* Faux pas scripté : rotation, bras qui battent, suspense. */
+        { kind: 'do', run: () => this.sayPerched(robot, FUNAMBULE_LINE, 1700) },
+        { kind: 'pose', phase: 'wobble', ms: 380 },
+        {
+          kind: 'traverse',
+          to: () => startX + dir * span,
+          speed: TIGHTROPE_SPEED,
+        },
+        {
+          kind: 'jump',
+          to: () => ({ x: robot.x + dir * 60, y: 0 }),
+          height: 55,
+          ms: 620,
+        },
+        { kind: 'pose', phase: 'crouch', ms: 130 },
+      ],
+    };
+  }
+
+  /**
+   * « Trampoline de chips » : le blob escalade la colonne droite (toit E →
+   * toit D) puis rebondit sur 3 chips voisines — les chips ne bougent
+   * JAMAIS, l'illusion vient du squash du sprite. Descente : grande vrille
+   * joyeuse, ou glissade du montant du cadre comète (1 fois sur 2).
+   */
+  private buildTrampoline(
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const cells = this.rectsOf(PERCH_SELECTORS.cell)
+      .filter((cell) => cell.rect.left > window.innerWidth / 2)
+      .sort((a, b) => a.rect.top - b.rect.top);
+    if (cells.length < 3) {
+      return null;
+    }
+    const cellD = cells[1];
+    const cellE = cells[2];
+    const chips = this.rectsOf(PERCH_SELECTORS.chip)
+      .filter((chip) => chip.el.closest('section') === cellD.el)
+      .sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left);
+    if (chips.length < 3) {
+      return null;
+    }
+    const start = Math.floor(Math.random() * (chips.length - 2));
+    const trio = chips.slice(start, start + 3);
+    const steps: PerchStep[] = [
+      {
+        kind: 'walk',
+        to: () => this.clampX(buddy, cellE.rect.left + 40),
+        speedFactor: 1.3,
+      },
+      { kind: 'pose', phase: 'crouch', ms: 200 },
+      {
+        kind: 'jump',
+        to: () => {
+          const rect = cellE.el.getBoundingClientRect();
+          return rect.height > 0
+            ? {
+                x: rect.left + 36 - buddy.width / 2,
+                y: this.elevationTo(rect.top),
+              }
+            : null;
+        },
+        height: 95,
+        ms: 600,
+      },
+      {
+        kind: 'jump',
+        to: () => {
+          const rect = cellD.el.getBoundingClientRect();
+          return rect.height > 0
+            ? {
+                x: rect.left + 30 - buddy.width / 2,
+                y: this.elevationTo(rect.top),
+              }
+            : null;
+        },
+        height: 85,
+        ms: 600,
+      },
+    ];
+    trio.forEach((chip, index) => {
+      steps.push(
+        {
+          kind: 'jump',
+          to: () => {
+            if (!chip.el.isConnected) {
+              return null;
+            }
+            const rect = chip.el.getBoundingClientRect();
+            return rect.height > 0
+              ? {
+                  x: rect.left + rect.width / 2 - buddy.width / 2,
+                  y: this.elevationTo(rect.top + 2),
+                }
+              : null;
+          },
+          height: 55,
+          ms: 420,
+        },
+        { kind: 'pose', phase: 'crouch', ms: 90 }
+      );
+      if (index === 2) {
+        steps.push({
+          kind: 'do',
+          run: () => this.sayPerched(buddy, TRAMPOLINE_LINE),
+        });
+      }
+    });
+    if (Math.random() < 0.5) {
+      /* Glissade du cadre : saut latéral vers le montant droit du cadre
+         comète (x dérivé du viewport — le SVG du cadre n'est jamais lu),
+         puis glissade de mât de pompier, étincelles du propre SVG du blob. */
+      const framePad = Math.min(Math.max(24, window.innerWidth * 0.022), 44);
+      steps.push(
+        {
+          kind: 'jump',
+          to: () => ({
+            x: window.innerWidth - framePad - buddy.width / 2,
+            y: Math.max(buddy.y, 80),
+          }),
+          height: 45,
+          ms: 480,
+          phase: 'slide',
+        },
+        { kind: 'slide', ms: 0 },
+        { kind: 'pose', phase: 'crouch', ms: 150 },
+        {
+          kind: 'do',
+          run: () => {
+            if (Math.random() < 0.5) {
+              this.say(buddy, FRAME_SLIDE_LINE, 1500);
+            }
+          },
+        },
+        {
+          kind: 'jump',
+          to: () => ({ x: buddy.x - 60, y: 0 }),
+          height: 35,
+          ms: 400,
+        }
+      );
+    } else {
+      steps.push(
+        {
+          kind: 'jump',
+          to: () => ({ x: buddy.x - 90, y: 0 }),
+          height: 100,
+          ms: 700,
+          phase: 'twirl',
+        },
+        { kind: 'pose', phase: 'crouch', ms: 150 }
+      );
+    }
+    return { who: buddy, steps };
+  }
+
+  /**
+   * « L'attaché de presse » : le robot se pose sur le bord supérieur d'un
+   * badge de contact et le vante, bras tendu, antenne clignotante. Le badge
+   * reste cliquable autour du sprite.
+   */
+  private buildAttache(
+    robot: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    const compact = this._viewMode.isCompact();
+    if (!compact && this._activeSlide !== 0) {
+      return null;
+    }
+    const badges = this.rectsOf(
+      compact ? PERCH_SELECTORS.badgeCompact : PERCH_SELECTORS.badgeSlideshow
+    );
+    if (badges.length === 0) {
+      return null;
+    }
+    const pick = badges[Math.floor(Math.random() * badges.length)];
+    if (!this.rectInViewport(pick.rect)) {
+      return null;
+    }
+    const el = pick.el;
+    const href = (el as HTMLAnchorElement).href ?? '';
+    const line = href.includes('github')
+      ? PRESS_GITHUB_LINE
+      : href.startsWith('mailto') || href.includes('contact@')
+        ? PRESS_EMAIL_LINE
+        : PRESS_DEFAULT_LINE;
+    const topY = this.elevationTo(pick.rect.top + 2);
+    if (!this._isDesktop() && topY > window.innerHeight * MOBILE_JUMP_CAP) {
+      return null;
+    }
+    /* Pose au-dessus du bord supérieur : chevauchement de 2 px seulement. */
+    const point = (rect: DOMRect) => ({
+      x: rect.left + rect.width / 2 - robot.width / 2,
+      y: this.elevationTo(rect.top + 2),
+    });
+    return {
+      who: robot,
+      steps: [
+        {
+          kind: 'walk',
+          to: () =>
+            this.clampX(
+              robot,
+              pick.rect.left + pick.rect.width / 2 - robot.width / 2
+            ),
+        },
+        { kind: 'pose', phase: 'crouch', ms: 180 },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!el.isConnected) {
+              return null;
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.height > 0 ? point(rect) : null;
+          },
+          height: 45,
+          ms: 300,
+        },
+        { kind: 'do', run: () => this.setPerchAnchor(el, point) },
+        { kind: 'do', run: () => this.sayPerched(robot, line) },
+        {
+          kind: 'sit',
+          phase: 'point',
+          ms: this.qaSit(4200 + Math.random() * 800),
+          follow: true,
+        },
+        {
+          kind: 'jump',
+          to: () => ({ x: robot.x - 60, y: 0 }),
+          height: 40,
+          ms: 350,
+        },
+      ],
+    };
+  }
+
+  /**
+   * « Coucou console » : la console vient de changer de projet (fenêtre de
+   * 8 s, MutationObserver passif) — le blob accourt, s'agrippe au bord et
+   * seuls son crâne, ses oreilles et ses grands yeux dépassent pendant
+   * qu'il « lit » la description.
+   */
+  private buildCoucou(
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (
+      !this._viewMode.isCompact() ||
+      performance.now() - this._consoleChangedAt > CONSOLE_PEEK_WINDOW
+    ) {
+      return null;
+    }
+    const info = this.firstRect(PERCH_SELECTORS.console);
+    if (!info) {
+      return null;
+    }
+    const el = info.el;
+    /* Agrippé au bord : le bord supérieur coupe le dessin à hauteur du nez
+       (le sprite z-40 passe devant la console, c'est voulu). */
+    const point = (rect: DOMRect) => ({
+      x: rect.left + rect.width * 0.28 - buddy.width / 2,
+      y: this.elevationTo(rect.top + buddy.height * 0.55),
+    });
+    return {
+      who: buddy,
+      steps: [
+        {
+          kind: 'walk',
+          to: () => this.clampX(buddy, info.rect.left + info.rect.width * 0.28),
+          speedFactor: 1.6,
+        },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!el.isConnected) {
+              return null;
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.height > 0 ? point(rect) : null;
+          },
+          height: 50,
+          ms: 400,
+        },
+        { kind: 'do', run: () => this.setPerchAnchor(el, point) },
+        {
+          kind: 'do',
+          run: () => {
+            if (Math.random() < 1 / 3) {
+              this.sayPerched(buddy, CONSOLE_PEEK_LINE, 2200);
+            }
+          },
+        },
+        {
+          kind: 'sit',
+          phase: 'sit',
+          ms: this.qaSit(5000 + Math.random() * 2000),
+          follow: true,
+        },
+        { kind: 'slide', ms: 350 },
+        { kind: 'pose', phase: 'crouch', ms: 180 },
+      ],
+    };
+  }
+
+  /**
+   * « La tuile récalcitrante » : le robot pousse une tuile de la rangée du
+   * bas — inclinaison et effort simulés à 100 % sur le SPRITE, la tuile ne
+   * reçoit NI classe NI transform. Échec théâtral garanti.
+   */
+  private buildTuile(
+    robot: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const tiles = this.rectsOf(PERCH_SELECTORS.tile);
+    if (tiles.length === 0) {
+      return null;
+    }
+    const maxTop = Math.max(...tiles.map((tile) => tile.rect.top));
+    const bottomRow = tiles.filter((tile) => maxTop - tile.rect.top < 8);
+    const pick = bottomRow[Math.floor(Math.random() * bottomRow.length)];
+    const el = pick.el;
+    const point = (rect: DOMRect) => ({
+      x: rect.left - robot.width + 14,
+      y: this.elevationTo(rect.bottom),
+    });
+    return {
+      who: robot,
+      steps: [
+        {
+          kind: 'walk',
+          to: () => this.clampX(robot, pick.rect.left - robot.width + 14),
+        },
+        { kind: 'pose', phase: 'crouch', ms: 220 },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!el.isConnected) {
+              return null;
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.height > 0 ? point(rect) : null;
+          },
+          height: 80,
+          ms: 620,
+        },
+        {
+          kind: 'do',
+          run: () => {
+            /* Dos à la tuile : il regarde ailleurs pendant l'effort. */
+            robot.dir = -1;
+            this.applyDirection(robot);
+          },
+        },
+        { kind: 'pose', phase: 'push', ms: 900 },
+        { kind: 'pose', phase: 'crouch', ms: 160 },
+        { kind: 'pose', phase: 'push', ms: 900 },
+        { kind: 'pose', phase: 'crouch', ms: 160 },
+        { kind: 'pose', phase: 'push', ms: 900 },
+        { kind: 'pose', phase: 'stumble', ms: 800 },
+        { kind: 'do', run: () => this.sayPerched(robot, TILE_PUSH_LINE) },
+        { kind: 'pose', phase: 'rest', ms: 700 },
+        {
+          kind: 'jump',
+          to: () => ({ x: robot.x - 70, y: 0 }),
+          height: 45,
+          ms: 600,
+        },
+        { kind: 'pose', phase: 'crouch', ms: 140 },
+      ],
+    };
+  }
+
+  /**
+   * « Ma baie à moi » : le blob se love dans le 12e slot « libre » de la
+   * grille projets (aria-hidden, non interactif : aucun conflit de clic)
+   * pour une longue sieste.
+   */
+  private buildBaie(
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const dot = document.querySelector(PERCH_SELECTORS.slotDot);
+    const slot = dot?.closest('div') ?? null;
+    if (!slot) {
+      return null;
+    }
+    const slotRect = slot.getBoundingClientRect();
+    if (slotRect.width === 0 || slotRect.height === 0) {
+      return null;
+    }
+    const consoleInfo = this.firstRect(PERCH_SELECTORS.console);
+    const point = (rect: DOMRect) => ({
+      x: rect.left + rect.width / 2 - buddy.width / 2,
+      y: this.elevationTo(rect.bottom - 6),
+    });
+    const steps: PerchStep[] = [
+      {
+        kind: 'walk',
+        to: () =>
+          this.clampX(
+            buddy,
+            slotRect.left + slotRect.width / 2 - buddy.width / 2
+          ),
+      },
+      { kind: 'pose', phase: 'crouch', ms: 200 },
+    ];
+    if (consoleInfo) {
+      /* Marchepied : le bord de la console, puis le slot. */
+      steps.push({
+        kind: 'jump',
+        to: () => {
+          const rect = consoleInfo.el.getBoundingClientRect();
+          return rect.height > 0
+            ? { x: buddy.x, y: this.elevationTo(rect.top) }
+            : null;
+        },
+        height: 60,
+        ms: 500,
+      });
+    }
+    steps.push(
+      {
+        kind: 'jump',
+        to: () => {
+          if (!slot.isConnected) {
+            return null;
+          }
+          const rect = slot.getBoundingClientRect();
+          return rect.height > 0 ? point(rect) : null;
+        },
+        height: 70,
+        ms: 550,
+      },
+      { kind: 'do', run: () => this.setPerchAnchor(slot, point) },
+      { kind: 'do', run: () => this.sayPerched(buddy, NEST_LINE) },
+      {
+        kind: 'sit',
+        phase: 'nest',
+        ms: this.qaSit(10000 + Math.random() * 4000),
+        follow: true,
+      },
+      /* Réveil : étirement, puis saut au sol. */
+      { kind: 'pose', phase: 'excited', ms: 600 },
+      {
+        kind: 'jump',
+        to: () => ({ x: buddy.x + 80, y: 0 }),
+        height: 60,
+        ms: 600,
+      },
+      { kind: 'pose', phase: 'crouch', ms: 140 }
+    );
+    return { who: buddy, steps };
+  }
+
+  /* --- Comportements — mode diaporama --- */
+
+  /**
+   * « Le sommet du monde » : slide profil uniquement — le blob conquiert le
+   * sommet de la photo ronde, puis glisse le long de la COURBE du cercle
+   * avant d'être éjecté en parabole (réception stumble, puis fou rire).
+   */
+  private buildSommet(
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (
+      this._viewMode.isCompact() ||
+      this._activeSlide !== 0 ||
+      !this._isDesktop()
+    ) {
+      return null;
+    }
+    const info = this.firstRect(PERCH_SELECTORS.photo);
+    if (!info || info.rect.top < 40 || !this.rectInViewport(info.rect)) {
+      return null;
+    }
+    const el = info.el;
+    const point = (rect: DOMRect) => ({
+      x: rect.left + rect.width / 2 - buddy.width / 2,
+      y: this.elevationTo(rect.top + 4),
+    });
+    return {
+      who: buddy,
+      steps: [
+        {
+          kind: 'walk',
+          to: () =>
+            this.clampX(
+              buddy,
+              info.rect.left + info.rect.width / 2 - buddy.width / 2
+            ),
+        },
+        { kind: 'pose', phase: 'crouch', ms: 250 },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!el.isConnected) {
+              return null;
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.height > 0
+              ? { x: buddy.x, y: this.elevationTo(rect.bottom) }
+              : null;
+          },
+          height: 80,
+          ms: 600,
+        },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!el.isConnected) {
+              return null;
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.height > 0 ? point(rect) : null;
+          },
+          height: 110,
+          ms: 700,
+        },
+        { kind: 'do', run: () => this.setPerchAnchor(el, point) },
+        { kind: 'do', run: () => this.sayPerched(buddy, SUMMIT_LINE) },
+        {
+          kind: 'sit',
+          phase: 'sit',
+          ms: this.qaSit(5000 + Math.random() * 2000),
+          follow: true,
+        },
+        /* Descente signature : glissade le long de la courbe du cercle… */
+        { kind: 'orbit', ms: 600 },
+        /* …puis éjection en parabole. */
+        {
+          kind: 'jump',
+          to: () => ({
+            x: buddy.x + (buddy.dir === 1 ? 110 : -110),
+            y: 0,
+          }),
+          height: 70,
+          ms: 550,
+        },
+        { kind: 'pose', phase: 'stumble', ms: 700 },
+        { kind: 'pose', phase: 'laugh', ms: 1300 },
+      ],
+    };
+  }
+
+  /* --- Chorégraphie duo « La courte échelle » (mode compact) --- */
+
+  /**
+   * Le robot se campe sous la colonne droite, le blob rebondit sur sa tête
+   * puis grimpe toit E → toit D → la rangée d'expérience ACTIVE (déjà
+   * dépliée — on ne déclenche JAMAIS de mouseenter synthétique sur l'UI).
+   * Branchée sur le compteur duo (1 chorégraphie sur 4 en compact).
+   */
+  private startCourteEchelle(): boolean {
+    const robot = this._robot;
+    const buddy = this._buddy;
+    if (
+      !robot ||
+      !buddy ||
+      this._scene !== 'free' ||
+      !this._viewMode.isCompact()
+    ) {
+      return false;
+    }
+    const cells = this.rectsOf(PERCH_SELECTORS.cell)
+      .filter((cell) => cell.rect.left > window.innerWidth / 2)
+      .sort((a, b) => a.rect.top - b.rect.top);
+    if (cells.length < 3) {
+      return false;
+    }
+    const cellD = cells[1];
+    const cellE = cells[2];
+    const rowInfo = this.firstRect(PERCH_SELECTORS.activeRow);
+    if (!rowInfo) {
+      return false;
+    }
+    const rowEl = rowInfo.el;
+    const baseX = Math.min(cellE.rect.left + 70, window.innerWidth - 170);
+    const rowPoint = (rect: DOMRect) => ({
+      x: rect.left + Math.min(56, rect.width * 0.2) - buddy.width / 2,
+      y: this.elevationTo(rect.top + 2),
+    });
+    const steps: PerchStep[] = [
+      {
+        kind: 'do',
+        run: () => {
+          this._perchEscort = true;
+          this.walkTowards(robot, baseX + 20);
+        },
+      },
+      { kind: 'walk', to: () => baseX - 40, speedFactor: 1.25 },
+      /* Le robot finit de se camper, bras en étrier. */
+      { kind: 'pose', phase: 'rest', ms: 700 },
+      { kind: 'do', run: () => this.setPhase(robot, 'brace', 9000) },
+      { kind: 'pose', phase: 'crouch', ms: 250 },
+      {
+        kind: 'jump',
+        to: () => ({
+          x: robot.x + robot.width / 2 - buddy.width / 2,
+          y: robot.height - 8,
+        }),
+        height: 40,
+        ms: 360,
+      },
+      {
+        kind: 'do',
+        run: () => this.setPhase(robot, 'crouch', 140),
+      },
+      {
+        kind: 'jump',
+        to: () => {
+          const rect = cellE.el.getBoundingClientRect();
+          return rect.height > 0
+            ? {
+                x: rect.left + 44 - buddy.width / 2,
+                y: this.elevationTo(rect.top),
+              }
+            : null;
+        },
+        height: 95,
+        ms: 600,
+      },
+      { kind: 'do', run: () => this.setPhase(robot, 'brace', 8000) },
+      {
+        kind: 'jump',
+        to: () => {
+          const rect = cellD.el.getBoundingClientRect();
+          return rect.height > 0
+            ? {
+                x: rect.left + 34 - buddy.width / 2,
+                y: this.elevationTo(rect.top),
+              }
+            : null;
+        },
+        height: 85,
+        ms: 600,
+      },
+      {
+        kind: 'jump',
+        to: () => {
+          if (!rowEl.isConnected) {
+            return null;
+          }
+          const rect = rowEl.getBoundingClientRect();
+          return rect.height > 0 ? rowPoint(rect) : null;
+        },
+        height: 80,
+        ms: 620,
+      },
+      { kind: 'do', run: () => this.setPerchAnchor(rowEl, rowPoint) },
+      { kind: 'do', run: () => this.say(robot, LADDER_ROBOT_LINE) },
+      { kind: 'sit', phase: 'sit', ms: this.qaSit(1900), follow: true },
+      { kind: 'do', run: () => this.sayPerched(buddy, LADDER_BUDDY_LINE) },
+      { kind: 'sit', phase: 'sit', ms: this.qaSit(2600), follow: true },
+      { kind: 'do', run: () => this.setPhase(robot, 'look', 2400) },
+      {
+        kind: 'jump',
+        to: () => ({ x: robot.x + 100, y: 0 }),
+        height: 90,
+        ms: 680,
+      },
+      { kind: 'pose', phase: 'crouch', ms: 140 },
+    ];
+    this._scene = 'perch';
+    this._perchWho = buddy;
+    this._perchSteps = steps;
+    this._perchIndex = -1;
+    this._perchWait = 0;
+    this._perchAnchor = undefined;
+    this._perchFollow = false;
+    buddy.speedFactor = 1;
+    this.advancePerch();
+    return true;
+  }
+
+  /* --- Observateur passif de la console (condition du Coucou console) --- */
+
+  /**
+   * MutationObserver léger sur #project-console, branché uniquement en mode
+   * compact (le nœud .console-line est recréé au changement de projet) :
+   * il ne fait qu'horodater le dernier changement. Seule « écoute » tolérée
+   * du monde — jamais aucune mutation.
+   */
+  private syncConsoleObserver(compact: boolean): void {
+    clearTimeout(this._consoleObserverTimer);
+    if (!compact) {
+      this.disconnectConsoleObserver();
+      return;
+    }
+    /* Branché après le délai de grâce : le pont doit être rendu. */
+    this._consoleObserverTimer = window.setTimeout(() => {
+      const consoleEl = document.querySelector(PERCH_SELECTORS.console);
+      if (!consoleEl) {
+        return;
+      }
+      this._consoleObserver?.disconnect();
+      this._consoleObserver = new MutationObserver(() => {
+        this._consoleChangedAt = performance.now();
+      });
+      this._consoleObserver.observe(consoleEl, {
+        childList: true,
+        subtree: true,
+      });
+    }, PERCH_GRACE_MODE + 200);
+  }
+
+  private disconnectConsoleObserver(): void {
+    clearTimeout(this._consoleObserverTimer);
+    this._consoleObserver?.disconnect();
+    this._consoleObserver = undefined;
+    this._consoleChangedAt = Number.NEGATIVE_INFINITY;
+  }
+
+  /* --- Hook QA --- */
+
+  /** Lit la clé QA une fois par démarrage de scène et expose window.__mascotQa
+      (uniquement quand la clé est présente : aucune surface en usage normal). */
+  private readQaMode(): void {
+    let value = '';
+    try {
+      value = localStorage.getItem(QA_KEY) ?? '';
+    } catch {
+      // Stockage indisponible : mode normal.
+    }
+    this._qaMode = value === 'fast' || value === 'perch-only' ? value : '';
+    const host = window as unknown as Record<string, unknown>;
+    if (this._qaMode) {
+      console.info(
+        `[mascot] mode QA rapide actif ('${this._qaMode}') — localStorage.removeItem('${QA_KEY}') pour revenir au rythme normal`
+      );
+      host['__mascotQa'] = {
+        trigger: (name: PerchName | 'echelle') =>
+          this._zone.runOutsideAngular(() => this.qaTrigger(name)),
+      };
+    } else {
+      delete host['__mascotQa'];
+    }
+  }
+
+  /** Déclenche un comportement nommé à la demande (QA uniquement) : la
+      scène en cours est interrompue pour observer sans attendre. */
+  private qaTrigger(name: PerchName | 'echelle'): void {
+    if (!this._robot || !this._buddy) {
+      return;
+    }
+    if (this._scene === 'perch') {
+      this.abortPerch(200);
+    } else if (this._scene !== 'free') {
+      this.backToFree();
+    }
+    const started =
+      name === 'echelle'
+        ? this.startCourteEchelle()
+        : this.startPerchBehavior(name);
+    if (!started) {
+      console.info(`[mascot] '${name}' indisponible ici (mode ou ancres)`);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Réactions au monde                                                  */
   /* ------------------------------------------------------------------ */
+
+  /**
+   * Bascule diaporama / compact : le décor entier change, les perchoirs
+   * disparaissent. Chute contrôlée du perché (elle ne dépend que de x/y du
+   * sprite, pas du DOM disparu), purge du registre, délai de grâce de 1,4 s
+   * avant tout scan (view-fade-in + reveals 250-750 ms + dessin du cadre
+   * 1,1 s) et premier tirage repoussé à ≥ 8 s pour laisser le visiteur
+   * découvrir le nouveau décor.
+   */
+  private onModeSwitched(): void {
+    if (this._scene === 'perch') {
+      /* Bascule venue du triple-clic : la célébration (déjà jouée) remplace
+         la bulle de chute — _contextCooldown posé par triggerSurprise. */
+      this.controlledFall(
+        this._contextCooldown > 0 ? undefined : PERCH_FALL_LINE
+      );
+    }
+    this._perchGrace = PERCH_GRACE_MODE;
+    this._nextPerchIn = Math.max(this._nextPerchIn, PERCH_AFTER_MODE_MIN);
+    /* Retour en diaporama : le swiper est recréé à la slide 0 sans émettre
+       swiperslidechange (l'index ne change pas) — resynchronisation ici,
+       sinon _activeSlide garderait sa valeur d'avant le mode compact. */
+    this.syncActiveSlide();
+    this.reactToModeChange();
+  }
 
   /** Bascule diaporama / compact : petit saut de surprise et commentaire. */
   private reactToModeChange(): void {
@@ -1633,12 +3479,18 @@ export class MascotComponent implements OnDestroy {
       buddy.el.classList.toggle('is-offbalance', offBalance);
     }
 
-    /* Glissade : au-delà de la zone morte, le duo glisse du côté incliné. */
+    /* Glissade : au-delà de la zone morte, le duo glisse du côté incliné.
+       Seuls les personnages AU SOL glissent (un perché ou un sprite en vol
+       dériverait hors de son perchoir) ; le penchement --duo-tilt, lui,
+       s'applique partout — le perché penche aussi, c'est mignon. */
     const beyond = Math.abs(tilt) - TILT_DEADZONE;
     if (beyond > 0) {
       const speed = Math.min(beyond * TILT_SLIDE_GAIN, TILT_SLIDE_MAX);
       const shift = (Math.sign(tilt) * speed * delta) / 1000;
       for (const char of [robot, buddy]) {
+        if (char.y > 0 || char.flight) {
+          continue;
+        }
         const next = Math.min(Math.max(char.x + shift, EDGE_MARGIN), char.maxX);
         if (next !== char.x) {
           char.x = next;
@@ -1657,13 +3509,19 @@ export class MascotComponent implements OnDestroy {
     }
   }
 
-  /** Secousse détectée : le duo trébuche et proteste gentiment. */
+  /** Secousse détectée : le duo trébuche et proteste gentiment. La secousse
+      gagne toujours : un perché TOMBE (chute contrôlée + stumble). */
   private reactToShake(robot: Character, buddy: Character): void {
-    if (this._scene !== 'free') {
+    if (this._scene === 'perch') {
+      this.controlledFall();
+    } else if (this._scene !== 'free') {
       this.backToFree();
     }
-    this.setPhase(robot, 'stumble', 1100);
-    this.setPhase(buddy, 'stumble', 1100);
+    for (const char of [robot, buddy]) {
+      if (!char.flight) {
+        this.setPhase(char, 'stumble', 1100);
+      }
+    }
     this.say(robot, this.pickLine(SHAKE_LINES, robot));
     this.say(buddy, this.pickLine(BUDDY_SHAKE_LINES, buddy), 1900);
   }
@@ -1742,53 +3600,6 @@ export class MascotComponent implements OnDestroy {
       buddyLookX = -buddyLookX;
     }
     this.applyGaze(buddy, buddyLookX, buddyLookY);
-  }
-
-  /**
-   * Bouton × (ordinateur) : il se pose au-dessus du personnage le plus
-   * proche du curseur et disparaît quand la souris s'éloigne (hystérésis
-   * pour ne pas clignoter pendant le trajet vers le bouton). Sur mobile, le
-   * × est fixe en bas à droite : rien à faire ici.
-   */
-  private tickDismissHover(robot: Character, buddy: Character): void {
-    const dismissEl = this._dismissRef()?.nativeElement;
-    if (!dismissEl || !this._isDesktop()) {
-      return;
-    }
-
-    const refY = window.innerHeight - 44;
-    const robotDist = Math.hypot(
-      this._mouseX - this.centerOf(robot),
-      this._mouseY - refY
-    );
-    const buddyDist = Math.hypot(
-      this._mouseX - this.centerOf(buddy),
-      this._mouseY - refY
-    );
-    const nearest = robotDist <= buddyDist ? robot : buddy;
-    const dist = Math.min(robotDist, buddyDist);
-
-    const show = this._dismissShown
-      ? dist < DISMISS_HIDE_RADIUS
-      : dist < DISMISS_SHOW_RADIUS;
-    if (show !== this._dismissShown) {
-      this._dismissShown = show;
-      dismissEl.classList.toggle('is-showing', show);
-    }
-    if (!show) {
-      return;
-    }
-
-    /* Posé en haut à droite du personnage, borné aux bords de l'écran
-       (au-dessus des têtes, la bulle garde le centre). */
-    const x = Math.min(
-      Math.max(this.centerOf(nearest) + nearest.width / 2, EDGE_MARGIN),
-      window.innerWidth - DISMISS_HALF * 2 - 8
-    );
-    if (Math.abs(x - this._dismissX) > 0.5) {
-      this._dismissX = x;
-      dismissEl.style.transform = `translate3d(${x.toFixed(0)}px, 0, 0)`;
-    }
   }
 
   private applyGaze(char: Character, lookX: number, lookY: number): void {
@@ -1889,8 +3700,11 @@ export class MascotComponent implements OnDestroy {
 
   private applyPosition(char: Character): void {
     /* Le penchement (inclinaison du téléphone) vit dans une variable CSS :
-       la translation peut être réécrite sans toucher à la rotation. */
-    char.el.style.transform = `translate3d(${char.x}px, 0, 0) rotate(var(--duo-tilt, 0deg))`;
+       la translation peut être réécrite sans toucher à la rotation.
+       L'axe vertical (y = élévation au-dessus du sol, 0 = promenade) porte
+       les perchoirs ; le pivot 50% 100% et la bulle (enfant du bouton, elle
+       suit gratuitement) restent inchangés. */
+    char.el.style.transform = `translate3d(${char.x}px, ${-char.y}px, 0) rotate(var(--duo-tilt, 0deg))`;
     if (char.bubbleRemaining > 0) {
       this.updateBubbleShift(char);
     }

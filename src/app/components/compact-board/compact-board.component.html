@@ -309,11 +309,10 @@
       [revealMargin]="'0px'"
       class="col-span-12 flex h-12 items-center gap-4 px-1 2xl:h-14"
     >
-      <!-- relative z-50 : les liens de contact passent au-dessus du duo de
-           mascottes (hôte fixe z-40) — un personnage qui se promène devant
-           un badge ne vole jamais le clic (sinon trois clics insistants sur
-           « Github » déclencheraient la surprise du triple-clic). -->
-      <div class="relative z-50 flex items-center gap-2">
+      <!-- Les mascottes (hôte fixe z-40) passent DEVANT les badges, comme
+           devant le reste du pont : seul le corps d'un sprite intercepte
+           ponctuellement le clic, le badge reste cliquable autour. -->
+      <div class="compact-contacts relative flex items-center gap-2">
         <badge
           data-circuit
           size="sm"
