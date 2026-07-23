@@ -25,7 +25,7 @@
   border: 0;
   background: transparent;
   border-radius: 16px; /* contour de focus arrondi (outline global) */
-  cursor: pointer;
+  cursor: var(--cursor-interactive, pointer);
   pointer-events: auto;
   will-change: transform;
   /* Penchement (inclinaison du téléphone) : pivot aux pieds. */
@@ -95,11 +95,15 @@
 /* Bulles de dialogue : boîte nightBlue bordée lightBlue + flèche.     */
 /* La boîte glisse (--bubble-shift) pour rester dans l'écran,          */
 /* la flèche reste au-dessus de la tête du personnage.                 */
+/* Le glissement vit sur `left` et SURTOUT PAS dans le transform :     */
+/* celui-ci est transitionné (rebond d'apparition à overshoot) — un    */
+/* shift animé traînerait 0,28 s derrière le sprite (translaté, lui,   */
+/* instantanément) et la bulle déborderait de l'écran près des bords.  */
 /* ------------------------------------------------------------------ */
 .duo-bubble {
   position: absolute;
   bottom: calc(100% + 12px);
-  left: 50%;
+  left: calc(50% + var(--bubble-shift, 0px));
   display: block;
   width: max-content;
   max-width: 240px;
@@ -114,7 +118,7 @@
   text-align: center;
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
   opacity: 0;
-  transform: translate(calc(-50% + var(--bubble-shift, 0px)), 6px) scale(0.85);
+  transform: translate(-50%, 6px) scale(0.85);
   transition:
     opacity 0.22s ease,
     transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -123,7 +127,7 @@
 
 .duo-bubble.is-visible {
   opacity: 1;
-  transform: translate(calc(-50% + var(--bubble-shift, 0px)), 0) scale(1);
+  transform: translate(-50%, 0) scale(1);
 }
 
 .duo-bubble-arrow {
@@ -1092,4 +1096,168 @@
   100% {
     transform: translateX(0) rotate(0deg);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Curseur-guide : double décoratif du curseur custom (~1,5×) qui      */
+/* glisse jusqu'au robot et mime trois clics pour souffler le secret   */
+/* du triple-clic. Purement ornemental : pointer-events none,          */
+/* aria-hidden, au-dessus des mascottes (z-index 3 dans l'hôte).       */
+/* Sa translation est pilotée en TypeScript dans la boucle rAF         */
+/* partagée (transform/opacity uniquement).                            */
+/* ------------------------------------------------------------------ */
+.cursor-guide {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 36px;
+  height: 36px;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  transition: opacity 0.5s ease;
+}
+
+.cursor-guide.is-visible {
+  opacity: 1;
+}
+
+/* Halo lumineux qui respire doucement autour de la flèche. */
+.guide-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--light-blue) 30%, transparent) 0%,
+    color-mix(in srgb, var(--purple) 14%, transparent) 45%,
+    transparent 70%
+  );
+  animation: guide-halo-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes guide-halo-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+
+/* Onde de clic : anneau qui s'évase depuis la pointe de la flèche.
+   Rejouée à chaque pulsation en re-posant .is-click (TypeScript). */
+.guide-wave {
+  position: absolute;
+  left: 4.5px;
+  top: 3px;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  border: 2px solid var(--light-blue);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--light-blue) 55%, transparent);
+  opacity: 0;
+  transform: scale(0.25);
+}
+
+.cursor-guide.is-click .guide-wave {
+  animation: guide-wave 0.42s ease-out;
+}
+
+@keyframes guide-wave {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.25);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+
+/* La flèche elle-même « appuie » à chaque pulsation (pivot : la pointe). */
+.guide-arrow {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--light-blue) 45%, transparent)
+  );
+  transform-origin: 4.5px 3px;
+}
+
+.cursor-guide.is-click .guide-arrow {
+  animation: guide-press 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes guide-press {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.8);
+  }
+}
+
+/* Bulle du guide : même style que les bulles du duo, posée assez haut
+   pour passer au-dessus de la tête du robot (le guide plane sur lui).
+   Comme .duo-bubble, le glissement vit sur `left` (jamais transitionné)
+   pour que le clamp anti-débordement s'applique sans latence. */
+.guide-bubble {
+  position: absolute;
+  bottom: calc(100% + 46px);
+  left: calc(50% + var(--guide-bubble-shift, 0px));
+  display: block;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 12px;
+  background: var(--night-blue);
+  border: 1px solid color-mix(in srgb, var(--light-blue) 60%, transparent);
+  border-radius: 12px;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transform: translate(-50%, 6px) scale(0.85);
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.guide-bubble.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.guide-bubble-arrow {
+  position: absolute;
+  bottom: calc(100% + 42px);
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--night-blue);
+  border-right: 1px solid color-mix(in srgb, var(--light-blue) 60%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--light-blue) 60%, transparent);
+  transform: translateX(-50%) rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  pointer-events: none;
+}
+
+.guide-bubble.is-visible + .guide-bubble-arrow {
+  opacity: 1;
 }

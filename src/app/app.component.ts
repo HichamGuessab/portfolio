@@ -33,7 +33,6 @@ import { ViewModeService } from './services/view-mode.service';
         background: linear-gradient(rgba(55, 150, 173, 0.56), var(--navy-blue));
         border-radius: 5px;
         transition: all 0.4s ease-in-out;
-        cursor: pointer;
         border: none;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
       }

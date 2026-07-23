@@ -292,4 +292,42 @@
       </span>
     </span>
   </button>
+
+  <!-- Curseur-guide : double décoratif du curseur custom du site (~1,5×,
+       halo lumineux). Sur ordinateur, une seule fois par session et tant que
+       la surprise du triple-clic n'a pas été découverte, il apparaît en
+       fondu depuis le bord de l'écran, glisse en courbe douce jusqu'au
+       robot, mime trois clics (ondes + sursauts du robot) avec sa bulle
+       indice, puis s'évanouit. Le vrai curseur du visiteur n'est jamais
+       déplacé. -->
+  <div #cursorGuide class="cursor-guide" aria-hidden="true">
+    <span class="guide-bubble">
+      <span class="guide-bubble-text">
+        Petit secret : cliquez trois fois sur lui !
+      </span>
+    </span>
+    <span class="guide-bubble-arrow"></span>
+    <span class="guide-halo"></span>
+    <span class="guide-wave"></span>
+    <!-- Même flèche que le curseur custom (styles.css), redessinée en SVG
+         inline aux couleurs de la charte : corps nightBlue, liseré dégradé
+         lightBlue → purple, pointe lumineuse. -->
+    <svg class="guide-arrow" viewBox="0 0 24 24" width="36" height="36">
+      <defs>
+        <linearGradient id="guideArrowGradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="var(--light-blue)" />
+          <stop offset="100%" stop-color="var(--purple)" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M3 2 L3 17 L7.2 13.6 L9.7 19.6 L12.6 18.4 L10.1 12.5 L15.5 12.2 Z"
+        fill="var(--night-blue)"
+        stroke="url(#guideArrowGradient)"
+        stroke-width="1.5"
+        stroke-linejoin="round"
+      />
+      <circle cx="3.8" cy="3" r="2.6" fill="var(--light-blue)" opacity="0.35" />
+      <circle cx="3.6" cy="2.8" r="1.3" fill="var(--light-blue)" />
+    </svg>
+  </div>
 }

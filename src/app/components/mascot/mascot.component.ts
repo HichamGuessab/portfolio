@@ -64,6 +64,42 @@ const TRIPLE_CLICK_WINDOW = 1200;
 const HINT_CHANCE_UNDISCOVERED = 0.45;
 const HINT_CHANCE_DISCOVERED = 0.1;
 
+/* --- Curseur-guide (ordinateur uniquement) --- */
+
+/** Clé sessionStorage : le guide ne se joue qu'une fois par session. */
+const GUIDE_SESSION_KEY = 'portfolio-cursor-guide-shown';
+
+/** Apparition ~12-18 s après le chargement (2 s en mode QA 'fast'). */
+const GUIDE_DELAY = { min: 12000, max: 18000 } as const;
+const GUIDE_QA_DELAY = 2000;
+
+/** Glissé en courbe douce depuis le bord de l'écran jusqu'au robot. */
+const GUIDE_GLIDE_MS = 2000;
+
+/** Amplitude (px) de l'arc vertical du glissé (courbe organique). */
+const GUIDE_ARC = 70;
+
+/** Trois clics mimés, espacés de ~450 ms (le robot sursaute à chacun). */
+const GUIDE_CLICKS = 3;
+const GUIDE_CLICK_INTERVAL = 450;
+
+/** Pause de lecture de la bulle après le dernier clic, avant le fondu. */
+const GUIDE_READ_MS = 2100;
+
+/** Durée du fondu de sortie (alignée sur la transition CSS de .cursor-guide). */
+const GUIDE_FADE_MS = 500;
+
+/** Boîte du guide (36×36, flèche 1,5×) et pointe de la flèche (hotspot). */
+const GUIDE_SIZE = 36;
+const GUIDE_TIP_X = 4.5;
+const GUIDE_TIP_Y = 3;
+
+/** Décalage du sol des sprites (`bottom: 2px` dans le CSS). */
+const SPRITE_GROUND = 2;
+
+/** Le guide ne vise que les vrais pointeurs : jamais d'écran tactile. */
+const POINTER_FINE_QUERY = '(pointer: fine)';
+
 /* --- Perchoirs : le duo escalade l'interface (voir « moteur perchoir ») --- */
 
 /** Cadence des comportements perchés : soutenue — le duo doit visiblement
@@ -136,6 +172,12 @@ interface SensorPermissionApi {
 /** Dimensions des sprites (alignées avec le CSS et les viewBox des SVG). */
 const ROBOT_WIDTH = 64;
 const BUDDY_WIDTH = 48;
+
+/** Écart vertical tête → bas de bulle (CSS : bottom: calc(100% + 12px)). */
+const BUBBLE_GAP = 12;
+
+/** Marge (px) gardée entre une bulle et les bords de l'écran. */
+const BUBBLE_MARGIN = 8;
 
 /** Vitesses de croisière en pixels par seconde — rythme volontairement calme. */
 const ROBOT_SPEED = 26;
@@ -289,6 +331,8 @@ interface Character {
   bubbleRemaining: number;
   /** Demi-largeur de la bulle, mesurée à l'affichage puis mise en cache. */
   bubbleHalf: number;
+  /** Demi-hauteur de la bulle (clamp sous penchement capteurs). */
+  bubbleHalfH: number;
   lastLineIndex: number;
   /** Dernier regard appliqué (variables CSS --look-x / --look-y). */
   lookX: number;
@@ -406,7 +450,7 @@ const ROBOT_LINES: readonly string[] = [
   'Un jour, il m’apprendra le CSS. J’ai déjà le dégradé.',
   'Psst… la section projets vaut le détour.',
   'Hicham parle couramment TypeScript.',
-  'Je marche depuis ce matin, et ce portfolio est toujours aussi beau.',
+  'Vous cherchez un développeur ? Vous êtes au bon endroit.',
   'Mon antenne capte cinq sur cinq : ce candidat est excellent.',
   'Vous êtes encore là ? Hicham va être ravi !',
   'Je ne suis qu’un robot, mais je reconnais le talent.',
@@ -428,9 +472,9 @@ const GREET_DIALOGUES: readonly { robot: string; buddy: string }[] = [
     robot: 'Hicham est très fort en développement.',
     buddy: 'Oui, très fort !',
   },
-  { robot: 'Tu as vu ces projets ?', buddy: 'Incroyables !' },
+  { robot: 'Vous avez vu ces projets ?', buddy: 'Incroyables !' },
   { robot: 'Qui nous a dessinés, déjà ?', buddy: 'Hicham, évidemment !' },
-  { robot: 'Dis un mot aux visiteurs.', buddy: 'Vous avez bon goût !' },
+  { robot: 'Un mot pour nos visiteurs ?', buddy: 'Vous avez bon goût !' },
   { robot: 'Ce portfolio est magnifique, non ?', buddy: 'Comme son auteur !' },
 ] as const;
 
@@ -445,20 +489,20 @@ const MODE_LINES: readonly string[] = [
 
 /** Indices glissés dans les bulles ambiantes (desktop, viewport compatible). */
 const ROBOT_HINT_LINES: readonly string[] = [
-  'Psst… surprise si tu cliques 3 fois sur moi !',
-  'Un secret ? Clique 3 fois sur mon ami.',
+  'Psst… cliquez 3 fois sur moi, vous verrez !',
+  'Petit secret : cliquez 3 fois sur mon ami !',
   'Il paraît que 3 clics sur moi, ça fait des miracles…',
 ] as const;
 
 const BUDDY_HINT_LINES: readonly string[] = [
-  'Clique 3 fois sur moi, tu verras bien…',
+  'Cliquez 3 fois sur moi… effet garanti !',
   'Chut… 3 clics sur moi, et magie !',
 ] as const;
 
 /** Deuxième clic : le personnage sent que quelque chose se prépare. */
 const ALMOST_LINES: readonly string[] = [
   'Encore un clic…',
-  'Oh, tu chauffes !',
+  'Oh, vous chauffez !',
 ] as const;
 
 /** Célébration de la surprise, selon le mode d'arrivée. */
@@ -476,7 +520,8 @@ const SURPRISE_SLIDESHOW_LINES: readonly string[] = [
 const SURPRISE_ECHO_LINE = 'Tadaaa !';
 
 /** Triple-clic sur une fenêtre trop petite pour le mode compact. */
-const SURPRISE_LOCKED_LINE = 'Agrandis la fenêtre pour découvrir la surprise !';
+const SURPRISE_LOCKED_LINE =
+  'Agrandissez la fenêtre pour découvrir la surprise !';
 
 /** Triple-tap sur mobile : la surprise reste une affaire de grand écran. */
 const SURPRISE_MOBILE_LINE = 'La surprise, c’est sur grand écran !';
@@ -501,7 +546,7 @@ const TRAMPOLINE_LINE = 'Pouf ! Pouf ! Pouf ! C’est moelleux, les compétences
 /** L'attaché de presse, selon le badge vanté. */
 const PRESS_GITHUB_LINE = 'Tout son code est là-dessous !';
 const PRESS_EMAIL_LINE = 'Un message et il répond dans la journée !';
-const PRESS_DEFAULT_LINE = 'Clique là, il répond vite !';
+const PRESS_DEFAULT_LINE = 'Cliquez là, il répond vite !';
 
 /** Coucou console (petite bulle, 1 fois sur 3). */
 const CONSOLE_PEEK_LINE = 'Ooooh. J’adore celui-là.';
@@ -540,8 +585,8 @@ const PROJECT_LINES: readonly string[] = [
 
 /** Petites piques de la poursuite. */
 const CHASE_LINES: readonly string[] = [
-  'Attends-moi !',
-  'Je vais t’attraper !',
+  'Pas si vite !',
+  'Je vais le rattraper !',
 ] as const;
 
 /** Sursaut quand le téléphone est secoué. */
@@ -570,8 +615,8 @@ const BUDDY_TAP_LINES: readonly string[] = [
 ] as const;
 
 /** Parcours d'activation des capteurs de mouvement (mobile). */
-const SENSOR_INVITE_LINE = 'Touche-moi pour activer les capteurs !';
-const SENSOR_ON_LINE = 'Capteurs activés ! Penche ton téléphone.';
+const SENSOR_INVITE_LINE = 'Touchez-moi pour activer les capteurs !';
+const SENSOR_ON_LINE = 'Capteurs activés ! Penchez votre téléphone.';
 const SENSOR_DENIED_LINE = 'Pas de souci : je continue ma promenade !';
 const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
 
@@ -663,6 +708,8 @@ export class MascotComponent implements OnDestroy {
   private readonly _buddyRef: Signal<
     ElementRef<HTMLButtonElement> | undefined
   > = viewChild<ElementRef<HTMLButtonElement>>('buddySprite');
+  private readonly _guideRef: Signal<ElementRef<HTMLElement> | undefined> =
+    viewChild<ElementRef<HTMLElement>>('cursorGuide');
 
   private readonly _zone: NgZone = inject(NgZone);
   private readonly _mediaListeners: AbortController = new AbortController();
@@ -764,9 +811,29 @@ export class MascotComponent implements OnDestroy {
 
   /* --- Gestes tactiles (mobile) --- */
   private _tapCooldown = 0;
-  /** Compte à rebours de la bulle « Touche-moi pour activer les capteurs ! ». */
+  /** Compte à rebours de la bulle « Touchez-moi pour activer les capteurs ! ». */
   private _inviteIn = 0;
   private _inviteShown = false;
+
+  /* --- Curseur-guide --- */
+  /** Élément du guide et sa bulle (résolus au démarrage de la scène). */
+  private _guideEl?: HTMLElement;
+  private _guideBubble?: HTMLElement;
+  /** 'off' recouvre : inéligible, déjà joué cette session, ou terminé. */
+  private _guideState: 'off' | 'waiting' | 'gliding' | 'clicking' | 'leaving' =
+    'off';
+  /** Compte à rebours polyvalent : apparition, report, fondu de sortie. */
+  private _guideIn = 0;
+  /** Avancement (ms) du glissé vers le robot. */
+  private _guideT = 0;
+  private _guideStartX = 0;
+  private _guideStartY = 0;
+  /** Clics mimés déjà joués et compte à rebours de la prochaine pulsation. */
+  private _guideClicks = 0;
+  private _guideClickIn = 0;
+  /** Glissement horizontal de la bulle pour rester dans l'écran. */
+  private _guideShift = 0;
+  private _guideBubbleHalf = 120;
 
   /* --- Surprise du triple-clic --- */
   /** Personnage visé par la rafale de clics en cours (changer = repartir à 1). */
@@ -960,6 +1027,246 @@ export class MascotComponent implements OnDestroy {
     }
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Curseur-guide : double du curseur custom qui souffle le secret      */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Arme le curseur-guide au démarrage de la scène. Il ne se joue que sur
+   * ordinateur (breakpoint md ET pointeur précis — jamais de curseur sur un
+   * écran tactile), une seule fois par session, et uniquement tant que la
+   * surprise du triple-clic n'a jamais été découverte. Inéligible : l'état
+   * reste 'off', l'élément (inerte, aria-hidden) ne se montre jamais.
+   */
+  private initGuide(): void {
+    const el = this._guideRef()?.nativeElement;
+    this._guideEl = el ?? undefined;
+    this._guideBubble =
+      el?.querySelector<HTMLElement>('.guide-bubble') ?? undefined;
+    this._guideState = 'off';
+    if (!el) {
+      return;
+    }
+    el.classList.remove('is-visible', 'is-click');
+    this._guideBubble?.classList.remove('is-visible');
+    if (
+      !this._isDesktop() ||
+      this._surpriseFound ||
+      !window.matchMedia(POINTER_FINE_QUERY).matches
+    ) {
+      return;
+    }
+    try {
+      if (sessionStorage.getItem(GUIDE_SESSION_KEY) === 'true') {
+        return;
+      }
+    } catch {
+      // Stockage indisponible : le guide se joue quand même (une fois par chargement).
+    }
+    this._guideState = 'waiting';
+    this._guideIn =
+      this._qaMode === 'fast'
+        ? GUIDE_QA_DELAY
+        : this.randomDuration(GUIDE_DELAY);
+  }
+
+  /** Vrai pendant le numéro du guide : la scène libre reste alors calme. */
+  private guideBusy(): boolean {
+    return (
+      this._guideState === 'gliding' ||
+      this._guideState === 'clicking' ||
+      this._guideState === 'leaving'
+    );
+  }
+
+  /**
+   * Vie du curseur-guide, au rythme de la boucle rAF partagée : attente,
+   * glissé en courbe vers le robot (il suit sa position réelle), trois
+   * clics mimés avec bulle indice, fondu de sortie. Le vrai curseur du
+   * visiteur n'est évidemment jamais déplacé.
+   */
+  private tickGuide(delta: number): void {
+    const state = this._guideState;
+    if (state === 'off') {
+      return;
+    }
+    const el = this._guideEl;
+    const robot = this._robot;
+    if (!el || !robot) {
+      this._guideState = 'off';
+      return;
+    }
+
+    /* La surprise vient d'être découverte : le guide n'a plus rien à dire. */
+    if (this._surpriseFound && state !== 'leaving') {
+      if (state === 'waiting') {
+        this._guideState = 'off';
+      } else {
+        this.startGuideLeave();
+      }
+      return;
+    }
+
+    switch (state) {
+      case 'waiting': {
+        this._guideIn -= delta;
+        if (this._guideIn > 0) {
+          return;
+        }
+        /* Jamais pendant une chorégraphie, un perchoir, une célébration ou
+           juste après une bascule de mode : le délai écoulé, on guette à
+           chaque frame la première accalmie (simple lecture d'état). Même
+           attente si la fenêtre ne permet pas la surprise. */
+        if (
+          this._scene !== 'free' ||
+          this._perchGrace > 0 ||
+          robot.flight !== undefined ||
+          robot.y > 0.5 ||
+          !this._viewMode.compactCapable()
+        ) {
+          return;
+        }
+        this.startGuideGlide(robot);
+        return;
+      }
+      case 'gliding': {
+        this._guideT += delta;
+        const t = Math.min(1, this._guideT / GUIDE_GLIDE_MS);
+        /* Ease-in-out cubique + arc vertical : courbe douce et organique,
+           recalée chaque frame sur la position réelle du robot (il bouge). */
+        const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const target = this.guideTarget(robot);
+        const x = this._guideStartX + (target.x - this._guideStartX) * eased;
+        const y =
+          this._guideStartY +
+          (target.y - this._guideStartY) * eased +
+          Math.sin(Math.PI * t) * GUIDE_ARC;
+        el.style.transform = `translate3d(${x}px, ${-y}px, 0)`;
+        if (t >= 1) {
+          this._guideState = 'clicking';
+          this._guideClicks = 0;
+          this._guideClickIn = 260;
+          this.showGuideBubble(robot);
+        }
+        return;
+      }
+      case 'clicking': {
+        /* Collé au robot (il continue sa promenade, sursaute à chaque clic). */
+        const target = this.guideTarget(robot);
+        el.style.transform = `translate3d(${target.x}px, ${-target.y}px, 0)`;
+        this.updateGuideBubbleShift(robot);
+        this._guideClickIn -= delta;
+        if (this._guideClickIn > 0) {
+          return;
+        }
+        if (this._guideClicks < GUIDE_CLICKS) {
+          this._guideClicks += 1;
+          this.playGuideClick(el, robot);
+          /* Après le dernier clic : pause de lecture, puis sortie. */
+          this._guideClickIn =
+            this._guideClicks === GUIDE_CLICKS
+              ? GUIDE_READ_MS
+              : GUIDE_CLICK_INTERVAL;
+        } else {
+          this.startGuideLeave();
+        }
+        return;
+      }
+      case 'leaving': {
+        this._guideIn -= delta;
+        if (this._guideIn <= 0) {
+          this._guideState = 'off';
+          el.classList.remove('is-click');
+        }
+        return;
+      }
+    }
+  }
+
+  /** Départ du glissé : fondu depuis le bord opposé au robot, mi-écran. */
+  private startGuideGlide(robot: Character): void {
+    try {
+      sessionStorage.setItem(GUIDE_SESSION_KEY, 'true');
+    } catch {
+      // Stockage indisponible : le numéro se jouera au plus une fois par chargement.
+    }
+    const fromRight = this.centerOf(robot) < window.innerWidth / 2;
+    this._guideStartX = fromRight ? window.innerWidth + 24 : -GUIDE_SIZE - 24;
+    this._guideStartY = Math.min(window.innerHeight * 0.42, 340);
+    this._guideT = 0;
+    const el = this._guideEl!;
+    const startX = this._guideStartX;
+    const startY = this._guideStartY;
+    el.style.transform = `translate3d(${startX}px, ${-startY}px, 0)`;
+    el.classList.add('is-visible');
+    this._guideState = 'gliding';
+  }
+
+  /**
+   * Position du guide (coin bas-gauche de sa boîte, dans le repère des
+   * sprites : x depuis la gauche, y = élévation au-dessus du bas d'écran)
+   * pour que la POINTE de la flèche plane sur le haut du corps du robot.
+   */
+  private guideTarget(robot: Character): { x: number; y: number } {
+    return {
+      x: robot.x + robot.width * 0.58 - GUIDE_TIP_X,
+      y:
+        SPRITE_GROUND +
+        robot.y +
+        robot.height * 0.66 -
+        (GUIDE_SIZE - GUIDE_TIP_Y),
+    };
+  }
+
+  /** Une pulsation : onde + appui de la flèche, sursaut complice du robot. */
+  private playGuideClick(el: HTMLElement, robot: Character): void {
+    /* L'animation CSS est rejouée en re-posant la classe (le reflow forcé
+       ne mesure que cette boîte fixe de 36 px). */
+    el.classList.remove('is-click');
+    void el.offsetWidth;
+    el.classList.add('is-click');
+    if (this._scene === 'free' && !robot.flight && robot.y <= 0.5) {
+      this.setPhase(robot, 'jump', GUIDE_CLICK_INTERVAL - 40);
+    }
+  }
+
+  /** Bulle indice du guide (même style que celles du duo, glissée à l'écran). */
+  private showGuideBubble(robot: Character): void {
+    const bubble = this._guideBubble;
+    if (!bubble) {
+      return;
+    }
+    bubble.classList.add('is-visible');
+    this._guideBubbleHalf = (bubble.offsetWidth || 240) / 2;
+    this._guideShift = Number.NaN;
+    this.updateGuideBubbleShift(robot);
+  }
+
+  /** Comme updateBubbleShift : la boîte glisse, la flèche reste sur le guide. */
+  private updateGuideBubbleShift(robot: Character): void {
+    const el = this._guideEl;
+    if (!el) {
+      return;
+    }
+    const center = this.guideTarget(robot).x + GUIDE_SIZE / 2;
+    const min = 8 + this._guideBubbleHalf;
+    const max = Math.max(min, window.innerWidth - 8 - this._guideBubbleHalf);
+    const shift = Math.min(Math.max(center, min), max) - center;
+    if (Math.abs(shift - this._guideShift) < 0.5) {
+      return;
+    }
+    this._guideShift = shift;
+    el.style.setProperty('--guide-bubble-shift', `${shift.toFixed(0)}px`);
+  }
+
+  /** Fondu de sortie du guide (la bulle part avec lui). */
+  private startGuideLeave(): void {
+    this._guideBubble?.classList.remove('is-visible');
+    this._guideEl?.classList.remove('is-visible');
+    this._guideState = 'leaving';
+    this._guideIn = GUIDE_FADE_MS;
+  }
+
   private observeMediaQuery(
     query: string,
     target: WritableSignal<boolean>
@@ -1113,6 +1420,10 @@ export class MascotComponent implements OnDestroy {
        exposée. */
     this.readQaMode();
 
+    /* Curseur-guide : armé une fois par session si la surprise du
+       triple-clic n'a jamais été découverte (ordinateur, pointeur précis). */
+    this.initGuide();
+
     /* Entrée en scène : le robot salue, l'ami trépigne, puis chacun sa vie. */
     this._scene = 'free';
     this._script = undefined;
@@ -1173,6 +1484,14 @@ export class MascotComponent implements OnDestroy {
       char.el.classList.remove('is-talking', 'is-alert', 'is-offbalance');
       char.el.style.removeProperty('--duo-tilt');
     }
+    /* Curseur-guide : tout état visuel posé impérativement est retiré (les
+       éléments survivent au redémarrage de la scène). */
+    this._guideEl?.classList.remove('is-visible', 'is-click');
+    this._guideBubble?.classList.remove('is-visible');
+    this._guideEl = undefined;
+    this._guideBubble = undefined;
+    this._guideState = 'off';
+
     this._robot = undefined;
     this._buddy = undefined;
     this._script = undefined;
@@ -1214,6 +1533,7 @@ export class MascotComponent implements OnDestroy {
       arrived: true,
       bubbleRemaining: 0,
       bubbleHalf: 60,
+      bubbleHalfH: 16,
       lastLineIndex: -1,
       lookX: 0,
       lookY: 0,
@@ -1255,13 +1575,19 @@ export class MascotComponent implements OnDestroy {
     this.tickFlight(robot, delta);
     this.tickFlight(buddy, delta);
 
+    this.tickGuide(delta);
+
     switch (this._scene) {
       case 'free':
         this.tickFree(robot, delta);
         this.tickFree(buddy, delta);
-        this.tickAmbientTalk(delta);
-        this.tickDuoCountdown(delta);
-        this.tickPerchCountdown(delta);
+        /* Pendant le numéro du curseur-guide, la scène reste calme : ni
+           bavardage ambiant, ni chorégraphie, ni perchoir ne démarrent. */
+        if (!this.guideBusy()) {
+          this.tickAmbientTalk(delta);
+          this.tickDuoCountdown(delta);
+          this.tickPerchCountdown(delta);
+        }
         break;
       case 'approach':
         this.tickApproach(robot, delta);
@@ -3469,6 +3795,13 @@ export class MascotComponent implements OnDestroy {
       const value = `${rotation.toFixed(1)}deg`;
       robot.el.style.setProperty('--duo-tilt', value);
       buddy.el.style.setProperty('--duo-tilt', value);
+      /* Le penchement déporte les bulles : re-clamp immédiat des visibles
+         (sinon un personnage immobile qui parle déborderait en penchant). */
+      for (const char of [robot, buddy]) {
+        if (char.bubbleRemaining > 0) {
+          this.updateBubbleShift(char);
+        }
+      }
     }
 
     /* Forte inclinaison : petite animation de déséquilibre (bras écartés). */
@@ -3625,8 +3958,10 @@ export class MascotComponent implements OnDestroy {
     char.bubble.classList.add('is-visible');
     char.el.classList.add('is-talking');
     char.bubbleRemaining = duration ?? Math.min(4600, 1900 + text.length * 40);
-    /* Mesurée une fois par phrase, puis réutilisée pendant les déplacements. */
+    /* Mesures faites une fois par phrase (même layout forcé), puis
+       réutilisées pendant les déplacements. */
     char.bubbleHalf = (char.bubble.offsetWidth || 120) / 2;
+    char.bubbleHalfH = (char.bubble.offsetHeight || 32) / 2;
     this.updateBubbleShift(char);
   }
 
@@ -3641,12 +3976,30 @@ export class MascotComponent implements OnDestroy {
     }
   }
 
-  /** Garde la bulle dans l'écran : la boîte glisse, la flèche reste sur la tête. */
+  /**
+   * Garde la bulle dans l'écran : la boîte glisse, la flèche reste sur la
+   * tête. Tient compte du penchement capteurs (--duo-tilt) : la bulle pivote
+   * avec le sprite autour de ses pieds, son centre se déporte donc de
+   * bras × sin θ et sa boîte englobante s'élargit — le clamp corrige les
+   * deux pour que la bulle penchée reste elle aussi dans l'écran.
+   */
   private updateBubbleShift(char: Character): void {
-    const center = this.centerOf(char);
-    const min = 8 + char.bubbleHalf;
-    const max = Math.max(min, window.innerWidth - 8 - char.bubbleHalf);
-    const shift = Math.min(Math.max(center, min), max) - center;
+    const theta = (this._appliedTiltRot * Math.PI) / 180;
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+    /* Bras de levier pieds (pivot de rotation) → centre de la bulle. */
+    const arm = char.height + BUBBLE_GAP + char.bubbleHalfH;
+    /* Demi-largeur de la boîte englobante de la bulle penchée. */
+    const half = char.bubbleHalf * cos + char.bubbleHalfH * Math.abs(sin);
+    /* Centre de bulle à glissement nul, une fois le penchement appliqué. */
+    const center = this.centerOf(char) + arm * sin;
+    /* Le glissement est appliqué avant rotation : l'écran le voit × cos θ. */
+    const min = (BUBBLE_MARGIN + half - center) / cos;
+    const max = Math.max(
+      min,
+      (window.innerWidth - BUBBLE_MARGIN - half - center) / cos
+    );
+    const shift = Math.min(Math.max(0, min), max);
     char.el.style.setProperty('--bubble-shift', `${shift.toFixed(0)}px`);
   }
 

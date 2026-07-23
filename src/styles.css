@@ -47,6 +47,52 @@
   --navy-blue: #0f2c57;
   --night-blue: #0d1953;
   --dark-blue: #040d39;
+
+  /* Curseurs custom de la charte : flèche au corps nightBlue cernée du
+     dégradé signature lightBlue → purple, pointe lumineuse (SVG 24×24 en
+     data-URI, pointe = hotspot 3 2). Deux variantes : défaut, et
+     interactive (même flèche + halo lumineux, à la place de pointer).
+     Chaque valeur embarque son fallback (auto / pointer) en fin de liste. */
+  --cursor-default:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2353dcfd'/%3E%3Cstop offset='1' stop-color='%23a88cff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M3 2 L3 17 L7.2 13.6 L9.7 19.6 L12.6 18.4 L10.1 12.5 L15.5 12.2 Z' fill='%230d1953' stroke='url(%23g)' stroke-width='1.5' stroke-linejoin='round'/%3E%3Ccircle cx='3.8' cy='3' r='2.6' fill='%2353dcfd' opacity='0.35'/%3E%3Ccircle cx='3.6' cy='2.8' r='1.3' fill='%2353dcfd'/%3E%3C/svg%3E")
+      3 2,
+    auto;
+  --cursor-interactive:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2353dcfd'/%3E%3Cstop offset='1' stop-color='%23a88cff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='9.5' cy='11' r='8.6' fill='%2353dcfd' opacity='0.16'/%3E%3Ccircle cx='9.5' cy='11' r='8.6' fill='none' stroke='%23a88cff' stroke-width='1' opacity='0.4'/%3E%3Cpath d='M3 2 L3 17 L7.2 13.6 L9.7 19.6 L12.6 18.4 L10.1 12.5 L15.5 12.2 Z' fill='%230d1953' stroke='url(%23g)' stroke-width='1.7' stroke-linejoin='round'/%3E%3Ccircle cx='3.8' cy='3' r='3' fill='%2353dcfd' opacity='0.5'/%3E%3Ccircle cx='3.6' cy='2.8' r='1.4' fill='%2353dcfd'/%3E%3C/svg%3E")
+      3 2,
+    pointer;
+}
+
+/* Application des curseurs custom : uniquement là où un curseur existe
+   (pointeur précis — les écrans tactiles sont épargnés). Les champs de
+   saisie éventuels gardent leur curseur texte utile. */
+@media (pointer: fine) {
+  html {
+    cursor: var(--cursor-default);
+  }
+
+  a,
+  button,
+  [role='button'],
+  select,
+  summary,
+  label[for] {
+    cursor: var(--cursor-interactive);
+  }
+
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable='false']) {
+    cursor: text;
+  }
+
+  /* Flèches et pagination du Swiper (shadow DOM : ciblées via ::part). */
+  swiper-container::part(button-prev),
+  swiper-container::part(button-next),
+  swiper-container::part(bullet),
+  swiper-container::part(bullet-active) {
+    cursor: var(--cursor-interactive);
+  }
 }
 
 @layer base {

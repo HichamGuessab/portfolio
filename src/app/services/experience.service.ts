@@ -21,11 +21,18 @@ export class ExperienceService {
     "Coupe de France de Robotique en tant qu'opérateur Lidar dans une équipe de 5 personnes au sein de l'association R2T2. <br> <br> Résultat : 27/90"
   );
 
-  CBAInformatiqueLiberal: Experience = this.buildExperience(
-    'Ingénieur logiciel',
+  CBAInformatiqueLiberalCDI: Experience = this.buildExperience(
+    'Ingénieur logiciel (CDI)',
     'CBA Informatique Libéral',
-    '2023 - 2025',
-    "En tant qu'ingénieur logiciel chez CBA Informatique Libéral, j'étais chargé du développement et de la maintenance des applications AgatheYou (Web et Mobile) avec Angular et Ionic. <br> <br> Consultez mon profil LinkedIn pour en savoir plus."
+    "Août 2025 - Aujourd'hui",
+    'En CDI chez CBA Informatique Libéral, je suis chargé du développement et de la maintenance des applications AgatheYou (Web et Mobile). <br> <br> Je suis spécialisé sur le mobile — Angular, Capacitor, iOS, Android — ainsi que sur le web : Angular, Docker, hybridation avec du Struts, entre autres. <br> <br> Consultez mon profil LinkedIn pour en savoir plus.'
+  );
+
+  CBAInformatiqueLiberalAlternance: Experience = this.buildExperience(
+    'Ingénieur logiciel (Alternance)',
+    'CBA Informatique Libéral',
+    'Septembre 2023 - Août 2025',
+    "En alternance chez CBA Informatique Libéral, dans le cadre de mon Master Ingénierie du logiciel, j'étais chargé du développement et de la maintenance des applications AgatheYou (Web et Mobile) avec Angular et Ionic."
   );
 
   referentJeanZay: Experience = this.buildExperience(
@@ -42,7 +49,8 @@ export class ExperienceService {
 
   constructor() {
     this.experiences = [
-      this.CBAInformatiqueLiberal,
+      this.CBAInformatiqueLiberalCDI,
+      this.CBAInformatiqueLiberalAlternance,
       this.referentJeanZay,
       this.roboticsFrenchCup,
       this.courses,
