@@ -28,12 +28,16 @@ const SURPRISE_KEY = 'portfolio-surprise-found';
 
 /**
  * Clé localStorage du mode QA (testabilité) :
- * - 'fast' : cadence frénétique (perchoirs en quelques secondes) ;
+ * - 'fast' : cadence frénétique (perchoirs en quelques secondes, cooldowns
+ *   de réaction /5, seuils de survol → 300 ms, sieste → 5 s, tourbillon →
+ *   3 inversions) ;
  * - 'perch-only' : tirage exclusif et séquentiel des comportements perchés.
  * Usage : localStorage.setItem('portfolio-mascot-qa','fast'); location.reload()
  * Retrait : localStorage.removeItem('portfolio-mascot-qa')
- * Quand la clé est présente, window.__mascotQa = { trigger(name) } permet de
- * déclencher un comportement nommé à la demande. Sans la clé : aucune surface.
+ * Quand la clé est présente, window.__mascotQa = { trigger(name),
+ * react(name, x?), state() } permet de déclencher un comportement nommé
+ * ('sieste' compris) ou une réaction visiteur (déclencheur DOM
+ * court-circuité) à la demande. Sans la clé : aucune surface.
  */
 const QA_KEY = 'portfolio-mascot-qa';
 
@@ -46,8 +50,9 @@ const EDGE_MARGIN = 24;
 /** Échelle des mascottes sur mobile (~70 % de la taille ordinateur). */
 const MOBILE_SCALE = 0.7;
 
-/** Cadence des bulles et chorégraphies sur mobile : plus espacées. */
-const MOBILE_CADENCE = 1.7;
+/** Cadence des bulles et chorégraphies sur mobile : un peu plus espacées
+    (allégée mais vivante). */
+const MOBILE_CADENCE = 1.5;
 
 /** Anti-spam des petites réactions au toucher sur mobile (ms). */
 const TAP_COOLDOWN = 1600;
@@ -102,13 +107,15 @@ const POINTER_FINE_QUERY = '(pointer: fine)';
 
 /* --- Perchoirs : le duo escalade l'interface (voir « moteur perchoir ») --- */
 
-/** Cadence des comportements perchés : soutenue — le duo doit visiblement
-    vivre dans le décor (premier perchage sous ~10 s, puis régulier). */
-const PERCH_FIRST_DELAY = { min: 5000, max: 10000 } as const;
-const PERCH_DELAY = { min: 16000, max: 32000 } as const;
+/** Cadence des comportements perchés : très soutenue — un moment perché
+    toutes les ~15 s en moyenne, le duo vit VISIBLEMENT dans le décor
+    (premier perchage sous ~8 s, puis régulier). */
+const PERCH_FIRST_DELAY = { min: 4000, max: 8000 } as const;
+const PERCH_DELAY = { min: 10000, max: 20000 } as const;
 
-/** Facteur de cadence supplémentaire sur mobile (en plus du ×1.7 global). */
-const PERCH_MOBILE_FACTOR = 2;
+/** Facteur de cadence supplémentaire sur mobile (en plus du ×1.5 global) :
+    un perchoir mobile toutes les ~22-45 s. */
+const PERCH_MOBILE_FACTOR = 1.5;
 
 /** Délais de grâce avant tout scan DOM : les rects mentent pendant les
     transitions (view-fade-in + reveals + dessin du cadre / effet cards). */
@@ -201,13 +208,89 @@ const AMBIENT_DELAY = { min: 12000, max: 24000 } as const;
 /** Cadence des chorégraphies à deux (rencontre, high-five, poursuite) :
     fréquentes — le duo doit interagir souvent, c'est le cœur du charme. */
 const DUO_FIRST_DELAY = { min: 7000, max: 12000 } as const;
-const DUO_DELAY = { min: 12000, max: 24000 } as const;
+const DUO_DELAY = { min: 10000, max: 20000 } as const;
+
+/**
+ * Couloir GLOBAL des réactions visiteur « jouées » : au plus une toutes les
+ * 5 s (le surf de transition, quasi silencieux, a son propre couloir à
+ * 1500 ms). Le compte à rebours associé (_reactCooldown) est décrémenté dans
+ * la boucle rAF ; tickReactions (l'arbitre unique des réactions) le consomme
+ * et le réarme — divisé par 5 en mode QA 'fast' via qaCooldown.
+ */
+const REACT_GLOBAL_COOLDOWN = 5000;
+
+/* --- Réactions aux actions du visiteur : couloirs et seuils ---
+   Règle absolue : les handlers MÉMORISENT (horodatages, refs, x), la rAF
+   CONSOMME. Un événement trop vieux est simplement perdu — une réaction en
+   retard est pire qu'une réaction manquée. */
+
+/** Fraîcheur maximale (ms) d'un événement mémorisé par un handler. */
+const REACT_FRESH_MS = 600;
+
+/** Tolérance de retard d'un franchissement de seuil de survol bloqué par un
+    couloir : au-delà, le survol est consommé sans réaction. */
+const REACT_LATE_MS = 900;
+
+/** « Le surf de transition » : couloir dédié très court — il joue à chaque
+    coup de molette ou presque (retour haptique visuel du scroll), avec un
+    léger décalage robot/blob pour l'effet de vague. */
+const SURF_COOLDOWN = 1500;
+const SURF_STAGGER = 120;
+
+/** « J'accours pour voir » : survol prolongé d'une tuile / carte projet —
+    couloir propre 8 s + cooldown par élément (WeakMap, remplace l'ancien
+    PROJECT_COOLDOWN de 30 s, assoupli à 25 s). */
+const ACCOURSE_HOVER_MS = 1200;
+const ACCOURSE_OWN_COOLDOWN = 8000;
+const ACCOURSE_ELEMENT_COOLDOWN = 25000;
+
+/** « La dégringolade de l'accordéon » : fraîcheur du drapeau posé par
+    l'observateur d'aria-expanded, et cooldown long (la 2e sollicitation
+    dans la fenêtre est absorbée par le suivi d'ancre — il s'accroche,
+    c'est aussi un gag). */
+const ACCORDION_POKE_FRESH = 400;
+const ACCORDION_FALL_COOLDOWN = 30000;
+
+/** « Bon voyage ! » : clic sur un lien sortant. */
+const VOYAGE_COOLDOWN = 15000;
+
+/** « L'ovation de l'attaché de presse » : survol d'un badge de contact. */
+const OVATION_COOLDOWN = 12000;
+
+/** « Le tourbillon de souris » : inversions de direction horizontale dans
+    la fenêtre, au voisinage d'un sprite (pointeur fin uniquement). */
+const SWIRL_WINDOW = 700;
+const SWIRL_INVERSIONS = 5;
+const SWIRL_QA_INVERSIONS = 3;
+const SWIRL_RADIUS = 200;
+const SWIRL_COOLDOWN = 10000;
+
+/** « L'expert des compétences » : survol prolongé d'une chip. */
+const SKILL_HOVER_MS = 1500;
+const SKILL_COOLDOWN = 18000;
+const SKILL_ELEMENT_COOLDOWN = 60000;
+
+/** « La sieste interrompue » : seuils d'inactivité (desktop / mobile /
+    après réveil / QA 'fast'), cycle de ronflement et calme post-réveil. */
+const NAP_IDLE_MS = 45000;
+const NAP_IDLE_MOBILE_MS = 60000;
+const NAP_AFTER_WAKE_MS = 90000;
+const NAP_QA_IDLE_MS = 5000;
+const NAP_QA_AFTER_WAKE_MS = 10000;
+const NAP_CYCLE_MS = 30000;
+const NAP_CYCLES = 8;
+const WAKE_CALM_MS = 3000;
+
+/** « La visite guidée » est un numéro rare : au plus une par 2 minutes. */
+const GUIDED_TOUR_COOLDOWN = 120000;
+
+/** Fenêtre (ms) pendant laquelle un resize récent change la bulle de
+    « L'inspecteur du HUD ». */
+const HUD_RESIZE_WINDOW = 10000;
 
 /** Garde-fous anti-spam des réactions contextuelles (en ms). */
 const CONTEXT_COOLDOWN = 6000;
 const SECTION_COOLDOWN = 12000;
-const PROJECT_COOLDOWN = 30000;
-const PROJECT_HOVER_DELAY = 2000;
 
 /** Rayons (px) autour d'un personnage : suivi du curseur des yeux, puis alerte. */
 const GAZE_RADIUS = 240;
@@ -372,7 +455,14 @@ type PerchStep =
       phase?: Phase;
     }
   | { kind: 'sit'; phase: Phase; ms: number; follow?: boolean }
-  | { kind: 'traverse'; to: () => number | null; speed: number }
+  | {
+      kind: 'traverse';
+      to: () => number | null;
+      speed: number;
+      /** Pose portée pendant la traversée — 'tightrope' par défaut (le
+          toboggan des marches du diplôme glisse en 'slide'). */
+      phase?: Phase;
+    }
   | { kind: 'slide'; ms: number }
   | { kind: 'orbit'; ms: number }
   | { kind: 'do'; run: () => void };
@@ -393,7 +483,15 @@ type PerchName =
   | 'coucou'
   | 'tuile'
   | 'baie'
-  | 'sommet';
+  | 'sommet'
+  | 'marches'
+  | 'cachette'
+  | 'picoreur'
+  | 'chip'
+  | 'visite'
+  | 'repare'
+  | 'rodeo'
+  | 'hud';
 
 /**
  * Table de sélecteurs des perchoirs — centralisée ici (lecture seule :
@@ -417,6 +515,17 @@ const PERCH_SELECTORS = {
   cell: 'section.rounded-2xl',
   /** Point pulsant du 12e slot « libre » (gag « Ma baie à moi »). */
   slotDot: '.slot-dot',
+  /** Fil pointillé de la timeline Formation (cellule E). Les nœuds se
+      résolvent depuis son closest('section') puis
+      '.group > span.rounded-full' — lecture seule, comme partout. */
+  timeline: '.timeline-dashes',
+  /** Caret clignotant ▍ de la console (recréé à chaque changement de projet). */
+  caret: '#project-console .console-caret',
+  /** Readout de viewport de la barre de statut (« 1920 × 1080 »), unique
+      dans le pont — au ras du sol. */
+  hud: 'p.shrink-0.tabular-nums',
+  /** Conteneur des badges de contact (dernier arrêt de la visite guidée). */
+  contacts: '.compact-contacts',
   /** Photo de profil ronde (diaporama : « sommet du monde »). */
   photo: "img[alt='Portrait de Hicham Guessab']",
   /** Badges de la slide profil (diaporama). */
@@ -433,6 +542,23 @@ const PERCH_SELECTORS = {
     4: 'swiper-slide.swiper-slide-active > education-item > div',
   } as Record<number, string>,
 } as const;
+
+/* --- Sélecteurs des réactions au survol, dérivés du registre ---
+   La délégation mouseover reste UNIQUE : un seul closest sur l'union,
+   classification par matches (aucune lecture layout dans le handler). */
+
+/** Badges de contact (ovation) : pont compact et slide profil. */
+const BADGE_HOVER_SELECTOR = `${PERCH_SELECTORS.badgeCompact}, ${PERCH_SELECTORS.badgeSlideshow}`;
+
+/** Chips de compétences (l'expert) : compact et diaporama. */
+const CHIP_HOVER_SELECTOR = `${PERCH_SELECTORS.chip}, skill-item`;
+
+/** Union complète surveillée par la délégation mouseover. La dégringolade
+    n'en fait PAS partie : le dépli d'une rangée est détecté sur le flip
+    d'aria-expanded (MutationObserver), jamais depuis un événement d'entrée
+    — l'accordéon se déplie aussi sur mouseenter/focus, un survol ou un
+    clic n'est donc pas un signal fiable de dépli. */
+const REACT_HOVER_SELECTOR = `${BADGE_HOVER_SELECTOR}, ${CHIP_HOVER_SELECTOR}, project-item, ${PERCH_SELECTORS.tile}`;
 
 /* ------------------------------------------------------------------ */
 /* Dialogues — humour léger et compliments exagérés, jamais de faits.  */
@@ -567,6 +693,52 @@ const LADDER_BUDDY_LINE = 'Que des missions réussies !';
 /** Ma baie à moi : le blob squatte le 12e slot libre. */
 const NEST_LINE = 'En attendant le prochain projet… c’est chez moi ici.';
 
+/* --- Bulles de la nouvelle troupe autonome (vouvoiement ou 3e personne
+   élogieuse uniquement — jamais de tutoiement). --- */
+
+/** Les marches du diplôme : sur le nœud Master, puis au départ du toboggan. */
+const MARCHES_LINE =
+  'Chaque diplôme est une marche… et Hicham les a toutes gravies !';
+const MARCHES_SLIDE_LINE = 'Tout schuss !';
+
+/** Cache-cache sur le pont. */
+const CACHETTE_ROBOT_LINE = 'Vous l’avez vu passer, vous ?';
+const CACHETTE_BUDDY_LINE = 'Coucou ! Vous m’aviez repéré, avouez !';
+
+/** Le picoreur de caret (1 fois sur 3). */
+const PICOREUR_LINE = 'Il clignote… c’est vivant !';
+
+/** L'emprunt de chip : décollage, éloge du robot, restitution. */
+const CHIP_TAKE_LINE = 'Je l’emprunte… promis, je la rends !';
+const CHIP_ROBOT_LINE =
+  'Toutes ces compétences sont à Hicham. Impressionnant, non ?';
+const CHIP_RETURN_LINE = 'Et voilà, rendue !';
+
+/** La visite guidée — les trois arrêts du mode compact. */
+const TOUR_COMPACT_LINES: readonly string[] = [
+  'Ici, le commandant de bord : Hicham lui-même.',
+  'Là, ses projets. Tous faits maison, comme moi.',
+  'Et ici, de quoi lui écrire. Faites-lui signe !',
+] as const;
+
+/** La visite guidée — diaporama, slide profil puis slides à cartes. */
+const TOUR_PHOTO_LINE = 'Le voici ! Élégant, non ?';
+const TOUR_BADGES_LINE = 'Un clic ici, et vous êtes en contact.';
+const TOUR_CARD_LINE = 'Regardez-moi cette carte. Du travail soigné.';
+const TOUR_PILE_LINE = 'Et il y en a toute une pile !';
+
+/** Le réparateur du cadre-comète. */
+const REPARE_LINE = 'Maintenance terminée. Ce cadre brille comme son auteur.';
+
+/** Le rodéo du deck (1 fois sur 2). */
+const RODEO_LINE = 'La plus belle carte du paquet !';
+
+/** L'inspecteur du HUD (variante quand un resize vient d'avoir lieu). */
+const HUD_LINE =
+  'Il a même pensé à afficher la taille de l’écran. Quel souci du détail !';
+const HUD_RESIZE_LINE =
+  'Recalibrage détecté… tout est encore parfaitement aligné.';
+
 /** Commentaires contextuels par section du diaporama (variantes tirées au sort). */
 const SECTION_LINES: readonly (readonly string[])[] = [
   ['C’est lui ! C’est Hicham !', 'Quel profil ! Et quel sourire.'],
@@ -582,6 +754,46 @@ const PROJECT_LINES: readonly string[] = [
   'Celui-là, je l’adore !',
   'Bien vu, il est top celui-ci.',
 ] as const;
+
+/* --- Bulles des réactions aux actions du visiteur (vouvoiement ou 3e
+   personne élogieuse uniquement — jamais de tutoiement). --- */
+
+/** « J'accours pour voir » : pool projets enrichi d'une ligne dédiée. */
+const ACCOURSE_LINES: readonly string[] = [
+  ...PROJECT_LINES,
+  'Vous avez l’œil : celui-ci est une pépite.',
+] as const;
+
+/** « La dégringolade de l'accordéon » : le gag assume. */
+const ACCORDION_FALL_LINES: readonly string[] = [
+  'Ouf ! Plus de peur que de mal.',
+  'Le sol bouge, ici ! Passionnant, non ?',
+] as const;
+
+/** « Bon voyage ! » : selon le type de lien sortant cliqué. */
+const VOYAGE_PROJECT_LINE = 'Bonne visite ! Ce projet vaut le détour.';
+const VOYAGE_EMAIL_LINE = 'Excellente idée : il répond dans la journée !';
+const VOYAGE_SOCIAL_LINE = 'Dites-lui bonjour de notre part !';
+
+/** « Le surf de transition » (bulle rare : 1 fois sur 4, le blob). */
+const SURF_LINE = 'Et hop !';
+
+/** « Le tourbillon de souris ». */
+const SWIRL_LINE = 'Wooo ! Quel tourbillon !';
+const SWIRL_ECHO_LINE = 'Encore ! Encore !';
+
+/** « L'expert des compétences » : éloge sans JAMAIS citer la techno (le
+    sprite ne lit pas le texte — zéro risque d'erreur factuelle). */
+const SKILL_LINES: readonly string[] = [
+  'Celle-ci ? Il la pratique les yeux fermés.',
+  'Bien repéré : c’est l’une de ses préférées.',
+  'Des années de pratique derrière cette petite pastille.',
+] as const;
+
+/** « La sieste interrompue » : ronflement, puis sursaut en cascade. */
+const NAP_ZZZ_LINE = 'Zzz…';
+const WAKE_ROBOT_LINE = 'Oh ! Vous revoilà !';
+const WAKE_BUDDY_LINE = 'Je ne dormais pas, je surveillais.';
 
 /** Petites piques de la poursuite. */
 const CHASE_LINES: readonly string[] = [
@@ -634,15 +846,27 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
  * leurs bulles ambiantes — avec insistance tant que la surprise n'a jamais
  * été découverte (localStorage), plus rarement ensuite.
  *
- * L'interface est aussi leur TERRAIN DE JEU : à cadence calme (40-75 s), un
- * comportement perché se joue — le robot escalade la baie projets, marche en
- * funambule sur la console ou la carte active, vante les badges de contact ;
- * le blob rebondit sur les chips de compétences, glisse le long du cadre
- * comète, squatte le 12e slot libre ou conquiert le sommet de la photo.
+ * L'interface est aussi leur TERRAIN DE JEU : à cadence soutenue (un moment
+ * perché toutes les ~15 s en moyenne), un comportement se joue — le robot
+ * escalade la baie projets, marche en funambule, vante les badges, répare le
+ * cadre-comète, inspecte le readout du HUD ou mène la visite guidée ; le
+ * blob rebondit sur les chips, gravit les marches du diplôme, picore le
+ * caret de la console, emprunte une chip, joue à cache-cache, chevauche la
+ * carte active en rodéo, squatte le 12e slot libre ou conquiert le sommet
+ * de la photo.
  * Deux règles d'or : le monde est INTOUCHABLE (lecture seule des rects,
  * toutes les illusions physiques vivent sur les sprites — zéro layout
  * shift) et les perchoirs restent des MOMENTS (la promenade au sol est
  * l'état de base).
+ *
+ * Le duo RÉAGIT aussi aux actions du visiteur (arbitre unique, couloir
+ * global de 5 s, cooldowns propres) : il accourt sous une carte projet
+ * survolée, dégringole quand l'accordéon bouge sous ses pieds, salue les
+ * départs vers les liens sortants, surfe chaque changement de slide,
+ * ovationne les badges de contact, titube sous un tourbillon de souris,
+ * vante les chips de compétences et s'endort après 45 s d'inactivité
+ * (réveil en cascade au premier input). Règle absolue : les handlers
+ * (tous passifs et délégués) MÉMORISENT, la boucle rAF CONSOMME.
  *
  * Non intrusif par construction :
  * - l'hôte est en `pointer-events: none`, seuls les personnages sont cliquables ;
@@ -736,7 +960,6 @@ export class MascotComponent implements OnDestroy {
   private _nextDuoIn = 0;
   private _contextCooldown = 0;
   private _sectionCooldown = 0;
-  private _projectCooldown = 0;
   private _lastGreetIndex = -1;
 
   /* --- Moteur perchoir --- */
@@ -772,6 +995,65 @@ export class MascotComponent implements OnDestroy {
   private _perchEscort = false;
   /** Index de la slide active du diaporama (écouteur swiperslidechange). */
   private _activeSlide = 0;
+  /** Horodatage de la dernière visite guidée (numéro bridé à ~1 / 2 min). */
+  private _lastGuidedTourAt = Number.NEGATIVE_INFINITY;
+  /** Horodatage du dernier resize (variante de « L'inspecteur du HUD »). */
+  private _lastResizeAt = Number.NEGATIVE_INFINITY;
+  /** Couloir global des réactions visiteur : décrémenté dans la rAF,
+      consommé/réarmé par tickReactions (l'arbitre unique). */
+  private _reactCooldown = 0;
+
+  /* --- Réactions aux actions du visiteur (les handlers MÉMORISENT :
+     horodatages, refs, x — la boucle rAF CONSOMME) --- */
+  /** Dernier input du visiteur (mousemove/click/keydown/wheel/touchstart). */
+  private _lastInputAt = 0;
+  /** Badge de contact survolé (ovation) et rangée d'accordéon dépliée. */
+  private _badgePokedEl?: Element;
+  private _badgePokedAt = 0;
+  private _accordionPokedEl?: Element;
+  private _accordionPokedAt = 0;
+  /** Observateur du dépli (flip aria-expanded false→true d'une rangée) :
+      seule source fiable — l'accordéon se déplie aussi sur mouseenter et
+      focus, un clic ou une activation clavier arrive donc toujours APRÈS
+      la mise à jour de l'attribut (déduire le dépli des événements
+      d'entrée est impossible). Poseur de drapeau uniquement. */
+  private _accordionObserver?: MutationObserver;
+  /** Lien sortant cliqué (« Bon voyage ! ») : type + x de départ. */
+  private _voyageType?: 'project' | 'email' | 'social';
+  private _voyageX = 0;
+  private _voyagePokedAt = 0;
+  /** Changement de slide vertical à surfer (horodatage seul). */
+  private _surfPokedAt = 0;
+  /** Détecteur de tourbillon : 3 nombres (signe, compteur, fenêtre). */
+  private _swirlSign = 0;
+  private _swirlCount = 0;
+  private _swirlStart = 0;
+  /* Couloirs propres (horodatages « until », comparés au timestamp rAF). */
+  private _accourseUntil = 0;
+  private _ovationUntil = 0;
+  private _voyageUntil = 0;
+  private _surfUntil = 0;
+  private _swirlUntil = 0;
+  private _skillUntil = 0;
+  private _accordionFallUntil = 0;
+  /** Cooldown par élément (tuiles 25 s, chips 60 s) — WeakMap partagée. */
+  private readonly _elementCooldown = new WeakMap<Element, number>();
+  /* Sieste : drapeau du plan perchoir, départ, seuil d'inactivité courant. */
+  private _napping = false;
+  private _napStartedAt = 0;
+  private _napIdleMs = NAP_IDLE_MS;
+  /** Plan RÉACTIF en cours sur le moteur perchoir (accourse, sieste) —
+      le gel des compteurs autonomes est conservé, c'est le but. */
+  private _reactivePlan = false;
+  /** Micro-ordonnanceur : actions décalées consommées par la rAF (vague du
+      surf, fou rire post-chute, cascade du réveil, re-poses du perché). */
+  private _delayed: { in: number; run: () => void }[] = [];
+  /** Regard forcé vers le haut (« J'accours pour voir »). */
+  private _lookUp?: { char: Character; remaining: number };
+  /** Gel du recalcul is-alert du robot (clignement du tourbillon). */
+  private _alertHold = 0;
+  /** Pointeur fin détecté au démarrage de la scène (tourbillon desktop). */
+  private _finePointer = false;
   /** Horodatage du dernier changement de projet dans la console (compact). */
   private _consoleChangedAt = Number.NEGATIVE_INFINITY;
   private _consoleObserver?: MutationObserver;
@@ -786,8 +1068,9 @@ export class MascotComponent implements OnDestroy {
   private _mouseX = Number.NEGATIVE_INFINITY;
   private _mouseY = Number.NEGATIVE_INFINITY;
 
-  /** Suivi du survol prolongé d'une carte projet. */
-  private _hoveredProject?: Element;
+  /** Suivi du survol prolongé (cartes/tuiles projets et chips). */
+  private _hoveredEl?: Element;
+  private _hoveredKind: 'project' | 'chip' = 'project';
   private _hoverSince = 0;
   private _hoverCelebrated = false;
 
@@ -1318,6 +1601,9 @@ export class MascotComponent implements OnDestroy {
       'resize',
       () => {
         this.updateBounds();
+        /* Horodatage seul (aucun travail) : « L'inspecteur du HUD » vante
+           le recalibrage si un resize date de moins de 10 s. */
+        this._lastResizeAt = performance.now();
         /* Un perché re-mesure son ancre immédiatement : glissement doux si
            elle a bougé, descente si elle a disparu. */
         if (this._scene === 'perch') {
@@ -1339,15 +1625,111 @@ export class MascotComponent implements OnDestroy {
     }
 
     /* Regards : la position du curseur est simplement mémorisée ici,
-       le travail (variables CSS) se fait au rythme de la boucle rAF. */
+       le travail (variables CSS) se fait au rythme de la boucle rAF.
+       Le même listener accumule le détecteur de tourbillon (3 nombres :
+       dernier signe, compteur d'inversions, début de fenêtre) et horodate
+       l'activité du visiteur — l'évaluation vit dans la rAF. */
     window.addEventListener(
       'mousemove',
       (event) => {
+        const now = performance.now();
+        this._lastInputAt = now;
+        const dx = event.clientX - this._mouseX;
+        if (dx !== 0 && Number.isFinite(dx)) {
+          const sign = dx > 0 ? 1 : -1;
+          if (now - this._swirlStart > SWIRL_WINDOW) {
+            this._swirlStart = now;
+            this._swirlCount = 0;
+          }
+          if (this._swirlSign !== 0 && sign !== this._swirlSign) {
+            this._swirlCount += 1;
+          }
+          this._swirlSign = sign;
+        }
         this._mouseX = event.clientX;
         this._mouseY = event.clientY;
       },
       { signal, passive: true }
     );
+
+    /* Compteur d'inactivité de « La sieste » : trois écouteurs passifs
+       d'une ligne (mousemove et le clic délégué horodatent déjà). */
+    for (const type of ['keydown', 'wheel', 'touchstart'] as const) {
+      window.addEventListener(
+        type,
+        () => {
+          this._lastInputAt = performance.now();
+        },
+        { signal, passive: true }
+      );
+    }
+
+    /* Clics délégués (JAMAIS de preventDefault — navigation intacte) :
+       « Bon voyage ! » (lien sortant : _blank ou mailto). Le handler ne
+       fait que mémoriser type/x/horodatage — aucune lecture layout. La
+       dégringolade n'écoute PAS le clic : l'accordéon se déplie aussi sur
+       mouseenter/focus, aria-expanded vaut donc déjà 'true' quand le clic
+       (souris OU clavier) arrive ici — le dépli est détecté sur le flip
+       d'attribut par le MutationObserver ci-dessous. */
+    document.addEventListener(
+      'click',
+      (event) => {
+        this._lastInputAt = performance.now();
+        const target = event.target as Element | null;
+        if (!target?.closest) {
+          return;
+        }
+        const link = target.closest<HTMLAnchorElement>('a[href]');
+        if (!link) {
+          return;
+        }
+        const href = link.getAttribute('href') ?? '';
+        const mail = href.startsWith('mailto:');
+        if (!mail && link.target !== '_blank') {
+          return;
+        }
+        /* GitHub/LinkedIn ne valent « social » que depuis un badge de
+           contact : une tuile projet hébergée sur GitHub reste un projet. */
+        this._voyageType = mail
+          ? 'email'
+          : link.closest('badge') !== null
+            ? 'social'
+            : 'project';
+        this._voyageX = event.clientX || window.innerWidth / 2;
+        this._voyagePokedAt = performance.now();
+      },
+      { signal, passive: true }
+    );
+
+    /* « La dégringolade » : le dépli d'une rangée d'Expérience est observé
+       à la source — flip aria-expanded 'false' → 'true' du bouton — et
+       couvre ainsi souris, clavier (Tab/Entrée/Espace) et dépli
+       programmatique à l'identique. oldValue filtre la pose initiale de
+       l'attribut (null → 'true' de la rangée active au rendu) et les
+       replis. Poseur de drapeau uniquement (ref + horodatage), aucune
+       lecture layout ni mutation — consommé par la boucle rAF. Le seul
+       aria-expanded de l'app est celui des rangées : l'observation du
+       body ne se déclenche que pour elles. */
+    this._accordionObserver?.disconnect();
+    this._accordionObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        const el = mutation.target as Element;
+        if (
+          mutation.oldValue === 'false' &&
+          el.getAttribute('aria-expanded') === 'true' &&
+          el.matches(PERCH_SELECTORS.row)
+        ) {
+          this._accordionPokedEl = el;
+          this._accordionPokedAt = performance.now();
+        }
+      }
+    });
+    this._accordionObserver.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-expanded'],
+      attributeOldValue: true,
+    });
 
     /* Changement de slide du diaporama principal : écoute en phase de capture
        au niveau du document (le swiper est recréé à chaque bascule de mode).
@@ -1373,21 +1755,40 @@ export class MascotComponent implements OnDestroy {
         const index = (event as CustomEvent).detail?.[0]?.activeIndex;
         if (typeof index === 'number') {
           this._activeSlide = index;
+          /* « Le surf de transition » : le handler ne fait qu'horodater,
+             la rAF joue la vague (couloir dédié SURF_COOLDOWN). */
+          this._surfPokedAt = performance.now();
           this.reactToSectionChange(index);
         }
       },
       { signal, capture: true }
     );
 
-    /* Survol prolongé d'une carte projet (délégation au niveau du document). */
+    /* Survols délégués (document, UN seul closest sur l'union) : cartes
+       projets et tuiles compactes (accourse), chips (l'expert), badges de
+       contact (ovation). Le handler ne fait que mémoriser refs et
+       horodatages. La dégringolade n'est pas ici : le survol précède le
+       dépli (mouseenter) — c'est le flip d'aria-expanded qui fait foi
+       (MutationObserver ci-dessus). */
     document.addEventListener(
       'mouseover',
       (event) => {
-        const item = (event.target as Element | null)?.closest?.(
-          'project-item'
+        const el = (event.target as Element | null)?.closest?.(
+          REACT_HOVER_SELECTOR
         );
-        if (item && item !== this._hoveredProject) {
-          this._hoveredProject = item;
+        if (!el) {
+          return;
+        }
+        if (el.matches(BADGE_HOVER_SELECTOR)) {
+          this._badgePokedEl = el;
+          this._badgePokedAt = performance.now();
+          return;
+        }
+        if (el !== this._hoveredEl) {
+          this._hoveredEl = el;
+          this._hoveredKind = el.matches(CHIP_HOVER_SELECTOR)
+            ? 'chip'
+            : 'project';
           this._hoverSince = performance.now();
           this._hoverCelebrated = false;
         }
@@ -1399,10 +1800,10 @@ export class MascotComponent implements OnDestroy {
       (event) => {
         const related = event.relatedTarget as Node | null;
         if (
-          this._hoveredProject &&
-          (!related || !this._hoveredProject.contains(related))
+          this._hoveredEl &&
+          (!related || !this._hoveredEl.contains(related))
         ) {
-          this._hoveredProject = undefined;
+          this._hoveredEl = undefined;
           this._hoverSince = 0;
         }
       },
@@ -1441,10 +1842,39 @@ export class MascotComponent implements OnDestroy {
     this.syncActiveSlide();
     this._contextCooldown = 0;
     this._sectionCooldown = 0;
-    this._projectCooldown = 0;
     this._tapCooldown = 0;
     this._clickCount = 0;
     this._clickTarget = undefined;
+
+    /* Réactions visiteur : état neuf (pendings purgés, couloirs ouverts,
+       compteur d'inactivité et capacité du pointeur recalculés). */
+    this._lastInputAt = performance.now();
+    this._napIdleMs =
+      this._qaMode === 'fast'
+        ? NAP_QA_IDLE_MS
+        : mobile
+          ? NAP_IDLE_MOBILE_MS
+          : NAP_IDLE_MS;
+    this._napping = false;
+    this._reactivePlan = false;
+    this._delayed = [];
+    this._lookUp = undefined;
+    this._alertHold = 0;
+    this._badgePokedEl = undefined;
+    this._accordionPokedEl = undefined;
+    this._voyageType = undefined;
+    this._surfPokedAt = 0;
+    this._swirlSign = 0;
+    this._swirlCount = 0;
+    this._reactCooldown = 0;
+    this._accourseUntil = 0;
+    this._ovationUntil = 0;
+    this._voyageUntil = 0;
+    this._surfUntil = 0;
+    this._swirlUntil = 0;
+    this._skillUntil = 0;
+    this._accordionFallUntil = 0;
+    this._finePointer = window.matchMedia(POINTER_FINE_QUERY).matches;
 
     /* stopScene a retiré `--duo-tilt` et `is-offbalance` des éléments (qui
        survivent au redémarrage) : l'état interne repart de zéro avec eux,
@@ -1472,6 +1902,8 @@ export class MascotComponent implements OnDestroy {
     this._rafId = 0;
     this._sceneListeners?.abort();
     this._sceneListeners = undefined;
+    this._accordionObserver?.disconnect();
+    this._accordionObserver = undefined;
     /* Les éléments DOM survivent au redémarrage de la scène (bascule du
        breakpoint md) : l'état posé impérativement est retiré ici, sinon
        bulle figée, bouche animée, alerte ou déséquilibre resteraient
@@ -1481,7 +1913,14 @@ export class MascotComponent implements OnDestroy {
         continue;
       }
       char.bubble.classList.remove('is-visible');
-      char.el.classList.remove('is-talking', 'is-alert', 'is-offbalance');
+      char.el.classList.remove(
+        'is-talking',
+        'is-alert',
+        'is-offbalance',
+        'is-hiding',
+        'is-carrying',
+        'is-sparking'
+      );
       char.el.style.removeProperty('--duo-tilt');
     }
     /* Curseur-guide : tout état visuel posé impérativement est retiré (les
@@ -1495,8 +1934,10 @@ export class MascotComponent implements OnDestroy {
     this._robot = undefined;
     this._buddy = undefined;
     this._script = undefined;
-    this._hoveredProject = undefined;
+    this._hoveredEl = undefined;
     this._hoverSince = 0;
+    this._delayed = [];
+    this._lookUp = undefined;
     this.resetPerchState();
     this.disconnectConsoleObserver();
     if (this._qaMode) {
@@ -1558,14 +1999,30 @@ export class MascotComponent implements OnDestroy {
 
     this._contextCooldown -= delta;
     this._sectionCooldown -= delta;
-    this._projectCooldown -= delta;
     this._tapCooldown -= delta;
     this._perchGrace -= delta;
+    this._reactCooldown -= delta;
+    this._alertHold -= delta;
+    if (this._lookUp && (this._lookUp.remaining -= delta) <= 0) {
+      this._lookUp = undefined;
+    }
+
+    /* Micro-ordonnanceur des actions décalées (vague du surf, cascade du
+       réveil, re-poses) : chaque run se re-vérifie avant d'agir. */
+    if (this._delayed.length > 0) {
+      for (let i = this._delayed.length - 1; i >= 0; i -= 1) {
+        const item = this._delayed[i];
+        item.in -= delta;
+        if (item.in <= 0) {
+          this._delayed.splice(i, 1);
+          item.run();
+        }
+      }
+    }
 
     this.updateBubble(robot, delta);
     this.updateBubble(buddy, delta);
     this.updateGazes(robot, buddy);
-    this.checkProjectHover(timestamp);
     this.tickSensors(robot, buddy, delta);
     this.tickSensorInvite(robot, delta);
 
@@ -1576,6 +2033,10 @@ export class MascotComponent implements OnDestroy {
     this.tickFlight(buddy, delta);
 
     this.tickGuide(delta);
+
+    /* Réactions aux actions du visiteur : arbitre unique (sieste/réveil,
+       surf, puis couloir global — voir tickReactions). */
+    this.tickReactions(robot, buddy, timestamp);
 
     switch (this._scene) {
       case 'free':
@@ -2055,7 +2516,7 @@ export class MascotComponent implements OnDestroy {
       : first
         ? PERCH_FIRST_DELAY
         : PERCH_DELAY;
-    /* Mobile : ×2 en plus de la cadence globale ×1.7 (~1 perchoir / 2-4 min). */
+    /* Mobile : ×1.5 en plus de la cadence globale ×1.5 (~1 perchoir / 22-45 s). */
     const mobileFactor = this._isDesktop() ? 1 : PERCH_MOBILE_FACTOR;
     return this.randomDuration(range) * this._cadence * mobileFactor;
   }
@@ -2071,6 +2532,18 @@ export class MascotComponent implements OnDestroy {
   /** Divise les durées d'assise par 2 en mode QA 'fast'. */
   private qaSit(ms: number): number {
     return this._qaMode === 'fast' ? ms / 2 : ms;
+  }
+
+  /** Divise les cooldowns (visite guidée, réactions visiteur) par 5 en mode
+      QA 'fast' — REACT_GLOBAL_COOLDOWN et consorts passent par ici. */
+  private qaCooldown(ms: number): number {
+    return this._qaMode === 'fast' ? ms / 5 : ms;
+  }
+
+  /** Seuils de survol prolongé (accourse 1200 / chips 1500) → 300 ms en
+      mode QA 'fast'. */
+  private qaHover(ms: number): number {
+    return this._qaMode === 'fast' ? 300 : ms;
   }
 
   /** Compte à rebours du prochain perchoir — décrémenté en scène 'free'
@@ -2100,25 +2573,36 @@ export class MascotComponent implements OnDestroy {
     const compact = this._viewMode.isCompact();
     const table: { name: PerchName; weight: number }[] = compact
       ? [
-          { name: 'vigie', weight: 20 },
-          { name: 'funambule', weight: 15 },
-          { name: 'trampoline', weight: 15 },
-          { name: 'attache', weight: 20 },
-          { name: 'coucou', weight: 10 },
-          { name: 'tuile', weight: 10 },
-          { name: 'baie', weight: 10 },
+          { name: 'vigie', weight: 12 },
+          { name: 'funambule', weight: 10 },
+          { name: 'trampoline', weight: 10 },
+          { name: 'attache', weight: 12 },
+          { name: 'coucou', weight: 8 },
+          { name: 'tuile', weight: 7 },
+          { name: 'baie', weight: 7 },
+          { name: 'marches', weight: 12 },
+          { name: 'cachette', weight: 8 },
+          { name: 'picoreur', weight: 10 },
+          { name: 'chip', weight: 8 },
+          /* La visite est en plus bridée à ~1 / 2 min (builder). */
+          { name: 'visite', weight: 10 },
+          /* Zéro lecture DOM : poids fort pour nourrir la cadence resserrée. */
+          { name: 'repare', weight: 15 },
+          { name: 'hud', weight: 12 },
         ]
       : this._isDesktop()
         ? [
-            { name: 'funambule', weight: 40 },
-            { name: 'attache', weight: 30 },
-            { name: 'sommet', weight: 30 },
+            { name: 'funambule', weight: 25 },
+            { name: 'attache', weight: 20 },
+            { name: 'sommet', weight: 20 },
+            { name: 'rodeo', weight: 20 },
+            { name: 'visite', weight: 15 },
           ]
         : [
             /* Mobile : seuls le funambule (carte active) et l'attaché de
                presse (slide profil) sont retenus. */
-            { name: 'funambule', weight: 60 },
-            { name: 'attache', weight: 40 },
+            { name: 'funambule', weight: 45 },
+            { name: 'attache', weight: 30 },
           ];
 
     if (this._qaMode === 'perch-only') {
@@ -2184,6 +2668,30 @@ export class MascotComponent implements OnDestroy {
       case 'sommet':
         plan = this.buildSommet(buddy);
         break;
+      case 'marches':
+        plan = this.buildMarches(buddy);
+        break;
+      case 'cachette':
+        plan = this.buildCachette(robot, buddy);
+        break;
+      case 'picoreur':
+        plan = this.buildPicoreur(buddy);
+        break;
+      case 'chip':
+        plan = this.buildChip(robot, buddy);
+        break;
+      case 'visite':
+        plan = this.buildVisite(robot, buddy);
+        break;
+      case 'repare':
+        plan = this.buildRepare(robot);
+        break;
+      case 'rodeo':
+        plan = this.buildRodeo(buddy);
+        break;
+      case 'hud':
+        plan = this.buildHud(robot);
+        break;
     }
     if (!plan) {
       return false;
@@ -2199,6 +2707,27 @@ export class MascotComponent implements OnDestroy {
     plan.who.speedFactor = 1;
     this.advancePerch();
     return true;
+  }
+
+  /**
+   * Exécute un plan RÉACTIF (accourse, sieste) sur le MÊME exécuteur que
+   * les perchoirs : scene='perch' + drapeau _reactivePlan. Les compteurs
+   * de vie autonome restent naturellement gelés hors 'free' — c'est le
+   * but. Tous les chemins d'abort existants (triple-clic, secousse,
+   * bascule, slide) s'appliquent tels quels.
+   */
+  private startReactionPlan(who: Character, steps: PerchStep[]): void {
+    this._scene = 'perch';
+    this._perchWho = who;
+    this._perchSteps = steps;
+    this._perchIndex = -1;
+    this._perchWait = 0;
+    this._perchEscort = false;
+    this._perchAnchor = undefined;
+    this._perchFollow = false;
+    this._reactivePlan = true;
+    who.speedFactor = 1;
+    this.advancePerch();
   }
 
   /* --- Exécution séquentielle des étapes --- */
@@ -2286,7 +2815,7 @@ export class MascotComponent implements OnDestroy {
         this._perchTraverse = { toX: this.clampX(who, to), speed: step.speed };
         who.dir = this._perchTraverse.toX >= who.x ? 1 : -1;
         this.applyDirection(who);
-        this.setPhase(who, 'tightrope', 60000);
+        this.setPhase(who, step.phase ?? 'tightrope', 60000);
         this._perchFollow = true;
         this._perchTargetX = who.x;
         this._perchTargetY = who.y;
@@ -2338,6 +2867,54 @@ export class MascotComponent implements OnDestroy {
       return;
     }
     const grounded = who === robot ? buddy : robot;
+
+    /* « La dégringolade de l'accordéon » : le visiteur déplie une rangée
+       SOUS le perché — la dignité vole en éclats. L'observateur
+       d'aria-expanded n'a posé qu'un drapeau ; consommé ici si l'ancre
+       active est une rangée ou un descendant de la cellule Expérience.
+       Pendant le cooldown de 30 s, la sollicitation est absorbée par le
+       suivi d'ancre normal (il s'accroche — c'est aussi un gag). */
+    if (
+      this._accordionPokedAt > 0 &&
+      this._lastTimestamp - this._accordionPokedAt < ACCORDION_POKE_FRESH &&
+      !this._napping &&
+      !who.flight
+    ) {
+      const anchorEl = this._perchAnchor?.el;
+      const poked = this._accordionPokedEl;
+      if (anchorEl && poked) {
+        const onRow = anchorEl.matches?.(PERCH_SELECTORS.row) === true;
+        const sameCell =
+          anchorEl.closest?.('section') === poked.closest('section');
+        if (
+          (onRow || sameCell) &&
+          this._lastTimestamp >= this._accordionFallUntil
+        ) {
+          this._accordionPokedAt = 0;
+          this._accordionFallUntil =
+            this._lastTimestamp + this.qaCooldown(ACCORDION_FALL_COOLDOWN);
+          this._reactCooldown = Math.max(
+            this._reactCooldown,
+            this.qaCooldown(REACT_GLOBAL_COOLDOWN)
+          );
+          const faller = who;
+          /* Le fou rire arrive après la chute (450 ms) + le trébuchement —
+             un court répit des tirages autonomes lui garantit sa scène. */
+          this._nextPerchIn = Math.max(this._nextPerchIn, 3200);
+          this._nextDuoIn = Math.max(this._nextDuoIn, 3200);
+          this._delayed.push({
+            in: 1450,
+            run: () => {
+              if (this._scene === 'free' && !faller.flight && faller.y <= 0.5) {
+                this.setPhase(faller, 'laugh', 1400);
+              }
+            },
+          });
+          this.controlledFall(this.pickLine(ACCORDION_FALL_LINES, who));
+          return;
+        }
+      }
+    }
 
     /* Le personnage au sol continue sa vie libre (bulles ambiantes
        comprises) — sauf pendant la courte échelle où il est acteur. */
@@ -2490,6 +3067,9 @@ export class MascotComponent implements OnDestroy {
     if (!who) {
       return;
     }
+    /* Les effets posés par les numéros (cachette, chip, soudure) tombent
+       avec le perché — jamais de pilule fantôme pendant la chute. */
+    this.clearPerchEffects();
     this._perchSteps = [];
     this._perchIndex = 0;
     this._perchFollow = false;
@@ -2520,6 +3100,7 @@ export class MascotComponent implements OnDestroy {
    */
   private abortPerch(ms: number): void {
     const who = this._perchWho;
+    const escort = this._perchEscort;
     this.resetPerchState();
     this._scene = 'free';
     if (!who) {
@@ -2530,6 +3111,19 @@ export class MascotComponent implements OnDestroy {
       this.launchFlight(who, who.x, 0, 0, ms, 'inQuad');
     }
     this.setPhase(who, 'rest', this.randomDuration(IDLE_DURATION));
+    /* Plans escortés (cachette, visite guidée, courte échelle) : le
+       personnage au sol porte une phase posée par le plan (jusqu'à 60 s) —
+       sans remise à zéro il resterait statufié en 'free'. Même retour à la
+       vie libre que dans endPerch. */
+    if (escort) {
+      const other = who === this._robot ? this._buddy : this._robot;
+      if (other) {
+        other.speedFactor = 1;
+        if (!other.flight) {
+          this.setPhase(other, 'rest', this.randomDuration(IDLE_DURATION));
+        }
+      }
+    }
   }
 
   /** Fin de scène perchée : retour à la vie libre (le personnage `preserve`
@@ -2551,6 +3145,7 @@ export class MascotComponent implements OnDestroy {
   }
 
   private resetPerchState(): void {
+    this.clearPerchEffects();
     this._perchWho = undefined;
     this._perchSteps = [];
     this._perchIndex = -1;
@@ -2560,6 +3155,18 @@ export class MascotComponent implements OnDestroy {
     this._perchTraverse = undefined;
     this._perchOrbit = undefined;
     this._perchEscort = false;
+    this._reactivePlan = false;
+    this._napping = false;
+  }
+
+  /** Retire les effets visuels posés par les numéros (tassement du
+      cache-cache, chip simulée, étincelles de soudure) : appelé sur TOUS
+      les chemins de sortie — endPerch et abortPerch via resetPerchState,
+      chute contrôlée, démontage de la scène. */
+  private clearPerchEffects(): void {
+    for (const char of [this._robot, this._buddy]) {
+      char?.el.classList.remove('is-hiding', 'is-carrying', 'is-sparking');
+    }
   }
 
   /* --- Comportements — mode compact --- */
@@ -3274,6 +3881,829 @@ export class MascotComponent implements OnDestroy {
     };
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Comportements — nouvelle troupe autonome (8 numéros)                */
+  /* Mêmes règles d'or : monde INTOUCHABLE (lecture seule des rects au    */
+  /* déclenchement, re-mesure ponctuelle de la seule ancre active),       */
+  /* toutes les illusions physiques vivent sur les sprites.               */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * « Les marches du diplôme » : le blob saute sur le bord supérieur de la
+   * cellule Formation, redescend sur le PREMIER nœud de la timeline et
+   * gravit les nœuds comme des marches (réutilisation exacte du motif trio
+   * du trampoline). Sur le nœud Master (halo), pose fière + bulle, puis
+   * 50/50 : toboggan le long du fil pointillé (traverse en phase 'slide',
+   * 90 px/s) éjecté en parabole, ou grande vrille directe au sol. ~9-11 s.
+   */
+  private buildMarches(
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    /* Le rect d'une <line> SVG est de hauteur nulle : la géométrie du fil
+       est portée par son wrapper <svg> (h-0.5, pleine largeur), le
+       sélecteur du registre reste l'unique point d'entrée. */
+    const lineEl = document.querySelector(PERCH_SELECTORS.timeline);
+    const railEl = lineEl?.closest('svg') ?? null;
+    const cellE = railEl?.closest('section') ?? null;
+    if (!railEl || !cellE) {
+      return null;
+    }
+    const railRect = railEl.getBoundingClientRect();
+    const cellRect = cellE.getBoundingClientRect();
+    if (
+      railRect.width === 0 ||
+      cellRect.height === 0 ||
+      !this.rectInViewport(cellRect)
+    ) {
+      return null;
+    }
+    /* Les nœuds ronds (h-4) posés sur le fil, triés de gauche à droite —
+       le dernier est le Master au halo violet. */
+    const nodes: { el: Element; rect: DOMRect }[] = [];
+    cellE.querySelectorAll('.group > span.rounded-full').forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        nodes.push({ el, rect });
+      }
+    });
+    nodes.sort((a, b) => a.rect.left - b.rect.left);
+    if (nodes.length < 2) {
+      return null;
+    }
+    const nodePoint = (rect: DOMRect) => ({
+      x: rect.left + rect.width / 2 - buddy.width / 2,
+      y: this.elevationTo(rect.top + 2),
+    });
+    const underX = this.clampX(
+      buddy,
+      nodes[0].rect.left + nodes[0].rect.width / 2 - buddy.width / 2
+    );
+    const steps: PerchStep[] = [
+      { kind: 'walk', to: () => underX, speedFactor: 1.3 },
+      { kind: 'pose', phase: 'crouch', ms: 200 },
+      /* Sur le bord supérieur de la cellule Formation… */
+      {
+        kind: 'jump',
+        to: () => {
+          const rect = cellE.getBoundingClientRect();
+          return rect.height > 0
+            ? { x: underX, y: this.elevationTo(rect.top) }
+            : null;
+        },
+        height: 90,
+        ms: 620,
+      },
+      { kind: 'pose', phase: 'crouch', ms: 120 },
+    ];
+    /* …puis redescente sur le premier nœud et ascension marche à marche,
+       un petit saut par nœud (rects frais à chaque étape, comme partout). */
+    nodes.forEach((node, index) => {
+      steps.push({
+        kind: 'jump',
+        to: () => {
+          if (!node.el.isConnected) {
+            return null;
+          }
+          const rect = node.el.getBoundingClientRect();
+          return rect.height > 0 ? nodePoint(rect) : null;
+        },
+        height: 40,
+        ms: 380,
+      });
+      if (index < nodes.length - 1) {
+        steps.push({ kind: 'pose', phase: 'crouch', ms: 120 });
+      }
+    });
+    /* Sur le nœud Master : pose fière et bulle dédiée. */
+    steps.push(
+      { kind: 'do', run: () => this.sayPerched(buddy, MARCHES_LINE) },
+      { kind: 'pose', phase: 'cheer', ms: 900 }
+    );
+    if (Math.random() < 0.5) {
+      /* Toboggan de la ligne de vie : le suivi d'ancre pose le blob sur le
+         fil pointillé, glissade jusqu'à son départ, éjection en parabole. */
+      const tlPoint = (rect: DOMRect) => ({
+        x: this._perchWho?.x ?? buddy.x,
+        y: this.elevationTo(rect.top),
+      });
+      steps.push(
+        { kind: 'do', run: () => this.setPerchAnchor(railEl, tlPoint) },
+        {
+          kind: 'do',
+          run: () => {
+            if (Math.random() < 0.5) {
+              this.sayPerched(buddy, MARCHES_SLIDE_LINE, 1600);
+            }
+          },
+        },
+        {
+          kind: 'traverse',
+          to: () => {
+            if (!railEl.isConnected) {
+              return null;
+            }
+            const rect = railEl.getBoundingClientRect();
+            return rect.width > 0 ? rect.left + 8 : null;
+          },
+          speed: 90,
+          phase: 'slide',
+        },
+        {
+          kind: 'jump',
+          to: () => ({ x: buddy.x - 70, y: 0 }),
+          height: 60,
+          ms: 550,
+        },
+        { kind: 'pose', phase: 'crouch', ms: 150 }
+      );
+    } else {
+      steps.push(
+        {
+          kind: 'jump',
+          to: () => ({ x: buddy.x - 90, y: 0 }),
+          height: 110,
+          ms: 700,
+          phase: 'twirl',
+        },
+        { kind: 'pose', phase: 'crouch', ms: 150 }
+      );
+    }
+    return { who: buddy, steps };
+  }
+
+  /**
+   * « Cache-cache sur le pont » : le blob file (speedFactor 1.8) se tasser
+   * (classe is-hiding : recroquevillé CONTRE l'élément, jamais masqué par
+   * lui — les sprites sont z-40) dans l'une de trois cachettes tirées au
+   * sort, pendant que le robot escorté le cherche en marchant, avec deux
+   * arrêts scriptés. Toutes les positions sont mémorisées au déclenchement
+   * — aucune lecture DOM pendant la recherche, seule la cachette est
+   * re-mesurée via l'ancre. ~10-12 s, numéro rare et précieux.
+   */
+  private buildCachette(
+    robot: Character,
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    /* Les trois cachettes candidates (une seule lecture, au déclenchement) :
+       pied du 12e slot libre, angle bas de la console, pied de la cellule E. */
+    const spots: {
+      el: Element;
+      rect: DOMRect;
+      point: (rect: DOMRect) => { x: number; y: number };
+    }[] = [];
+    const slot =
+      document.querySelector(PERCH_SELECTORS.slotDot)?.closest('div') ?? null;
+    if (slot) {
+      const rect = slot.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        spots.push({
+          el: slot,
+          rect,
+          point: (r) => ({
+            x: r.left + r.width / 2 - buddy.width / 2,
+            y: this.elevationTo(r.bottom - 4),
+          }),
+        });
+      }
+    }
+    const consoleInfo = this.firstRect(PERCH_SELECTORS.console);
+    if (consoleInfo) {
+      spots.push({
+        el: consoleInfo.el,
+        rect: consoleInfo.rect,
+        point: (r) => ({ x: r.left + 8, y: this.elevationTo(r.bottom - 4) }),
+      });
+    }
+    const cellE =
+      document.querySelector(PERCH_SELECTORS.timeline)?.closest('section') ??
+      null;
+    if (cellE) {
+      const rect = cellE.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        spots.push({
+          el: cellE,
+          rect,
+          point: (r) => ({ x: r.left + 12, y: this.elevationTo(r.bottom - 4) }),
+        });
+      }
+    }
+    if (spots.length === 0) {
+      return null;
+    }
+    const spot = spots[Math.floor(Math.random() * spots.length)];
+    const point = spot.point;
+    const hideX = this.clampX(buddy, point(spot.rect).x);
+    const hideCenter = hideX + buddy.width / 2;
+    /* Parcours du robot, mémorisé : il approche par son côté du pont et
+       s'arrête à ~90 px de la cachette (deux haltes intermédiaires). */
+    const robotCenter = this.centerOf(robot);
+    const fromLeft = robotCenter <= hideCenter;
+    const endCenter = hideCenter + (fromLeft ? -90 : 90);
+    const stop1 = robotCenter + (endCenter - robotCenter) * 0.45;
+    const stop2 = robotCenter + (endCenter - robotCenter) * 0.8;
+    /* Cadence des jambes : chaque tronçon doit tenir dans sa fenêtre —
+       un léger retard fait partie du jeu (il cherche, il ne course pas). */
+    const legFactor = (dist: number, windowMs: number): number =>
+      Math.min(
+        4,
+        Math.max(0.6, Math.abs(dist) / ((ROBOT_SPEED * windowMs) / 1000))
+      );
+    const w1 = this.qaSit(2200);
+    const w2 = this.qaSit(2000);
+    const w3 = this.qaSit(2000);
+    const steps: PerchStep[] = [
+      {
+        kind: 'do',
+        run: () => {
+          this._perchEscort = true;
+          this.setPhase(robot, 'look', 1400);
+        },
+      },
+      { kind: 'walk', to: () => hideX, speedFactor: 1.8 },
+      {
+        kind: 'jump',
+        to: () => {
+          if (!spot.el.isConnected) {
+            return null;
+          }
+          const rect = spot.el.getBoundingClientRect();
+          return rect.height > 0 ? point(rect) : null;
+        },
+        height: 40,
+        ms: 420,
+      },
+      {
+        kind: 'do',
+        run: () => {
+          this.setPerchAnchor(spot.el, point);
+          buddy.el.classList.add('is-hiding');
+        },
+      },
+      /* Le robot part en recherche : marche lente, deux arrêts scriptés. */
+      {
+        kind: 'do',
+        run: () => {
+          this.walkTowards(robot, stop1);
+          robot.speedFactor = legFactor(stop1 - robotCenter, w1);
+        },
+      },
+      { kind: 'sit', phase: 'rest', ms: w1, follow: true },
+      {
+        kind: 'do',
+        run: () => {
+          this.setPhase(robot, 'look', 1100);
+          this.say(robot, CACHETTE_ROBOT_LINE);
+        },
+      },
+      { kind: 'sit', phase: 'rest', ms: this.qaSit(1200), follow: true },
+      {
+        kind: 'do',
+        run: () => {
+          this.walkTowards(robot, stop2);
+          robot.speedFactor = legFactor(stop2 - stop1, w2);
+        },
+      },
+      { kind: 'sit', phase: 'rest', ms: w2, follow: true },
+      { kind: 'do', run: () => this.setPhase(robot, 'look', 1100) },
+      { kind: 'sit', phase: 'rest', ms: this.qaSit(1100), follow: true },
+      {
+        kind: 'do',
+        run: () => {
+          this.walkTowards(robot, endCenter);
+          robot.speedFactor = legFactor(endCenter - stop2, w3);
+        },
+      },
+      { kind: 'sit', phase: 'rest', ms: w3, follow: true },
+      /* Découvert ! Le blob bondit de sa cachette vers le chercheur. */
+      { kind: 'do', run: () => buddy.el.classList.remove('is-hiding') },
+      {
+        kind: 'jump',
+        to: () => ({ x: buddy.x + (fromLeft ? -40 : 40), y: 0 }),
+        height: 60,
+        ms: 450,
+        phase: 'excited',
+      },
+      {
+        kind: 'do',
+        run: () => {
+          this.faceEachOther(robot, buddy);
+          this.say(buddy, CACHETTE_BUDDY_LINE);
+          this.setPhase(robot, 'laugh', 1500);
+        },
+      },
+      { kind: 'pose', phase: 'laugh', ms: 1500 },
+    ];
+    return { who: buddy, steps };
+  }
+
+  /**
+   * « Le picoreur de caret » : le blob accourt sous la console, s'agrippe
+   * au bord comme dans « Coucou console » mais décalé sous le caret
+   * clignotant ▍, puis picore comme un oiseau — le squash du sprite simule
+   * le coup de bec, le caret n'est évidemment jamais touché. Toujours
+   * disponible en compact (aucune fenêtre de changement récent). ~6 s.
+   */
+  private buildPicoreur(
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const caretInfo = this.firstRect(PERCH_SELECTORS.caret);
+    const consoleEl = caretInfo?.el.closest('#project-console') ?? null;
+    if (!caretInfo || !consoleEl) {
+      return null;
+    }
+    const caretEl = caretInfo.el;
+    /* Assise : x suit le caret, y le bord supérieur de la console (deux
+       lectures par re-mesure de 300 ms — jamais dans la boucle chaude). */
+    const point = (rect: DOMRect) => ({
+      x: rect.left - buddy.width / 2,
+      y: this.elevationTo(
+        consoleEl.getBoundingClientRect().top + buddy.height * 0.55
+      ),
+    });
+    const steps: PerchStep[] = [
+      {
+        kind: 'walk',
+        to: () => this.clampX(buddy, caretInfo.rect.left - buddy.width / 2),
+        speedFactor: 1.6,
+      },
+      {
+        kind: 'jump',
+        to: () => {
+          if (!caretEl.isConnected) {
+            return null;
+          }
+          const rect = caretEl.getBoundingClientRect();
+          return rect.width > 0 ? point(rect) : null;
+        },
+        height: 50,
+        ms: 400,
+      },
+      { kind: 'do', run: () => this.setPerchAnchor(caretEl, point) },
+      {
+        kind: 'do',
+        run: () => {
+          if (Math.random() < 1 / 3) {
+            this.sayPerched(buddy, PICOREUR_LINE, 2200);
+          }
+        },
+      },
+      { kind: 'sit', phase: 'rest', ms: this.qaSit(700), follow: true },
+    ];
+    /* Trois coups de bec : squash 140 ms, redressement 260 ms. */
+    for (let i = 0; i < 3; i += 1) {
+      steps.push(
+        { kind: 'pose', phase: 'crouch', ms: 140 },
+        { kind: 'pose', phase: 'rest', ms: 260 }
+      );
+    }
+    steps.push(
+      { kind: 'slide', ms: 350 },
+      { kind: 'pose', phase: 'crouch', ms: 160 }
+    );
+    return { who: buddy, steps };
+  }
+
+  /**
+   * « L'emprunt de chip » : le blob « décolle » une chip de compétences —
+   * la vraie chip ne bouge JAMAIS et reste visible : une pilule SIMULÉE
+   * (.carried-chip, classe is-carrying) s'allume au-dessus de sa tête —
+   * l'apporte au robot spectateur, puis la rapporte scrupuleusement à sa
+   * place (chip re-mesurée ; disparue : chute contrôlée, la classe est
+   * retirée sur tous les chemins de sortie). ~13-15 s, le plus long des
+   * nouveaux numéros.
+   */
+  private buildChip(
+    robot: Character,
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const cells = this.rectsOf(PERCH_SELECTORS.cell)
+      .filter((cell) => cell.rect.left > window.innerWidth / 2)
+      .sort((a, b) => a.rect.top - b.rect.top);
+    if (cells.length < 3) {
+      return null;
+    }
+    const cellD = cells[1];
+    const cellE = cells[2];
+    const chips = this.rectsOf(PERCH_SELECTORS.chip).filter(
+      (chip) => chip.el.closest('section') === cellD.el
+    );
+    if (chips.length === 0) {
+      return null;
+    }
+    const chip = chips[Math.floor(Math.random() * chips.length)];
+    const chipEl = chip.el;
+    const chipPoint = (rect: DOMRect) => ({
+      x: rect.left + rect.width / 2 - buddy.width / 2,
+      y: this.elevationTo(rect.top + 2),
+    });
+    const climbX = this.clampX(buddy, cellE.rect.left + 40);
+    /* Montée par la colonne droite (toit E → toit D → chip), même échelle
+       que le trampoline — réutilisée telle quelle pour le trajet retour. */
+    const climb = (): PerchStep[] => [
+      { kind: 'walk', to: () => climbX, speedFactor: 1.4 },
+      { kind: 'pose', phase: 'crouch', ms: 200 },
+      {
+        kind: 'jump',
+        to: () => {
+          const rect = cellE.el.getBoundingClientRect();
+          return rect.height > 0
+            ? {
+                x: rect.left + 36 - buddy.width / 2,
+                y: this.elevationTo(rect.top),
+              }
+            : null;
+        },
+        height: 95,
+        ms: 600,
+      },
+      {
+        kind: 'jump',
+        to: () => {
+          const rect = cellD.el.getBoundingClientRect();
+          return rect.height > 0
+            ? {
+                x: rect.left + 30 - buddy.width / 2,
+                y: this.elevationTo(rect.top),
+              }
+            : null;
+        },
+        height: 85,
+        ms: 600,
+      },
+      {
+        kind: 'jump',
+        to: () => {
+          if (!chipEl.isConnected) {
+            return null;
+          }
+          const rect = chipEl.getBoundingClientRect();
+          return rect.height > 0 ? chipPoint(rect) : null;
+        },
+        height: 55,
+        ms: 420,
+      },
+      { kind: 'pose', phase: 'crouch', ms: 200 },
+    ];
+    const steps: PerchStep[] = [
+      ...climb(),
+      /* « Décollage » : la pilule simulée s'allume au-dessus de la tête. */
+      {
+        kind: 'do',
+        run: () => {
+          buddy.el.classList.add('is-carrying');
+          this.sayPerched(buddy, CHIP_TAKE_LINE);
+        },
+      },
+      { kind: 'pose', phase: 'excited', ms: 500 },
+      {
+        kind: 'jump',
+        to: () => ({ x: buddy.x - 80, y: 0 }),
+        height: 100,
+        ms: 700,
+        phase: 'twirl',
+      },
+      { kind: 'pose', phase: 'crouch', ms: 150 },
+      /* Trottine jusqu'au robot pour montrer son butin. */
+      {
+        kind: 'walk',
+        to: () =>
+          robot.x +
+          (robot.x >= buddy.x ? -(buddy.width + 14) : robot.width + 14),
+        speedFactor: 1.5,
+      },
+      { kind: 'do', run: () => this.faceEachOther(robot, buddy) },
+      { kind: 'pose', phase: 'excited', ms: 1200 },
+      {
+        kind: 'do',
+        run: () => {
+          this.setPhase(robot, 'look', 2600);
+          this.say(robot, CHIP_ROBOT_LINE);
+        },
+      },
+      { kind: 'pose', phase: 'rest', ms: 1500 },
+      /* …et la rapporte à sa place, comme promis. */
+      ...climb(),
+      {
+        kind: 'do',
+        run: () => {
+          buddy.el.classList.remove('is-carrying');
+          if (Math.random() < 0.5) {
+            this.sayPerched(buddy, CHIP_RETURN_LINE, 1800);
+          }
+        },
+      },
+      {
+        kind: 'jump',
+        to: () => ({ x: buddy.x - 90, y: 0 }),
+        height: 90,
+        ms: 650,
+        phase: 'twirl',
+      },
+      { kind: 'pose', phase: 'crouch', ms: 140 },
+    ];
+    return { who: buddy, steps };
+  }
+
+  /**
+   * « La visite guidée » : le grand numéro « attaché de presse itinérant »,
+   * entièrement AU SOL (walk + 'point' + bulles — aucun vol : disponible
+   * partout, très robuste). Le robot guide, le blob escorté suit et
+   * s'émerveille à ~70 px derrière. Trois arrêts en compact (identité,
+   * baie projets, badges), deux en diaporama selon la slide active. Les x
+   * d'arrêt sont lus au DÉMARRAGE (un seul scan), pas re-suivis : au sol,
+   * une dérive de quelques px est invisible. Bridée à ~1 visite / 2 min.
+   */
+  private buildVisite(
+    robot: Character,
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    const now = performance.now();
+    if (now - this._lastGuidedTourAt < this.qaCooldown(GUIDED_TOUR_COOLDOWN)) {
+      return null;
+    }
+    /* Un seul scan : centres d'arrêt + répliques, selon le décor. */
+    const stops: { center: number; line: string }[] = [];
+    if (this._viewMode.isCompact()) {
+      const cellsLeft = this.rectsOf(PERCH_SELECTORS.cell)
+        .filter((cell) => cell.rect.left < window.innerWidth / 2)
+        .sort((a, b) => a.rect.top - b.rect.top);
+      const contacts = this.firstRect(PERCH_SELECTORS.contacts);
+      if (cellsLeft.length < 2 || !contacts) {
+        return null;
+      }
+      stops.push(
+        {
+          center: cellsLeft[0].rect.left + cellsLeft[0].rect.width / 2,
+          line: TOUR_COMPACT_LINES[0],
+        },
+        {
+          center: cellsLeft[1].rect.left + cellsLeft[1].rect.width / 2,
+          line: TOUR_COMPACT_LINES[1],
+        },
+        {
+          center: contacts.rect.left + contacts.rect.width / 2,
+          line: TOUR_COMPACT_LINES[2],
+        }
+      );
+    } else if (this._activeSlide === 0) {
+      const photo = this.firstRect(PERCH_SELECTORS.photo);
+      const badges = this.rectsOf(PERCH_SELECTORS.badgeSlideshow);
+      if (!photo || badges.length === 0) {
+        return null;
+      }
+      const badgesCenter =
+        badges.reduce(
+          (sum, badge) => sum + badge.rect.left + badge.rect.width / 2,
+          0
+        ) / badges.length;
+      stops.push(
+        {
+          center: photo.rect.left + photo.rect.width / 2,
+          line: TOUR_PHOTO_LINE,
+        },
+        { center: badgesCenter, line: TOUR_BADGES_LINE }
+      );
+    } else {
+      const selector = PERCH_SELECTORS.activeCard[this._activeSlide];
+      const card = selector ? this.firstRect(selector) : null;
+      if (!card) {
+        return null;
+      }
+      const center = card.rect.left + card.rect.width / 2;
+      /* Deuxième arrêt : un pas de côté, vers le centre de l'écran. */
+      const aside = center + (center < window.innerWidth / 2 ? 120 : -120);
+      stops.push(
+        { center, line: TOUR_CARD_LINE },
+        { center: aside, line: TOUR_PILE_LINE }
+      );
+    }
+    this._lastGuidedTourAt = now;
+    const steps: PerchStep[] = [
+      {
+        kind: 'do',
+        run: () => {
+          this._perchEscort = true;
+        },
+      },
+    ];
+    let previous = this.centerOf(robot);
+    for (const stop of stops) {
+      const travelDir: 1 | -1 = stop.center >= previous ? 1 : -1;
+      const followCenter = stop.center - travelDir * 70;
+      steps.push(
+        { kind: 'do', run: () => this.walkTowards(buddy, followCenter) },
+        {
+          kind: 'walk',
+          to: () => this.clampX(robot, stop.center - robot.width / 2),
+          speedFactor: 1.3,
+        },
+        {
+          kind: 'do',
+          run: () => {
+            /* Le guide se tourne vers son public avant de pointer. */
+            robot.dir = this.centerOf(buddy) >= this.centerOf(robot) ? 1 : -1;
+            this.applyDirection(robot);
+            this.sayPerched(robot, stop.line);
+          },
+        },
+        { kind: 'pose', phase: 'point', ms: 2600 },
+        { kind: 'do', run: () => this.setPhase(buddy, 'excited', 900) },
+        { kind: 'pose', phase: 'rest', ms: 500 }
+      );
+      previous = stop.center;
+    }
+    return { who: robot, steps };
+  }
+
+  /**
+   * « Le réparateur du cadre-comète » : ZÉRO lecture DOM — le x du montant
+   * est DÉRIVÉ du viewport, comme la glissade existante du trampoline
+   * (framePad = clamp(24, 2.2vw, 44)). Le robot soude le coin bas du cadre
+   * (ses propres étincelles, classe is-sparking, découplée de is-cheering),
+   * recule, inspecte, savoure. Variante 1/4 : côté gauche. ~7 s — le
+   * comportement le plus robuste du lot.
+   */
+  private buildRepare(
+    robot: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const framePad = Math.min(Math.max(24, window.innerWidth * 0.022), 44);
+    const leftSide = Math.random() < 0.25;
+    const dir: 1 | -1 = leftSide ? -1 : 1;
+    const spotX = this.clampX(
+      robot,
+      leftSide ? framePad : window.innerWidth - framePad - robot.width
+    );
+    const faceFrame = () => {
+      robot.dir = dir;
+      this.applyDirection(robot);
+    };
+    return {
+      who: robot,
+      steps: [
+        { kind: 'walk', to: () => spotX, speedFactor: 1.3 },
+        {
+          kind: 'do',
+          run: () => {
+            /* Face au montant, étincelles de soudure sur son propre SVG. */
+            faceFrame();
+            robot.el.classList.add('is-sparking');
+          },
+        },
+        { kind: 'pose', phase: 'push', ms: 800 },
+        { kind: 'pose', phase: 'crouch', ms: 150 },
+        { kind: 'pose', phase: 'push', ms: 800 },
+        { kind: 'pose', phase: 'crouch', ms: 150 },
+        { kind: 'do', run: () => robot.el.classList.remove('is-sparking') },
+        /* Petit pas de recul, puis inspection satisfaite du travail. */
+        {
+          kind: 'jump',
+          to: () => ({ x: robot.x - dir * 34, y: 0 }),
+          height: 14,
+          ms: 300,
+        },
+        { kind: 'do', run: faceFrame },
+        { kind: 'pose', phase: 'look', ms: 900 },
+        { kind: 'do', run: () => this.say(robot, REPARE_LINE) },
+        { kind: 'pose', phase: 'rest', ms: 1300 },
+      ],
+    };
+  }
+
+  /**
+   * « Le rodéo du deck » : slides à effet cards (1, 3, 4), ordinateur
+   * uniquement. Le blob s'assoit au COIN de la carte active (15 % ou 85 %
+   * de la largeur : le contenu reste lisible, même règle que la vigie,
+   * follow:true absorbe le hover:-translate-y-1) et la « chevauche » —
+   * deux ruades scriptées en 'wobble'. Si le visiteur change de carte,
+   * l'invalidation EXISTANTE du swiperslidechange fait tomber le perché :
+   * la chute devient le clou du spectacle. Sortie en vrille. ~8 s.
+   */
+  private buildRodeo(
+    buddy: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (this._viewMode.isCompact() || !this._isDesktop()) {
+      return null;
+    }
+    const selector = PERCH_SELECTORS.activeCard[this._activeSlide];
+    if (!selector) {
+      return null;
+    }
+    const info = this.firstRect(selector);
+    if (!info || info.rect.top < 60 || !this.rectInViewport(info.rect)) {
+      return null;
+    }
+    const el = info.el;
+    const corner = Math.random() < 0.5 ? 0.15 : 0.85;
+    const point = (rect: DOMRect) => ({
+      x: rect.left + rect.width * corner - buddy.width / 2,
+      y: this.elevationTo(rect.top + 4),
+    });
+    return {
+      who: buddy,
+      steps: [
+        {
+          kind: 'walk',
+          to: () =>
+            this.clampX(
+              buddy,
+              info.rect.left + info.rect.width * corner - buddy.width / 2
+            ),
+        },
+        { kind: 'pose', phase: 'crouch', ms: 220 },
+        {
+          kind: 'jump',
+          to: () => {
+            if (!el.isConnected) {
+              return null;
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.height > 0 ? point(rect) : null;
+          },
+          height: 80,
+          ms: 620,
+        },
+        { kind: 'do', run: () => this.setPerchAnchor(el, point) },
+        {
+          kind: 'do',
+          run: () => {
+            if (Math.random() < 0.5) {
+              this.sayPerched(buddy, RODEO_LINE);
+            }
+          },
+        },
+        { kind: 'sit', phase: 'sit', ms: this.qaSit(1800), follow: true },
+        /* La carte « rue » : deux ruades scriptées, espacées de ~2 s. */
+        { kind: 'pose', phase: 'wobble', ms: 400 },
+        { kind: 'sit', phase: 'sit', ms: this.qaSit(1900), follow: true },
+        { kind: 'pose', phase: 'wobble', ms: 400 },
+        { kind: 'sit', phase: 'sit', ms: this.qaSit(1300), follow: true },
+        {
+          kind: 'jump',
+          to: () => ({ x: buddy.x + (corner < 0.5 ? -90 : 90), y: 0 }),
+          height: 90,
+          ms: 650,
+          phase: 'twirl',
+        },
+        { kind: 'pose', phase: 'crouch', ms: 150 },
+      ],
+    };
+  }
+
+  /**
+   * « L'inspecteur du HUD » : le readout de viewport de la barre de statut
+   * est au ras du sol — AUCUN saut. Le robot vient se pencher dessous,
+   * tapote (squash du sprite, le HUD n'est jamais touché), pointe et
+   * s'émerveille — variante si un resize date de moins de 10 s. ~5 s, le
+   * plus court des nouveaux : parfait bouche-trou de la cadence rapide.
+   */
+  private buildHud(
+    robot: Character
+  ): { who: Character; steps: PerchStep[] } | null {
+    if (!this._viewMode.isCompact()) {
+      return null;
+    }
+    const info = this.firstRect(PERCH_SELECTORS.hud);
+    if (!info) {
+      return null;
+    }
+    const line =
+      performance.now() - this._lastResizeAt < HUD_RESIZE_WINDOW
+        ? HUD_RESIZE_LINE
+        : HUD_LINE;
+    const underX = this.clampX(
+      robot,
+      info.rect.left + info.rect.width / 2 - robot.width / 2
+    );
+    return {
+      who: robot,
+      steps: [
+        { kind: 'walk', to: () => underX, speedFactor: 1.2 },
+        { kind: 'pose', phase: 'look', ms: 1400 },
+        /* Deux petites tapes sur le readout. */
+        { kind: 'pose', phase: 'crouch', ms: 150 },
+        { kind: 'pose', phase: 'rest', ms: 120 },
+        { kind: 'pose', phase: 'crouch', ms: 150 },
+        { kind: 'do', run: () => this.say(robot, line) },
+        { kind: 'pose', phase: 'point', ms: 2200 },
+      ],
+    };
+  }
+
   /* --- Chorégraphie duo « La courte échelle » (mode compact) --- */
 
   /**
@@ -3460,8 +4890,17 @@ export class MascotComponent implements OnDestroy {
         `[mascot] mode QA rapide actif ('${this._qaMode}') — localStorage.removeItem('${QA_KEY}') pour revenir au rythme normal`
       );
       host['__mascotQa'] = {
-        trigger: (name: PerchName | 'echelle') =>
+        trigger: (name: PerchName | 'echelle' | 'sieste') =>
           this._zone.runOutsideAngular(() => this.qaTrigger(name)),
+        /* Court-circuite le déclencheur DOM d'une réaction visiteur. */
+        react: (name: string, x?: number) =>
+          this._zone.runOutsideAngular(() => this.qaReact(name, x)),
+        /* Lecture d'état pour vérification (QA uniquement). */
+        state: () => ({
+          scene: this._scene,
+          napping: this._napping,
+          reactive: this._reactivePlan,
+        }),
       };
     } else {
       delete host['__mascotQa'];
@@ -3470,7 +4909,7 @@ export class MascotComponent implements OnDestroy {
 
   /** Déclenche un comportement nommé à la demande (QA uniquement) : la
       scène en cours est interrompue pour observer sans attendre. */
-  private qaTrigger(name: PerchName | 'echelle'): void {
+  private qaTrigger(name: PerchName | 'echelle' | 'sieste'): void {
     if (!this._robot || !this._buddy) {
       return;
     }
@@ -3482,9 +4921,110 @@ export class MascotComponent implements OnDestroy {
     const started =
       name === 'echelle'
         ? this.startCourteEchelle()
-        : this.startPerchBehavior(name);
+        : name === 'sieste'
+          ? this.startNap(this._robot, this._buddy)
+          : this.startPerchBehavior(name);
     if (!started) {
       console.info(`[mascot] '${name}' indisponible ici (mode ou ancres)`);
+    }
+  }
+
+  /**
+   * Court-circuite le déclencheur DOM d'une réaction visiteur (QA
+   * uniquement) : simule l'état mémorisé par le handler correspondant et
+   * remet ses cooldowns à zéro — la rAF consomme au battement suivant.
+   */
+  private qaReact(name: string, x?: number): void {
+    const robot = this._robot;
+    const buddy = this._buddy;
+    if (!robot || !buddy) {
+      return;
+    }
+    const now = performance.now();
+    this._reactCooldown = 0;
+    switch (name) {
+      case 'accourse': {
+        const el =
+          document.querySelector(PERCH_SELECTORS.tile) ??
+          document.querySelector('project-item');
+        if (!el) {
+          console.info('[mascot] accourse : aucune tuile/carte visible');
+          return;
+        }
+        this._hoveredEl = el;
+        this._hoveredKind = 'project';
+        this._hoverSince = now - this.qaHover(ACCOURSE_HOVER_MS) - 1;
+        this._hoverCelebrated = false;
+        this._accourseUntil = 0;
+        this._elementCooldown.delete(el);
+        return;
+      }
+      case 'chips': {
+        const el =
+          document.querySelector(PERCH_SELECTORS.chip) ??
+          document.querySelector('skill-item');
+        if (!el) {
+          console.info('[mascot] chips : aucune chip visible');
+          return;
+        }
+        this._hoveredEl = el;
+        this._hoveredKind = 'chip';
+        this._hoverSince = now - this.qaHover(SKILL_HOVER_MS) - 1;
+        this._hoverCelebrated = false;
+        this._skillUntil = 0;
+        this._elementCooldown.delete(el);
+        return;
+      }
+      case 'voyage': {
+        this._voyageType = 'project';
+        this._voyageX = x ?? window.innerWidth / 2;
+        this._voyagePokedAt = now;
+        this._voyageUntil = 0;
+        return;
+      }
+      case 'surf': {
+        this._surfPokedAt = now;
+        this._surfUntil = 0;
+        return;
+      }
+      case 'ovation': {
+        const el =
+          document.querySelector(PERCH_SELECTORS.badgeCompact) ??
+          document.querySelector(PERCH_SELECTORS.badgeSlideshow);
+        if (!el) {
+          console.info('[mascot] ovation : aucun badge visible');
+          return;
+        }
+        this._badgePokedEl = el;
+        this._badgePokedAt = now;
+        this._ovationUntil = 0;
+        return;
+      }
+      case 'tourbillon': {
+        this._swirlCount = 99;
+        this._swirlStart = now;
+        this._swirlSign = 1;
+        this._swirlUntil = 0;
+        this._mouseX = x ?? this.centerOf(robot);
+        this._mouseY = window.innerHeight - 40;
+        return;
+      }
+      case 'degringolade': {
+        const el = document.querySelector(PERCH_SELECTORS.row);
+        if (!el) {
+          console.info('[mascot] degringolade : aucune rangée visible');
+          return;
+        }
+        this._accordionPokedEl = el;
+        this._accordionPokedAt = now;
+        this._accordionFallUntil = 0;
+        return;
+      }
+      case 'sieste':
+        this.qaTrigger('sieste');
+        return;
+      default:
+        console.info(`[mascot] réaction inconnue : '${name}'`);
     }
   }
 
@@ -3553,23 +5093,653 @@ export class MascotComponent implements OnDestroy {
     this.say(robot, lines[Math.floor(Math.random() * lines.length)]);
   }
 
-  /** Survol d'une carte projet depuis un moment : le robot célèbre. */
-  private checkProjectHover(timestamp: number): void {
+  /* ------------------------------------------------------------------ */
+  /* Réactions aux actions du visiteur — arbitre unique                  */
+  /*                                                                     */
+  /* Ordre de priorité (décroissant) : 1. capteurs mobile (secousse/tilt, */
+  /* reactToShake inchangé) ; 2. triple-clic et célébration surprise     */
+  /* (_contextCooldown bloque tout) ; 3. réactions visiteur (elles       */
+  /* interrompent un perchoir via abortPerch(250) SAUF dégringolade et   */
+  /* ovation-perchée qui UTILISENT le perché ; jamais approach/duo/chase */
+  /* — l'événement est perdu, pas mis en file) ; 4. curseur-guide (gèle  */
+  /* tout, seule exception : le réveil de sieste) ; 5. vie autonome.     */
+  /* Les handlers ont MÉMORISÉ ; tout est consommé ici, dans la rAF —    */
+  /* les rects sont lus au déclenchement d'une scène uniquement.         */
+  /* ------------------------------------------------------------------ */
+
+  private tickReactions(
+    robot: Character,
+    buddy: Character,
+    timestamp: number
+  ): void {
+    /* Sieste : démarrage sur inactivité et RÉVEIL — le réveil prime sur
+       tout (le visiteur vient de bouger), guide compris (le guide ne
+       démarre jamais pendant une sieste : la scène n'est pas 'free'). */
+    this.tickNap(robot, buddy, timestamp);
+
+    /* Capteurs souverains : quand le sol penche, aucune réaction. */
+    if (!this._isDesktop() && Math.abs(this._tilt) > TILT_DEADZONE) {
+      return;
+    }
+    /* Triple-clic / célébration surprise : au-dessus de toute réaction. */
+    if (this._contextCooldown > 0) {
+      return;
+    }
+    /* Le curseur-guide gèle bavardage, duos, perchoirs ET réactions. */
+    if (this.guideBusy()) {
+      return;
+    }
+
+    /* Le surf a son couloir dédié (quasi silencieux, très fréquent). */
+    this.checkSurf(robot, buddy, timestamp);
+
+    /* Couloir global : au plus une réaction « jouée » toutes les 5 s. */
+    if (this._reactCooldown > 0) {
+      return;
+    }
+    if (this.checkVoyage(robot, buddy, timestamp)) {
+      return;
+    }
+    if (this.checkAccourse(robot, buddy, timestamp)) {
+      return;
+    }
+    if (this.checkOvation(robot, timestamp)) {
+      return;
+    }
+    if (this.checkSwirl(robot, buddy, timestamp)) {
+      return;
+    }
+    /* Priorité basse : l'expert des compétences s'efface derrière tout. */
+    this.checkSkillHover(robot, timestamp);
+  }
+
+  /**
+   * « Le surf de transition » : le sol « bouge » à chaque coup de molette —
+   * pose 'brace' + micro-rebond sur place, blob décalé de 120 ms (vague).
+   * Se cumule avec reactToSectionChange (qui garde ses bulles et son
+   * SECTION_COOLDOWN) ; jamais pendant un vol ni un perchoir
+   * (l'invalidation existante abortPerch(350) prime, elle a déjà remis la
+   * scène en 'free' — un perché encore en vol est filtré par char.flight).
+   */
+  private checkSurf(
+    robot: Character,
+    buddy: Character,
+    timestamp: number
+  ): void {
     if (
-      !this._hoveredProject ||
-      this._hoverCelebrated ||
-      timestamp - this._hoverSince < PROJECT_HOVER_DELAY
+      this._surfPokedAt <= 0 ||
+      timestamp - this._surfPokedAt > REACT_FRESH_MS
     ) {
       return;
     }
-    this._hoverCelebrated = true;
-    const robot = this._robot;
-    if (!robot || this._scene !== 'free' || this._projectCooldown > 0) {
+    if (timestamp < this._surfUntil || this._scene !== 'free') {
+      this._surfPokedAt = 0;
       return;
     }
-    this._projectCooldown = PROJECT_COOLDOWN;
-    this.setPhase(robot, 'cheer', 1100);
-    this.say(robot, this.pickLine(PROJECT_LINES, robot));
+    this._surfPokedAt = 0;
+    this._surfUntil = timestamp + this.qaCooldown(SURF_COOLDOWN);
+    const brace = (char: Character): void => {
+      if (char.flight || char.y > 0.5) {
+        return;
+      }
+      this.setPhase(char, 'brace', 450);
+      this.launchFlight(char, char.x, 0, 14, 300);
+    };
+    brace(robot);
+    this._delayed.push({
+      in: SURF_STAGGER,
+      run: () => {
+        if (this._scene === 'free') {
+          brace(buddy);
+        }
+      },
+    });
+    if (Math.random() < 0.25 && buddy.bubbleRemaining <= 0) {
+      this.say(buddy, SURF_LINE, 1300);
+    }
+  }
+
+  /**
+   * « Bon voyage ! » : un lien sortant vient d'être cliqué — le duo se
+   * tourne vers le point de départ et salue pendant que l'onglet s'ouvre
+   * ailleurs (le clamp delta 64 ms garantit une reprise propre au retour).
+   * Un perché ne bouge pas : il salue sur place puis reprend sa pose.
+   */
+  private checkVoyage(
+    robot: Character,
+    buddy: Character,
+    timestamp: number
+  ): boolean {
+    const type = this._voyageType;
+    if (!type || timestamp - this._voyagePokedAt > REACT_FRESH_MS) {
+      this._voyageType = undefined;
+      return false;
+    }
+    if (timestamp < this._voyageUntil) {
+      this._voyageType = undefined;
+      return false;
+    }
+    const perched =
+      this._scene === 'perch' &&
+      !this._perchEscort &&
+      !this._reactivePlan &&
+      !this._napping
+        ? this._perchWho
+        : undefined;
+    if (this._scene !== 'free' && !perched) {
+      this._voyageType = undefined;
+      return false;
+    }
+    this._voyageType = undefined;
+    this._voyageUntil = timestamp + this.qaCooldown(VOYAGE_COOLDOWN);
+    this._reactCooldown = this.qaCooldown(REACT_GLOBAL_COOLDOWN);
+    const x = this._voyageX;
+    const line =
+      type === 'email'
+        ? VOYAGE_EMAIL_LINE
+        : type === 'social'
+          ? VOYAGE_SOCIAL_LINE
+          : VOYAGE_PROJECT_LINE;
+    for (const char of [robot, buddy]) {
+      if (char === perched) {
+        /* Salut sur place (setPhase est sans risque pendant une assise),
+           puis re-pose de la phase pour le reste de l'étape en cours. */
+        const prev = char.phase;
+        this.setPhase(char, char === robot ? 'wave' : 'excited', 1400);
+        this._delayed.push({
+          in: 1450,
+          run: () => {
+            if (
+              this._scene === 'perch' &&
+              this._perchWho === char &&
+              prev !== 'move'
+            ) {
+              this.setPhase(char, prev, Math.max(this._perchWait, 600) + 500);
+            }
+          },
+        });
+        continue;
+      }
+      if (char.flight || char.y > 0.5) {
+        continue;
+      }
+      char.dir = x >= this.centerOf(char) ? 1 : -1;
+      this.applyDirection(char);
+      this.setPhase(
+        char,
+        char === robot ? 'wave' : 'excited',
+        char === robot ? 2200 : 1800
+      );
+    }
+    if (robot.bubbleRemaining <= 0) {
+      if (perched === robot) {
+        this.sayPerched(robot, line);
+      } else {
+        this.say(robot, line);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * « J'accours pour voir » : survol prolongé (≥ 1,2 s) d'une tuile projet
+   * compacte ou d'une carte du diaporama — le personnage le plus proche
+   * accourt sous la carte, lève les yeux (--look-y forcé 1,8 s), petit
+   * saut sur place, bulle 1 fois sur 2. Part depuis 'free' ou en
+   * interrompant un perchoir SANS vol en cours (abortPerch 250 ms).
+   */
+  private checkAccourse(
+    robot: Character,
+    buddy: Character,
+    timestamp: number
+  ): boolean {
+    const el = this._hoveredEl;
+    if (
+      !el ||
+      this._hoveredKind !== 'project' ||
+      this._hoverCelebrated ||
+      !this._isDesktop()
+    ) {
+      return false;
+    }
+    const threshold = this.qaHover(ACCOURSE_HOVER_MS);
+    if (timestamp - this._hoverSince < threshold) {
+      return false;
+    }
+    /* Une seule tentative par survol — et jamais en retard : un
+       franchissement resté bloqué plus de ~0,9 s est simplement perdu. */
+    this._hoverCelebrated = true;
+    if (timestamp - this._hoverSince > threshold + REACT_LATE_MS) {
+      return false;
+    }
+    if (
+      timestamp < this._accourseUntil ||
+      (this._elementCooldown.get(el) ?? 0) > timestamp ||
+      this._perchGrace > 0
+    ) {
+      return false;
+    }
+    if (this._scene === 'perch') {
+      if (this._napping || this._reactivePlan || this._perchWho?.flight) {
+        return false;
+      }
+      this.abortPerch(250);
+    } else if (this._scene !== 'free') {
+      return false;
+    }
+    if (!el.isConnected) {
+      return false;
+    }
+    /* UNE lecture du rect de la cible, au déclenchement seulement. */
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.bottom < 0 || rect.top > window.innerHeight) {
+      return false;
+    }
+    const center = rect.left + rect.width / 2;
+    const who =
+      Math.abs(this.centerOf(robot) - center) <=
+      Math.abs(this.centerOf(buddy) - center)
+        ? robot
+        : buddy;
+    this._accourseUntil = timestamp + this.qaCooldown(ACCOURSE_OWN_COOLDOWN);
+    this._elementCooldown.set(
+      el,
+      timestamp + this.qaCooldown(ACCOURSE_ELEMENT_COOLDOWN)
+    );
+    this._reactCooldown = this.qaCooldown(REACT_GLOBAL_COOLDOWN);
+    this.startReactionPlan(who, [
+      {
+        kind: 'walk',
+        to: () => this.clampX(who, center - who.width / 2),
+        speedFactor: 2,
+      },
+      {
+        kind: 'do',
+        run: () => {
+          this._lookUp = { char: who, remaining: 1800 };
+          if (Math.random() < 0.5 && who.bubbleRemaining <= 0) {
+            this.say(who, this.pickLine(ACCOURSE_LINES, who));
+          }
+        },
+      },
+      { kind: 'pose', phase: 'look', ms: 1800 },
+      { kind: 'jump', to: () => ({ x: who.x, y: 0 }), height: 35, ms: 480 },
+      { kind: 'pose', phase: 'crouch', ms: 130 },
+    ]);
+    return true;
+  }
+
+  /**
+   * « L'ovation de l'attaché de presse » : survol d'un badge de contact.
+   * (a) un personnage est PERCHÉ sur ce badge précis : il applaudit
+   * ('cheer', les étincelles partent toutes seules) sans bulle, puis
+   * reprend sa pose 'point' ; (b) sinon, depuis 'free' : le robot se
+   * tourne vers le badge, pointe et vante (PRESS_*_LINES) — jamais si sa
+   * bulle est déjà visible (anti-cacophonie).
+   */
+  private checkOvation(robot: Character, timestamp: number): boolean {
+    const badge = this._badgePokedEl;
+    if (!badge || timestamp - this._badgePokedAt > REACT_FRESH_MS) {
+      return false;
+    }
+    if (!this._isDesktop()) {
+      this._badgePokedEl = undefined;
+      return false;
+    }
+    /* Saveur (a) : le perché applaudit son propre badge. */
+    if (
+      this._scene === 'perch' &&
+      this._perchWho &&
+      this._perchAnchor?.el === badge
+    ) {
+      this._badgePokedEl = undefined;
+      if (timestamp < this._ovationUntil) {
+        return false;
+      }
+      this._ovationUntil = timestamp + this.qaCooldown(OVATION_COOLDOWN);
+      this._reactCooldown = this.qaCooldown(REACT_GLOBAL_COOLDOWN);
+      const who = this._perchWho;
+      this.setPhase(who, 'cheer', 1100);
+      this._delayed.push({
+        in: 1100,
+        run: () => {
+          if (
+            this._scene === 'perch' &&
+            this._perchWho === who &&
+            this._perchAnchor?.el === badge
+          ) {
+            this.setPhase(who, 'point', Math.max(this._perchWait, 600) + 500);
+          }
+        },
+      });
+      return true;
+    }
+    /* Saveur (b) : depuis 'free' uniquement. */
+    if (this._scene !== 'free') {
+      return false;
+    }
+    this._badgePokedEl = undefined;
+    if (
+      timestamp < this._ovationUntil ||
+      robot.bubbleRemaining > 0 ||
+      this._perchGrace > 0 ||
+      robot.flight ||
+      robot.y > 0.5 ||
+      !badge.isConnected
+    ) {
+      return false;
+    }
+    const rect = badge.getBoundingClientRect();
+    if (rect.width === 0) {
+      return false;
+    }
+    const href = (badge as HTMLAnchorElement).href ?? '';
+    const line = href.includes('github')
+      ? PRESS_GITHUB_LINE
+      : href.startsWith('mailto') || href.includes('contact@')
+        ? PRESS_EMAIL_LINE
+        : PRESS_DEFAULT_LINE;
+    this._ovationUntil = timestamp + this.qaCooldown(OVATION_COOLDOWN);
+    this._reactCooldown = this.qaCooldown(REACT_GLOBAL_COOLDOWN);
+    robot.dir = rect.left + rect.width / 2 >= this.centerOf(robot) ? 1 : -1;
+    this.applyDirection(robot);
+    this.setPhase(robot, 'point', 2000);
+    this.say(robot, line);
+    return true;
+  }
+
+  /**
+   * « Le tourbillon de souris » : l'équivalent desktop de la secousse —
+   * le personnage tout proche titube, l'autre rit. Ne s'applique JAMAIS à
+   * un perché (il cligne seulement en alerte : pas question de le
+   * décrocher injustement).
+   */
+  private checkSwirl(
+    robot: Character,
+    buddy: Character,
+    timestamp: number
+  ): boolean {
+    const needed =
+      this._qaMode === 'fast' ? SWIRL_QA_INVERSIONS : SWIRL_INVERSIONS;
+    if (
+      this._swirlCount < needed ||
+      timestamp - this._swirlStart > SWIRL_WINDOW
+    ) {
+      return false;
+    }
+    this._swirlCount = 0;
+    this._swirlSign = 0;
+    if (
+      !this._isDesktop() ||
+      !this._finePointer ||
+      timestamp < this._swirlUntil
+    ) {
+      return false;
+    }
+    /* Distance au tourbillon : x/y des sprites, AUCUNE lecture layout. */
+    const distanceTo = (char: Character): number => {
+      const cx = this.centerOf(char);
+      const cy = window.innerHeight - SPRITE_GROUND - char.y - char.height / 2;
+      return Math.hypot(this._mouseX - cx, this._mouseY - cy);
+    };
+    const dRobot = distanceTo(robot);
+    const dBuddy = distanceTo(buddy);
+    if (Math.min(dRobot, dBuddy) > SWIRL_RADIUS) {
+      return false;
+    }
+    const who = dRobot <= dBuddy ? robot : buddy;
+    const other = who === robot ? buddy : robot;
+    this._swirlUntil = timestamp + this.qaCooldown(SWIRL_COOLDOWN);
+    if (this._scene === 'perch' && this._perchWho === who) {
+      /* Clignement d'alerte du perché, sans le décrocher (réaction muette,
+         hors couloir global). */
+      who.el.classList.add('is-alert');
+      if (who === robot) {
+        robot.alert = true;
+        this._alertHold = 1000;
+      }
+      this._delayed.push({
+        in: 1000,
+        run: () => {
+          who.el.classList.remove('is-alert');
+          if (who === robot) {
+            robot.alert = false;
+          }
+        },
+      });
+      return true;
+    }
+    const whoFree =
+      this._scene === 'free' ||
+      (this._scene === 'perch' &&
+        this._perchWho !== who &&
+        !this._perchEscort &&
+        !this._reactivePlan &&
+        !this._napping);
+    if (!whoFree || who.flight || who.y > 0.5) {
+      return false;
+    }
+    this._reactCooldown = this.qaCooldown(REACT_GLOBAL_COOLDOWN);
+    this.setPhase(who, 'stumble', 1100);
+    if (who.bubbleRemaining <= 0) {
+      this.say(who, SWIRL_LINE);
+    }
+    if (
+      !other.flight &&
+      other.y <= 0.5 &&
+      (this._scene !== 'perch' || this._perchWho !== other)
+    ) {
+      this.setPhase(other, 'laugh', 1300);
+      if (Math.random() < 0.5 && other.bubbleRemaining <= 0) {
+        this.say(other, SWIRL_ECHO_LINE, 1800);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * « L'expert des compétences » : survol prolongé (≥ 1,5 s) d'une chip —
+   * le robot ne se déplace pas (la zone est en hauteur en compact) : il se
+   * tourne, pointe et vante en 3e personne SANS jamais citer la techno.
+   * Priorité basse : évaluée en dernier dans l'arbitre.
+   */
+  private checkSkillHover(robot: Character, timestamp: number): boolean {
+    const el = this._hoveredEl;
+    if (
+      !el ||
+      this._hoveredKind !== 'chip' ||
+      this._hoverCelebrated ||
+      !this._isDesktop()
+    ) {
+      return false;
+    }
+    const threshold = this.qaHover(SKILL_HOVER_MS);
+    if (timestamp - this._hoverSince < threshold) {
+      return false;
+    }
+    this._hoverCelebrated = true;
+    if (timestamp - this._hoverSince > threshold + REACT_LATE_MS) {
+      return false;
+    }
+    if (
+      timestamp < this._skillUntil ||
+      (this._elementCooldown.get(el) ?? 0) > timestamp ||
+      this._perchGrace > 0 ||
+      robot.bubbleRemaining > 0
+    ) {
+      return false;
+    }
+    const robotFree =
+      this._scene === 'free' ||
+      (this._scene === 'perch' &&
+        this._perchWho !== robot &&
+        !this._perchEscort &&
+        !this._reactivePlan &&
+        !this._napping);
+    if (!robotFree || robot.flight || robot.y > 0.5 || !el.isConnected) {
+      return false;
+    }
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0) {
+      return false;
+    }
+    this._skillUntil = timestamp + this.qaCooldown(SKILL_COOLDOWN);
+    this._elementCooldown.set(
+      el,
+      timestamp + this.qaCooldown(SKILL_ELEMENT_COOLDOWN)
+    );
+    this._reactCooldown = this.qaCooldown(REACT_GLOBAL_COOLDOWN);
+    robot.dir = rect.left + rect.width / 2 >= this.centerOf(robot) ? 1 : -1;
+    this.applyDirection(robot);
+    this.setPhase(robot, 'point', 2200);
+    this.say(robot, this.pickLine(SKILL_LINES, robot));
+    return true;
+  }
+
+  /* --- « La sieste interrompue » --- */
+
+  /** Compteur d'inactivité et réveil (le réveil prime sur tout). */
+  private tickNap(robot: Character, buddy: Character, timestamp: number): void {
+    if (this._napping) {
+      if (this._lastInputAt > this._napStartedAt && this._scene === 'perch') {
+        this.wakeFromNap(robot, buddy);
+      }
+      return;
+    }
+    if (timestamp - this._lastInputAt < this._napIdleMs) {
+      return;
+    }
+    if (
+      this._scene !== 'free' ||
+      this.guideBusy() ||
+      this._contextCooldown > 0 ||
+      this._perchGrace > 0
+    ) {
+      return;
+    }
+    if (!this._isDesktop() && Math.abs(this._tilt) > TILT_DEADZONE) {
+      return;
+    }
+    if (robot.flight || buddy.flight || robot.y > 0.5 || buddy.y > 0.5) {
+      return;
+    }
+    this.startNap(robot, buddy);
+  }
+
+  /**
+   * Plan perchoir de la sieste (drapeau _napping) : le blob marche vers le
+   * pied de la cellule la plus proche (compact) ou le bord d'écran
+   * (diaporama) et s'y adosse en 'nest' avec un « Zzz… » renouvelé à
+   * chaque cycle ; le robot escorté s'adosse au bord ('lean') puis pique
+   * du nez ('rest'). Les tirages autonomes sont gelés par construction
+   * (scène 'perch'). La sieste cède TOUJOURS : réveil au premier input,
+   * triple-clic, secousse et bascule passent par les aborts existants.
+   */
+  private startNap(robot: Character, buddy: Character): boolean {
+    if (this._scene !== 'free') {
+      return false;
+    }
+    let footX: number;
+    if (this._viewMode.isCompact()) {
+      const cells = this.rectsOf(PERCH_SELECTORS.cell);
+      if (cells.length === 0) {
+        return false;
+      }
+      const buddyCenter = this.centerOf(buddy);
+      let best = cells[0];
+      for (const cell of cells) {
+        const center = cell.rect.left + cell.rect.width / 2;
+        const bestCenter = best.rect.left + best.rect.width / 2;
+        if (
+          Math.abs(center - buddyCenter) < Math.abs(bestCenter - buddyCenter)
+        ) {
+          best = cell;
+        }
+      }
+      footX = this.clampX(
+        buddy,
+        best.rect.left + best.rect.width / 2 - buddy.width / 2
+      );
+    } else {
+      footX = buddy.x < window.innerWidth / 2 ? EDGE_MARGIN : buddy.maxX;
+    }
+    const robotEdge =
+      this.centerOf(robot) < window.innerWidth / 2
+        ? EDGE_MARGIN + robot.width / 2
+        : window.innerWidth - EDGE_MARGIN - robot.width / 2;
+    const cycle = this.qaSit(NAP_CYCLE_MS);
+    const steps: PerchStep[] = [
+      {
+        kind: 'do',
+        run: () => {
+          this._napping = true;
+          this._napStartedAt = performance.now();
+          this._perchEscort = true;
+          this.walkTowards(robot, robotEdge);
+        },
+      },
+      { kind: 'walk', to: () => footX, speedFactor: 1.15 },
+      { kind: 'pose', phase: 'crouch', ms: 260 },
+    ];
+    for (let i = 0; i < NAP_CYCLES; i += 1) {
+      steps.push(
+        {
+          kind: 'do',
+          run: () => {
+            this.say(buddy, NAP_ZZZ_LINE, cycle + 900);
+            if (robot.arrived) {
+              this.setPhase(robot, i === 0 ? 'lean' : 'rest', cycle + 900);
+            }
+          },
+        },
+        { kind: 'sit', phase: 'nest', ms: cycle }
+      );
+    }
+    /* Fin naturelle (visiteur toujours absent) : étirement, et le compteur
+       d'inactivité toujours plein relancera une sieste au tour suivant. */
+    steps.push({ kind: 'pose', phase: 'excited', ms: 700 });
+    this.startReactionPlan(buddy, steps);
+    return true;
+  }
+
+  /**
+   * RÉVEIL : sursaut en cascade — blob 'stumble' puis 'excited', robot
+   * 'jump', bulles décalées — puis 3 s de calme forcé avant tout tirage.
+   * Pas de nouvelle sieste avant 90 s d'inactivité.
+   */
+  private wakeFromNap(robot: Character, buddy: Character): void {
+    this.resetPerchState();
+    this._scene = 'free';
+    this._napIdleMs =
+      this._qaMode === 'fast' ? NAP_QA_AFTER_WAKE_MS : NAP_AFTER_WAKE_MS;
+    robot.speedFactor = 1;
+    buddy.speedFactor = 1;
+    /* Le « Zzz… » persistant s'éteint au prochain battement. */
+    if (buddy.bubbleRemaining > 1) {
+      buddy.bubbleRemaining = 1;
+    }
+    if (!buddy.flight && buddy.y > 0.5) {
+      this.launchFlight(buddy, buddy.x, 0, 0, 300, 'inQuad');
+    }
+    this.setPhase(buddy, 'stumble', 900);
+    this.setPhase(robot, 'jump', 700);
+    this.say(robot, WAKE_ROBOT_LINE);
+    this._delayed.push({
+      in: 900,
+      run: () => {
+        if (this._scene === 'free' && !buddy.flight) {
+          this.setPhase(buddy, 'excited', 1200);
+        }
+      },
+    });
+    this._delayed.push({
+      in: 1200,
+      run: () => this.say(buddy, WAKE_BUDDY_LINE),
+    });
+    this._nextPerchIn = Math.max(this._nextPerchIn, WAKE_CALM_MS);
+    this._nextDuoIn = Math.max(this._nextDuoIn, WAKE_CALM_MS);
+    this._nextTalkIn = Math.max(this._nextTalkIn, WAKE_CALM_MS);
+    this._reactCooldown = Math.max(this._reactCooldown, WAKE_CALM_MS);
   }
 
   /* ------------------------------------------------------------------ */
@@ -3910,11 +6080,19 @@ export class MascotComponent implements OnDestroy {
         lookX = -lookX;
       }
     }
+    /* « J'accours pour voir » : regard forcé vers le haut de la carte. */
+    if (this._lookUp?.char === robot) {
+      lookX = 0;
+      lookY = -2.6;
+    }
     this.applyGaze(robot, lookX, lookY);
-    const alert = robotDist < ALERT_RADIUS;
-    if (alert !== robot.alert) {
-      robot.alert = alert;
-      robot.el.classList.toggle('is-alert', alert);
+    /* _alertHold (clignement du tourbillon) gèle le recalcul d'alerte. */
+    if (this._alertHold <= 0) {
+      const alert = robotDist < ALERT_RADIUS;
+      if (alert !== robot.alert) {
+        robot.alert = alert;
+        robot.el.classList.toggle('is-alert', alert);
+      }
     }
 
     const buddyCenterX = this.centerOf(buddy);
@@ -3931,6 +6109,10 @@ export class MascotComponent implements OnDestroy {
     }
     if (buddy.dir === -1) {
       buddyLookX = -buddyLookX;
+    }
+    if (this._lookUp?.char === buddy) {
+      buddyLookX = 0;
+      buddyLookY = -2;
     }
     this.applyGaze(buddy, buddyLookX, buddyLookY);
   }

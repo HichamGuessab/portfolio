@@ -272,6 +272,14 @@
   }
 }
 
+/* Le blob n'a pas d'antenne : son alerte, ce sont les yeux écarquillés
+   (clignement suspendu). Trois classes pour primer sur les règles de
+   phase à deux classes (is-nesting, is-hiding…). */
+.buddy-sprite.is-alert .buddy-eyes {
+  animation: none;
+  transform: scaleY(1.25);
+}
+
 /* Clignement des yeux, en continu quelle que soit la phase */
 .mascot-eyes {
   transform-origin: center;
@@ -968,7 +976,8 @@
   animation-delay: 0.24s;
 }
 
-/* Courte échelle : le robot se campe, bras en étrier, genoux fléchis. */
+/* Courte échelle : le robot se campe, bras en étrier, genoux fléchis.
+   La même pose sert d'appui au « surf de transition » (le sol bouge). */
 .is-bracing .mascot-figure {
   animation: none;
   transform: scaleY(0.94);
@@ -980,6 +989,12 @@
 
 .is-bracing .mascot-arm-back {
   transform: rotate(58deg);
+}
+
+/* Surf de transition : le blob se tasse pour encaisser la vague. */
+.is-bracing .buddy-figure {
+  animation: none;
+  transform: scaleY(0.88) scaleX(1.08);
 }
 
 /* Ma baie à moi : lové dans le slot libre, yeux mi-clos, sieste. */
@@ -1017,6 +1032,77 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Cache-cache sur le pont : tassé contre sa cachette — recroquevillé
+   (~72 %), yeux plissés, même famille que la sieste is-nesting. Les
+   sprites étant z-40 devant tout, le « caché » est stylisé : blotti contre
+   l'élément, jamais masqué par lui. */
+.is-hiding .buddy-figure {
+  animation: buddy-hide-breathe 3.4s ease-in-out infinite;
+}
+
+.is-hiding .buddy-eyes {
+  animation: none;
+  transform: scaleY(0.35);
+}
+
+@keyframes buddy-hide-breathe {
+  0%,
+  100% {
+    transform: scale(0.72, 0.72);
+  }
+  50% {
+    transform: scale(0.74, 0.7);
+  }
+}
+
+/* Réparateur du cadre-comète : étincelles de soudure — le groupe
+   .duo-sparkles du propre SVG du robot rejoue en boucle rapide (0,5 s),
+   découplé de is-cheering. */
+.is-sparking .sparkle {
+  animation: sparkle-pop 0.5s ease-out infinite;
+}
+
+.is-sparking .sparkle-2 {
+  animation-delay: 0.15s;
+}
+
+.is-sparking .sparkle-3 {
+  animation-delay: 0.3s;
+}
+
+/* Emprunt de chip : pilule SIMULÉE (20×9) portée au-dessus de la tête du
+   blob, dégradé signature — la vraie chip de la page n'est jamais déplacée
+   ni stylée, elle reste visible et intacte sous le sprite. */
+.carried-chip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 20px;
+  height: 9px;
+  margin-left: -10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--light-blue), var(--purple));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--light-blue) 55%, transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.is-carrying .carried-chip {
+  opacity: 1;
+  animation: carried-chip-bob 1.1s ease-in-out infinite;
+}
+
+@keyframes carried-chip-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
   }
 }
 

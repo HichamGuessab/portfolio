@@ -40,3 +40,6 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Artefacts de sessions QA (captures d'écran temporaires)
+.qa-screenshots*/
