@@ -272,27 +272,42 @@
           title="Formation"
           index="05"
         />
-        <div class="relative grid grid-cols-3 gap-3">
+        <div
+          class="relative mt-1 grid grid-cols-3 gap-3 [@media(min-height:820px)]:mt-2"
+        >
+          <!-- top-[7px] : la ligne de vie passe par le centre des nœuds (h-4). -->
           <svg
-            class="pointer-events-none absolute top-[3px] left-0 h-0.5 w-full"
+            class="pointer-events-none absolute top-[7px] left-0 h-0.5 w-full"
             aria-hidden="true"
           >
             <line class="timeline-dashes" x1="0" y1="1" x2="100%" y2="1" />
           </svg>
           @for (degree of degrees; track degree.name; let last = $last) {
             <div class="group flex min-w-0 flex-col gap-0.5 leading-tight">
+              <!-- Nœud : anneau dégradé lightBlue→purple posé sur la ligne de
+                   vie. Le dernier (Master, diplôme le plus élevé) est plein et
+                   porte un halo. relative : passe devant la ligne (svg absolu). -->
               <span
-                class="mb-1 ml-1 h-2 w-2 rounded-full bg-linear-to-b from-lightBlue to-purple transition-transform duration-200 group-hover:scale-125"
-                [class]="last ? 'shadow-[0_0_8px_rgba(168,140,255,0.8)]' : ''"
-              ></span>
-              <p class="text-[13px] font-medium">{{ degree.name }}</p>
-              <p class="text-gradient text-[11px]">{{ degree.type }}</p>
+                class="relative mb-1.5 ml-0.5 flex h-4 w-4 shrink-0 rounded-full bg-linear-to-b from-lightBlue to-purple p-[2px] transition-transform duration-200 group-hover:scale-110"
+                [class]="last ? 'shadow-[0_0_12px_rgba(168,140,255,0.75)]' : ''"
+              >
+                <span
+                  class="h-full w-full rounded-full"
+                  [class]="last ? 'bg-transparent' : 'bg-darkBlue'"
+                ></span>
+              </span>
+              <p class="text-[13px] font-semibold text-white 2xl:text-sm">
+                {{ degree.name }}
+              </p>
+              <p class="text-gradient text-[11px] font-medium 2xl:text-xs">
+                {{ degree.type }}
+              </p>
               <p
-                class="truncate text-[10px] text-white/55 transition duration-200 group-hover:text-white/85"
+                class="truncate text-[10px] font-light text-white/55 italic transition duration-200 group-hover:text-white/85"
               >
                 {{ degree.institution }}
               </p>
-              <p class="text-[10px] text-lightBlue/70 tabular-nums">
+              <p class="mt-0.5 text-[11px] text-lightBlue/80 tabular-nums">
                 {{ degree.date }}
               </p>
             </div>

@@ -16,14 +16,14 @@ export class EducationService {
 
   license: Degree = this.buildEducation(
     'Licence',
-    'Génie logiciel',
+    'Ingénierie du logiciel',
     "Université d'Avignon - CERI",
     '2020 - 2023'
   );
 
   master: Degree = this.buildEducation(
     'Master',
-    'Génie logiciel',
+    'Ingénierie du logiciel',
     "Université d'Avignon - CERI",
     '2023 - 2025'
   );

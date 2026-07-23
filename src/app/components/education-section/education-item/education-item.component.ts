@@ -14,4 +14,7 @@ import { Degree } from '../../../interfaces';
 })
 export class EducationItemComponent {
   education: InputSignal<Degree> = input.required<Degree>();
+
+  /** Vrai pour le diplôme le plus élevé (1er du service) : liseré + halo. */
+  highlight: InputSignal<boolean> = input<boolean>(false);
 }

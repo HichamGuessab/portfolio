@@ -1,20 +1,54 @@
+<!-- Racine = enfant direct de <education-item> : la mascotte s'y perche
+     (PERCH_SELECTORS → 'swiper-slide.swiper-slide-active > education-item > div'),
+     ne pas envelopper cette div. -->
 <div
-  class="flex h-auto w-80 flex-col justify-center gap-2 rounded-2xl border border-lightBlue bg-navyBlue p-6 transition duration-300 ease-out hover:-translate-y-1 hover:border-purple"
+  class="group relative flex h-auto w-80 max-w-full flex-col gap-4 overflow-hidden rounded-2xl border border-lightBlue bg-navyBlue p-6 transition duration-300 ease-out hover:-translate-y-1 hover:border-purple"
+  [class]="highlight() ? 'shadow-[0_0_28px_rgba(168,140,255,0.28)]' : ''"
 >
-  <div class="flex flex-col">
-    <h3 class="text-2xl font-medium text-white">
+  <!-- Liseré dégradé signature : réservé au diplôme le plus élevé (Master). -->
+  @if (highlight()) {
+    <span
+      aria-hidden="true"
+      class="absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-lightBlue to-purple"
+    ></span>
+  }
+
+  <!-- Métadonnées hautes : date + nœud écho de la timeline du mode compact. -->
+  <div class="flex items-center justify-between gap-2">
+    <p
+      class="text-sm text-lightBlue/80 tabular-nums transition duration-300 group-hover:text-lightBlue"
+    >
+      {{ education().date }}
+    </p>
+    <span
+      aria-hidden="true"
+      class="flex h-3 w-3 shrink-0 rounded-full bg-linear-to-b from-lightBlue to-purple p-px"
+      [class]="highlight() ? 'shadow-[0_0_10px_rgba(168,140,255,0.7)]' : ''"
+    >
+      <!-- Anneau creux pour les autres diplômes, plein pour le Master. -->
+      <span
+        class="h-full w-full rounded-full"
+        [class]="highlight() ? 'bg-transparent' : 'bg-navyBlue'"
+      ></span>
+    </span>
+  </div>
+
+  <!-- Hiérarchie : diplôme fort en blanc, spécialité en dégradé signature. -->
+  <div class="flex flex-col gap-1">
+    <h3 class="text-3xl font-medium text-white">
       {{ education().name }}
     </h3>
-    <p class="pl-3 text-lg italic">
+    <p class="text-gradient text-lg font-medium">
       {{ education().type }}
     </p>
   </div>
-  <div class="flex flex-col pl-3">
-    <p class="text-end italic">
-      {{ education().institution }}
-    </p>
-    <p class="text-end italic">
-      {{ education().date }}
-    </p>
-  </div>
+
+  <div
+    aria-hidden="true"
+    class="h-px w-full bg-linear-to-r from-lightBlue/50 to-purple/50"
+  ></div>
+
+  <p class="text-sm font-light text-white/75 italic">
+    {{ education().institution }}
+  </p>
 </div>
