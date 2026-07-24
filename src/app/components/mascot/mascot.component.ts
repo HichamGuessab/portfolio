@@ -171,6 +171,57 @@ const SHAKE_COOLDOWN = 4200;
 /** Délai (ms) avant la bulle d'invitation à activer les capteurs. */
 const SENSOR_INVITE_DELAY = 3200;
 
+/* --- « SÉISME » (mobile uniquement, diaporama forcé < md) ---
+   Le seul numéro autorisé à poser des classes sur de VRAIS éléments de la
+   page (assouplissement délibéré de la règle historique) : transform /
+   filter / opacity UNIQUEMENT, jamais de propriété de layout, retrait
+   GARANTI par un timer absolu indépendant de la machine à scènes
+   (QUAKE_MAX_MS) et par tous les chemins de sortie existants. Les classes
+   vivent dans src/styles.css : l'encapsulation émulée de
+   mascot.component.css ne toucherait jamais les éléments de la page. */
+
+/** Pic unique : magnitude (m/s²) qui déclenche le séisme d'un seul coup —
+    près du double du SHAKE_THRESHOLD, injouable par accident. */
+const QUAKE_PEAK_THRESHOLD = 25;
+
+/** Rafale : 3 « coups » ≥ SHAKE_THRESHOLD rapprochés déclenchent aussi
+    (rattrapage des appareils qui plafonnent bas). Un coup au plus par
+    QUAKE_JOLT_DEBOUNCE ms (une secousse physique produit ~100-200 ms
+    d'échantillons au-dessus du seuil) ; compteur remis à zéro au-delà de
+    QUAKE_BURST_WINDOW ms entre deux coups. */
+const QUAKE_BURST_COUNT = 3;
+const QUAKE_BURST_WINDOW = 1400;
+const QUAKE_JOLT_DEBOUNCE = 250;
+
+/** Période de grâce anti-traîne : tant que le séisme a moins de 2 s, un
+    nouveau _quakePending est absorbé sans effet — la traîne du geste
+    déclencheur (plusieurs pics ≥ seuil sur ~100-200 ms, ou une secousse
+    continue qui re-remplit la voie rafale) n'est PAS une récidive. Une
+    VRAIE deuxième secousse (≥ 2 s après le départ) garde la voie
+    « restauration d'urgence ». */
+const QUAKE_REARM_GRACE = 2000;
+
+/** Au plus un séisme par 75 s (qaCooldown → 15 s en QA 'fast'). */
+const QUAKE_COOLDOWN = 75000;
+
+/** FAILSAFE ABSOLU : quoi qu'il arrive (scène avortée, _delayed purgé,
+    robot bloqué), l'écran est restauré au bout de 14 s. Décrémenté
+    inconditionnellement en tête de _onFrame. */
+const QUAKE_MAX_MS = 14000;
+
+/** Tremblé d'écran : durée de l'animation .quake-tremor (styles.css). */
+const QUAKE_TREMOR_MS = 500;
+
+/** Cascade de casse : premier élément à 80 ms, puis un toutes les 90 ms. */
+const QUAKE_BREAK_STAGGER = 90;
+
+/** Départ de la tournée de réparation du robot (après la panique). */
+const QUAKE_PLAN_DELAY = 2000;
+
+/** Plafonds : éléments cassés et fissures dessinées (overlay SVG). */
+const QUAKE_MAX_BROKEN = 4;
+const QUAKE_MAX_CRACKS = 3;
+
 /** API iOS/WebKit : méthode statique requestPermission des événements capteurs. */
 interface SensorPermissionApi {
   requestPermission?: () => Promise<string>;
@@ -560,6 +611,76 @@ const CHIP_HOVER_SELECTOR = `${PERCH_SELECTORS.chip}, skill-item`;
     clic n'est donc pas un signal fiable de dépli. */
 const REACT_HOVER_SELECTOR = `${BADGE_HOVER_SELECTOR}, ${CHIP_HOVER_SELECTOR}, project-item, ${PERCH_SELECTORS.tile}`;
 
+/* --- « SÉISME » : cibles de casse, par index de slide du diaporama ---
+   Résolues via rectsOf + filtre rectInViewport (lecture seule, au
+   déclenchement uniquement). JAMAIS le swiper-slide lui-même (transform
+   inline géré par Swiper) : toujours le div enfant, même désambiguïsation
+   par combinateur enfant que PERCH_SELECTORS.activeCard (la slide
+   VERTICALE active porte aussi swiper-slide-active mais a pour enfant
+   direct la section, jamais un item). Les hôtes `badge` et
+   `skill-category` ne reçoivent un transform que parce qu'ils sont
+   blockifiés par leur conteneur flex/grid. */
+interface QuakeTargetSpec {
+  selector: string;
+  /** Nombre d'éléments pris sur ce sélecteur (défaut 1). */
+  take?: number;
+  /** Casse : 'tilt' (bascule), 'card' (affaissement ou bascule),
+      'neon' (bascule + clignotement d'opacité). */
+  kind: 'tilt' | 'card' | 'neon';
+}
+
+const QUAKE_TARGETS: Record<number, readonly QuakeTargetSpec[]> = {
+  0: [
+    { selector: `profile-section ${PERCH_SELECTORS.photo}`, kind: 'tilt' },
+    { selector: 'profile-section h1', kind: 'neon' },
+    { selector: 'profile-section badge', take: 2, kind: 'neon' },
+  ],
+  1: [
+    { selector: 'projects-section section-header > div', kind: 'neon' },
+    {
+      selector: 'swiper-slide.swiper-slide-active > project-item > div',
+      kind: 'card',
+    },
+    {
+      selector: 'swiper-slide.swiper-slide-next > project-item > div',
+      kind: 'card',
+    },
+  ],
+  2: [
+    { selector: 'skills-section section-header > div', kind: 'neon' },
+    { selector: 'skills-section skill-category', take: 2, kind: 'tilt' },
+  ],
+  3: [
+    { selector: 'experience-section section-header > div', kind: 'neon' },
+    {
+      selector: 'swiper-slide.swiper-slide-active > experience-item > div',
+      kind: 'card',
+    },
+    {
+      selector: 'swiper-slide.swiper-slide-next > experience-item > div',
+      kind: 'card',
+    },
+  ],
+  4: [
+    { selector: 'education-section section-header > div', kind: 'neon' },
+    {
+      selector: 'swiper-slide.swiper-slide-active > education-item > div',
+      kind: 'card',
+    },
+    {
+      selector: 'swiper-slide.swiper-slide-next > education-item > div',
+      kind: 'card',
+    },
+  ],
+};
+
+/** Élément cassé par le séisme : classes de casse posées + fissure liée. */
+interface QuakeBroken {
+  el: HTMLElement;
+  classes: string[];
+  crackId: number;
+}
+
 /* ------------------------------------------------------------------ */
 /* Dialogues — humour léger et compliments exagérés, jamais de faits.  */
 /* ------------------------------------------------------------------ */
@@ -812,6 +933,36 @@ const BUDDY_SHAKE_LINES: readonly string[] = [
   'Waaah !',
   'Au secouuurs !',
 ] as const;
+
+/* --- « SÉISME » : panique, encouragements et finale --- */
+
+/** Panique du blob à ~900 ms (t = 0 : les deux trébuchent). */
+const QUAKE_BUDDY_PANIC_LINES: readonly string[] = [
+  'Aïe ! Tout est tombé !',
+  'Waaah ! Un séisme !',
+  'Tout s’écroule ! Au secours !',
+] as const;
+
+/** Le robot rassure à ~1,7 s (vouvoiement, conforme au fichier). */
+const QUAKE_ROBOT_CALM_LINES: readonly string[] = [
+  'Pas de panique, on gère !',
+  'Restez calme : je sors la boîte à outils.',
+  'Alerte sismique ! Réparations en cours…',
+] as const;
+
+/** Encouragements du blob pendant les soudures (une fois sur deux). */
+const QUAKE_CHEER_LINES: readonly string[] = [
+  'Bravo !',
+  'Encore un !',
+  'Quel bricoleur !',
+] as const;
+
+/** Finale du bricoleur, et son écho par le blob. */
+const QUAKE_DONE_LINE = 'Et voilà, comme neuf ! Hicham aussi, il répare tout.';
+const QUAKE_DONE_ECHO_LINE = 'Comme neuf ! Ouiii !';
+
+/** Nouvelle secousse forte PENDANT la scène : restauration d'urgence. */
+const QUAKE_AGAIN_LINE = 'Encore ?! Bon, on remet tout d’abord !';
 
 /** Petites réactions au toucher sur mobile, une fois les capteurs réglés. */
 const TAP_LINES: readonly string[] = [
@@ -1091,6 +1242,33 @@ export class MascotComponent implements OnDestroy {
   private _shakeCooldown = 0;
   /** Mémoire du vecteur gravité pour détecter les secousses sans `acceleration`. */
   private _lastGravity?: { x: number; y: number; z: number };
+
+  /* --- « SÉISME » (les listeners MÉMORISENT, la rAF consomme) --- */
+  /** Secousse FORTE signalée par _onMotion (pic ≥ 25 ou rafale de 3 coups). */
+  private _quakePending = false;
+  /** Rafale : nombre de coups ≥ 14 dans la fenêtre, et date du dernier. */
+  private _quakeBurstCount = 0;
+  private _quakeBurstAt = 0;
+  /** Au plus un séisme par QUAKE_COOLDOWN (décrémenté dans tickSensors). */
+  private _quakeCooldown = 0;
+  /** FAILSAFE ABSOLU : décrémenté inconditionnellement en tête de _onFrame ;
+      à échéance, restauration totale quel que soit l'état de la scène. */
+  private _quakeRestoreIn = 0;
+  /** Tournée de réparation en cours (plan réactif du robot). */
+  private _quakeScene = false;
+  /** Registre des éléments cassés, trié par rect.left (ordre de la tournée).
+      Non vide = séisme actif : le trébuchement léger est court-circuité. */
+  private _quakeBroken: QuakeBroken[] = [];
+  /** Overlay SVG des fissures (document.body, hors zone Angular). */
+  private _quakeOverlay?: SVGSVGElement;
+  /** Conteneur porteur de .quake-tremor (jamais <main> : app-mascot y est
+      en fixed, un transform ancêtre en ferait le containing block). */
+  private _quakeTremorEl?: HTMLElement;
+  /** Éléments en cours de « pop » de retour (.quake-heal à balayer). */
+  private _quakeHealing: HTMLElement[] = [];
+  /** Balayage des .quake-heal : minuterie NATIVE, indépendante de la rAF et
+      de la machine à scènes (survit à stopScene / ngOnDestroy). */
+  private _quakeHealTimer = 0;
 
   /* --- Gestes tactiles (mobile) --- */
   private _tapCooldown = 0;
@@ -1738,6 +1916,14 @@ export class MascotComponent implements OnDestroy {
     document.addEventListener(
       'swiperslidechange',
       (event) => {
+        /* « SÉISME » : la slide part avec ses dégâts — restauration
+           immédiate (les éléments de l'ancienne slide repartent d'un pop).
+           L'abortPerch ci-dessous y repasserait via clearPerchEffects,
+           mais la fenêtre 0-2 s (casse posée, plan pas encore lancé) se
+           joue hors 'perch' : l'appel direct couvre tout. */
+        if (this._quakeBroken.length > 0) {
+          this.restoreQuake();
+        }
         /* Diaporama : TOUT changement de slide (sections verticales comme
            cartes de l'effet cards) invalide les perchoirs — saut au sol
            immédiat, le sprite touche terre avant la fin de la transition
@@ -1939,6 +2125,10 @@ export class MascotComponent implements OnDestroy {
     this._delayed = [];
     this._lookUp = undefined;
     this.resetPerchState();
+    /* « SÉISME » : démontage STRUCTUREL (breakpoint md, ngOnDestroy) —
+       restauration explicite, y compris quand la tournée n'avait pas
+       encore démarré (resetPerchState ne restaure que la tournée). */
+    this.restoreQuake();
     this.disconnectConsoleObserver();
     if (this._qaMode) {
       delete (window as unknown as Record<string, unknown>)['__mascotQa'];
@@ -1998,6 +2188,21 @@ export class MascotComponent implements OnDestroy {
     this._lastTimestamp = timestamp;
 
     this._contextCooldown -= delta;
+    /* FAILSAFE ABSOLU du « SÉISME » : décrément INCONDITIONNEL, quel que
+       soit l'état (scène, bulles, plans). À échéance : restauration totale
+       + fin propre de la tournée si elle court encore. L'écran est intact
+       au bout de 14 s, quoi qu'il arrive. */
+    if (this._quakeRestoreIn > 0) {
+      this._quakeRestoreIn -= delta;
+      if (this._quakeRestoreIn <= 0) {
+        const touring = this._quakeScene;
+        this.restoreQuake();
+        if (touring && this._scene === 'perch') {
+          this.abortPerch(250);
+        }
+        this._quakeScene = false;
+      }
+    }
     this._sectionCooldown -= delta;
     this._tapCooldown -= delta;
     this._perchGrace -= delta;
@@ -3157,6 +3362,8 @@ export class MascotComponent implements OnDestroy {
     this._perchEscort = false;
     this._reactivePlan = false;
     this._napping = false;
+    /* Toute sortie de la scène 'perch' termine la tournée du séisme. */
+    this._quakeScene = false;
   }
 
   /** Retire les effets visuels posés par les numéros (tassement du
@@ -3166,6 +3373,15 @@ export class MascotComponent implements OnDestroy {
   private clearPerchEffects(): void {
     for (const char of [this._robot, this._buddy]) {
       char?.el.classList.remove('is-hiding', 'is-carrying', 'is-sparking');
+    }
+    /* « SÉISME » : quand la TOURNÉE est en cours, sa sortie (endPerch /
+       abortPerch via resetPerchState, chute contrôlée) restaure tout.
+       Jamais hors tournée : le perché d'AVANT le séisme, tombé au
+       déclenchement, atterrit ~450 ms plus tard — son endPerch balaierait
+       la casse toute fraîche. La fenêtre sans tournée est couverte par le
+       timer absolu, le swiperslidechange et le stopScene explicite. */
+    if (this._quakeScene) {
+      this.restoreQuake();
     }
   }
 
@@ -4900,6 +5116,11 @@ export class MascotComponent implements OnDestroy {
           scene: this._scene,
           napping: this._napping,
           reactive: this._reactivePlan,
+          quake: {
+            broken: this._quakeBroken.length,
+            restoreIn: Math.max(0, Math.round(this._quakeRestoreIn)),
+            cooldown: Math.max(0, Math.round(this._quakeCooldown)),
+          },
         }),
       };
     } else {
@@ -5018,6 +5239,19 @@ export class MascotComponent implements OnDestroy {
         this._accordionPokedEl = el;
         this._accordionPokedAt = now;
         this._accordionFallUntil = 0;
+        return;
+      }
+      case 'seisme': {
+        /* Simule la secousse TRÈS forte mémorisée par _onMotion — la rAF
+           consomme au battement suivant (mobile/diaporama uniquement). */
+        if (this._isDesktop()) {
+          console.info(
+            '[mascot] seisme : mobile uniquement (viewport < md, diaporama forcé)'
+          );
+          return;
+        }
+        this._quakePending = true;
+        this._quakeCooldown = 0;
         return;
       }
       case 'sieste':
@@ -5938,6 +6172,28 @@ export class MascotComponent implements OnDestroy {
     }
     if (magnitude > SHAKE_THRESHOLD) {
       this._shakePending = true;
+      /* « SÉISME » — mémorisation pure (la rAF consomme), zéro lecture
+         layout, même patron que l'accumulateur du tourbillon.
+         Voie 1, pic unique : magnitude ≥ 25 m/s².
+         Voie 2, rafale : 3 coups ≥ 14 rapprochés — au plus un coup compté
+         par QUAKE_JOLT_DEBOUNCE ms (une secousse physique produit plusieurs
+         échantillons au-dessus du seuil), compteur remis à zéro si l'écart
+         entre deux coups dépasse QUAKE_BURST_WINDOW ms. */
+      if (magnitude >= QUAKE_PEAK_THRESHOLD) {
+        this._quakePending = true;
+      }
+      const now = performance.now();
+      if (now - this._quakeBurstAt > QUAKE_BURST_WINDOW) {
+        this._quakeBurstCount = 0;
+      }
+      if (now - this._quakeBurstAt >= QUAKE_JOLT_DEBOUNCE) {
+        this._quakeBurstAt = now;
+        this._quakeBurstCount += 1;
+        if (this._quakeBurstCount >= QUAKE_BURST_COUNT) {
+          this._quakeBurstCount = 0;
+          this._quakePending = true;
+        }
+      }
     }
   };
 
@@ -5948,6 +6204,7 @@ export class MascotComponent implements OnDestroy {
    */
   private tickSensors(robot: Character, buddy: Character, delta: number): void {
     this._shakeCooldown -= delta;
+    this._quakeCooldown -= delta;
 
     /* Lissage passe-bas, cadencé sur le temps réel écoulé. */
     this._tilt +=
@@ -6002,10 +6259,68 @@ export class MascotComponent implements OnDestroy {
       }
     }
 
-    /* Secousse : sursaut des deux personnages, avec garde-fou anti-spam. */
+    /* « SÉISME » : secousse forte, consommée AVANT le trébuchement léger.
+       Gardes dans l'ordre : mobile/diaporama uniquement ; pas de séisme
+       déjà actif (sinon voie « restauration d'urgence ») ; cooldown 75 s ;
+       pas de célébration surprise en cours. Une garde échoue → DOWNGRADE :
+       _shakePending, posé par le même événement, joue le trébuchement
+       existant — le visiteur a toujours une réponse. */
+    if (this._quakePending) {
+      this._quakePending = false;
+      if (!this._isDesktop()) {
+        /* Secouer TRÈS fort est un input du visiteur : le compteur
+           d'inactivité repart — sinon, après une longue absence, la sieste
+           redémarrerait pendant la panique (scène 'free', 0-2 s) et
+           squatterait l'exécuteur : la tournée ne pourrait jamais partir. */
+        this._lastInputAt = performance.now();
+        if (this._quakeBroken.length > 0 || this._quakeScene) {
+          /* Période de grâce anti-traîne : le geste déclencheur produit
+             encore des échantillons ≥ seuil quelques frames après le
+             départ du séisme (et une secousse continue re-remplit la voie
+             rafale). Tant que le séisme a moins de QUAKE_REARM_GRACE ms,
+             ce re-_quakePending n'est PAS une récidive : le flag est déjà
+             consommé, on absorbe — sinon la scène s'auto-détruirait une
+             ou deux frames après son départ. */
+          const age = QUAKE_MAX_MS - this._quakeRestoreIn;
+          if (age >= QUAKE_REARM_GRACE) {
+            /* Restauration d'urgence : jamais deux séismes empilés. Tout
+               est remis en place d'un pop, la tournée avortée, cooldown
+               réarmé. */
+            this._quakeCooldown = this.qaCooldown(QUAKE_COOLDOWN);
+            this._shakePending = false;
+            this._shakeCooldown = SHAKE_COOLDOWN;
+            if (this._quakeScene && this._scene === 'perch') {
+              /* abortPerch → resetPerchState → clearPerchEffects →
+                 restoreQuake : un seul rail, tout est balayé. */
+              this.abortPerch(250);
+            } else {
+              this.restoreQuake();
+            }
+            this._quakeScene = false;
+            for (const char of [robot, buddy]) {
+              if (!char.flight) {
+                this.setPhase(char, 'stumble', 1100);
+              }
+            }
+            this.say(robot, QUAKE_AGAIN_LINE);
+          }
+        } else if (this._quakeCooldown <= 0 && this._contextCooldown <= 0) {
+          this._quakeCooldown = this.qaCooldown(QUAKE_COOLDOWN);
+          /* Le trébuchement léger ne se joue pas PAR-DESSUS le séisme. */
+          this._shakePending = false;
+          this._shakeCooldown = SHAKE_COOLDOWN;
+          this.syncActiveSlide();
+          this.startQuake(robot, buddy);
+        }
+      }
+    }
+
+    /* Secousse : sursaut des deux personnages, avec garde-fou anti-spam.
+       Court-circuitée tant que des éléments sont cassés : le bricoleur
+       n'est pas interrompu par une réplique. */
     if (this._shakePending) {
       this._shakePending = false;
-      if (this._shakeCooldown <= 0) {
+      if (this._quakeBroken.length === 0 && this._shakeCooldown <= 0) {
         this._shakeCooldown = SHAKE_COOLDOWN;
         this.reactToShake(robot, buddy);
       }
@@ -6027,6 +6342,504 @@ export class MascotComponent implements OnDestroy {
     }
     this.say(robot, this.pickLine(SHAKE_LINES, robot));
     this.say(buddy, this.pickLine(BUDDY_SHAKE_LINES, buddy), 1900);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* « SÉISME » — casse réversible, panique, tournée de réparation       */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Secousse TRÈS forte : l'écran tremble, 3-4 éléments de la slide active
+   * basculent (classes transform/filter/opacity posées sur de VRAIS
+   * éléments — assouplissement délibéré, restauration garantie), de fines
+   * fissures SVG courent près des dégâts, le duo panique, puis le robot
+   * fait la tournée des réparations de gauche à droite. La restauration ne
+   * dépend JAMAIS de _delayed (purgé par stopScene) : timer absolu
+   * (_quakeRestoreIn, tête de _onFrame) + clearPerchEffects (tous les rails
+   * de sortie) + swiperslidechange.
+   */
+  private startQuake(robot: Character, buddy: Character): void {
+    /* Même politique que reactToShake (« la secousse gagne toujours ») :
+       perché → chute contrôlée (son clearPerchEffects est sans danger, le
+       registre séisme est encore vide) ; approach/duo/chase → vie libre ;
+       la sieste est une scène 'perch' : le séisme EST le réveil. */
+    if (this._scene === 'perch') {
+      this.controlledFall();
+    } else if (this._scene !== 'free') {
+      this.backToFree();
+    }
+    for (const char of [robot, buddy]) {
+      if (!char.flight) {
+        this.setPhase(char, 'stumble', 1100);
+      }
+    }
+    /* La scène séisme a la priorité : aucun tirage autonome par-dessus. */
+    this._nextPerchIn = Math.max(this._nextPerchIn, QUAKE_MAX_MS);
+    this._nextDuoIn = Math.max(this._nextDuoIn, QUAKE_MAX_MS);
+    this._nextTalkIn = Math.max(this._nextTalkIn, 4200);
+    /* … ni aucune réaction visiteur pendant la fenêtre panique → tournée :
+       une réaction qui prendrait l'exécuteur (startReactionPlan) pendant
+       les 2 premières secondes ferait échouer le lancement de la tournée
+       (garde _scene !== 'free') — casse sans réparation jusqu'au timer
+       absolu. */
+    this._reactCooldown = Math.max(
+      this._reactCooldown,
+      QUAKE_PLAN_DELAY + 1000
+    );
+    /* La traîne du geste déclencheur ne doit pas re-remplir la voie
+       rafale : compteur purgé, debounce réarmé (complète la période de
+       grâce QUAKE_REARM_GRACE côté tickSensors). */
+    this._quakeBurstCount = 0;
+    this._quakeBurstAt = performance.now();
+
+    /* TIMER ABSOLU posé au déclenchement : quoi qu'il arrive, l'écran est
+       intact dans 14 s (couvre aussi le tremblé si _delayed est purgé). */
+    this._quakeRestoreIn = QUAKE_MAX_MS;
+
+    /* Tremblé d'écran sur le swiper vertical — jamais sur <main> :
+       app-mascot y est en fixed, un transform ancêtre en ferait le
+       containing block. Retrait cosmétique via _delayed, retrait GARANTI
+       par restoreQuake. */
+    const container = document.querySelector(
+      'swiper-container[direction="vertical"]'
+    ) as HTMLElement | null;
+    if (container) {
+      container.classList.add('quake-tremor');
+      this._quakeTremorEl = container;
+      this._delayed.push({
+        in: QUAKE_TREMOR_MS + 50,
+        run: () => {
+          if (this._quakeTremorEl === container) {
+            container.classList.remove('quake-tremor');
+            this._quakeTremorEl = undefined;
+          }
+        },
+      });
+    }
+
+    /* Cibles : table par slide, rects lus UNE fois (patron existant),
+       filtre viewport, plafond QUAKE_MAX_BROKEN. */
+    const specs = QUAKE_TARGETS[this._activeSlide] ?? [];
+    const found: {
+      el: HTMLElement;
+      rect: DOMRect;
+      kind: QuakeTargetSpec['kind'];
+    }[] = [];
+    for (const spec of specs) {
+      let taken = 0;
+      const take = spec.take ?? 1;
+      for (const info of this.rectsOf(spec.selector)) {
+        if (taken >= take || found.length >= QUAKE_MAX_BROKEN) {
+          break;
+        }
+        if (!this.rectInViewport(info.rect)) {
+          continue;
+        }
+        found.push({
+          el: info.el as HTMLElement,
+          rect: info.rect,
+          kind: spec.kind,
+        });
+        taken += 1;
+      }
+    }
+
+    /* Registre trié par rect.left : ordre de la tournée (gauche → droite).
+       Moins d'une cible (état exotique) : tremblé + panique seuls, pas de
+       tournée — le cooldown est consommé quand même. */
+    found.sort((a, b) => a.rect.left - b.rect.left);
+    this._quakeBroken = found.map((item) => ({
+      el: item.el,
+      classes: this.quakeVariantClasses(item.kind),
+      crackId: -1,
+    }));
+
+    /* Cascade de casse : t = 80 ms puis toutes les QUAKE_BREAK_STAGGER ms,
+       ordre aléatoire (cosmétique : chaque run se re-vérifie). */
+    const order = [...this._quakeBroken].sort(() => Math.random() - 0.5);
+    order.forEach((entry, i) => {
+      this._delayed.push({
+        in: 80 + i * QUAKE_BREAK_STAGGER,
+        run: () => {
+          if (this._quakeBroken.includes(entry)) {
+            entry.el.classList.add('quake-broken', ...entry.classes);
+          }
+        },
+      });
+    });
+
+    /* Fissures à t = 550 ms : après le tremblé, les rects sont stables. */
+    this._delayed.push({
+      in: QUAKE_TREMOR_MS + 50,
+      run: () => this.drawCracks(),
+    });
+
+    /* t ≈ 600 ms : le blob détale vers le robot (dash au sol : tickFree
+       n'applique pas speedFactor en vie libre — un vol plat à ~0,9 px/ms
+       rend la course affolée), arrivée en 'wobble'. */
+    this._delayed.push({
+      in: 600,
+      run: () => {
+        if (this._quakeRestoreIn <= 0 || buddy.flight || buddy.y > 0.5) {
+          return;
+        }
+        const side = buddy.x < robot.x ? -1 : 1;
+        const toX = this.clampX(buddy, robot.x + side * (robot.width + 6));
+        buddy.speedFactor = 2.2;
+        this.setPhase(buddy, 'move', 1400);
+        this.launchFlight(buddy, toX, 0, 6, undefined, undefined, () => {
+          buddy.speedFactor = 1;
+          this.setPhase(buddy, 'wobble', 600);
+        });
+      },
+    });
+
+    /* t ≈ 900 ms : panique du blob ; t ≈ 1,7 s : le robot rassure puis
+       inspecte les dégâts. Bulles cosmétiques : gardées par l'état. */
+    this._delayed.push({
+      in: 900,
+      run: () => {
+        if (this._quakeRestoreIn > 0) {
+          this.say(buddy, this.pickLine(QUAKE_BUDDY_PANIC_LINES, buddy));
+        }
+      },
+    });
+    this._delayed.push({
+      in: 1700,
+      run: () => {
+        if (this._quakeRestoreIn > 0) {
+          this.say(robot, this.pickLine(QUAKE_ROBOT_CALM_LINES, robot));
+          if (!robot.flight) {
+            this.setPhase(robot, 'look', 1200);
+          }
+        }
+      },
+    });
+
+    /* t = 2 s : tournée de réparation (plan réactif sur l'exécuteur
+       existant). Garde au lancement (contrat _delayed) + UNE re-tentative
+       à +500 ms ; sinon le timer absolu fera la restauration. */
+    const launch = (retry: boolean): void => {
+      if (this._quakeBroken.length === 0) {
+        return;
+      }
+      if (this._scene !== 'free' || robot.flight) {
+        if (retry) {
+          this._delayed.push({ in: 500, run: () => launch(false) });
+        }
+        return;
+      }
+      this._quakeScene = true;
+      this.startReactionPlan(robot, this.buildQuakeRepairSteps(robot, buddy));
+      /* Le blob est acteur (encouragements scriptés) : escorté — et remis
+         en vie libre par tout abort, comme les autres plans escortés. */
+      this._perchEscort = true;
+    };
+    this._delayed.push({ in: QUAKE_PLAN_DELAY, run: () => launch(true) });
+  }
+
+  /** Variante de casse : bascule gauche/droite, affaissement (cartes),
+      clignotement néon (badges/titres) — classes de src/styles.css. */
+  private quakeVariantClasses(kind: QuakeTargetSpec['kind']): string[] {
+    const tilt = Math.random() < 0.5 ? 'quake-tilt-l' : 'quake-tilt-r';
+    switch (kind) {
+      case 'card':
+        return [Math.random() < 0.6 ? 'quake-sag' : tilt];
+      case 'neon':
+        return [tilt, 'quake-flicker'];
+      default:
+        return [tilt];
+    }
+  }
+
+  /**
+   * Overlay SVG des fissures : inséré sur document.body (hors zone Angular,
+   * aucune change detection), fixed inset 0, pointer-events none, z-index
+   * 35 (sous les mascottes, hôte à 40). Overlays PURS posés sur les rects
+   * mesurés — les éléments cassés ne sont pas modifiés. Double trait :
+   * halo purple + fil lightBlue ; pathLength=1 + transition dashoffset
+   * (styles.css) : les fissures « courent ».
+   */
+  private drawCracks(): void {
+    if (this._quakeBroken.length === 0 || this._quakeOverlay) {
+      return;
+    }
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'quake-cracks');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute(
+      'viewBox',
+      `0 0 ${window.innerWidth} ${window.innerHeight}`
+    );
+    let crackId = 0;
+    for (const entry of this._quakeBroken) {
+      if (crackId >= QUAKE_MAX_CRACKS || !entry.el.isConnected) {
+        continue;
+      }
+      const rect = entry.el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        continue;
+      }
+      const group = document.createElementNS(NS, 'g');
+      group.setAttribute('data-crack', String(crackId));
+      const points = this.crackPoints(rect);
+      const strokes: readonly [string, string, string][] = [
+        ['#A88CFF', '5', '0.18'],
+        ['#53DCFD', '1.5', '0.5'],
+      ];
+      for (const [color, width, opacity] of strokes) {
+        const line = document.createElementNS(NS, 'polyline');
+        line.setAttribute('points', points);
+        line.setAttribute('fill', 'none');
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', width);
+        line.setAttribute('opacity', opacity);
+        line.setAttribute('stroke-linejoin', 'round');
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('pathLength', '1');
+        group.appendChild(line);
+      }
+      svg.appendChild(group);
+      entry.crackId = crackId;
+      crackId += 1;
+    }
+    document.body.appendChild(svg);
+    this._quakeOverlay = svg;
+    /* Flush de style (une mesure au déclenchement, patron existant) puis
+       .is-run : la transition dashoffset 1 → 0 part bien de 1. */
+    svg.getBoundingClientRect();
+    svg.querySelectorAll('g').forEach((g) => g.classList.add('is-run'));
+  }
+
+  /** Zigzag de 5-7 points (jitter ±12 px) en travers du rect cassé. */
+  private crackPoints(rect: DOMRect): string {
+    const count = 5 + Math.floor(Math.random() * 3);
+    const x0 = rect.left + rect.width * 0.08;
+    const x1 = rect.left + rect.width * 0.92;
+    const y0 = rect.top + rect.height * (0.15 + Math.random() * 0.3);
+    const y1 = rect.top + rect.height * (0.55 + Math.random() * 0.3);
+    const points: string[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const t = i / (count - 1);
+      const jx = (Math.random() - 0.5) * 24;
+      const jy = (Math.random() - 0.5) * 24;
+      points.push(
+        `${(x0 + (x1 - x0) * t + jx).toFixed(1)},${(y0 + (y1 - y0) * t + jy).toFixed(1)}`
+      );
+    }
+    return points.join(' ');
+  }
+
+  /**
+   * Tournée de réparation (PerchStep[], patrons de buildRepare/buildHud) :
+   * pour chaque élément cassé, de gauche à droite — marche sous l'élément
+   * (cible relue au démarrage de l'étape ; disparu → controlledFall →
+   * restauration TOTALE via clearPerchEffects : jamais de tournée
+   * fantôme), soudure aux étincelles existantes (is-sparking), pop
+   * élastique de remise en place, fissure effacée. Finale : pas de recul,
+   * inspection, cheer, bulle signature, retour à la vie libre.
+   */
+  private buildQuakeRepairSteps(
+    robot: Character,
+    buddy: Character
+  ): PerchStep[] {
+    const steps: PerchStep[] = [];
+    const entries = [...this._quakeBroken];
+    entries.forEach((entry, index) => {
+      steps.push(
+        {
+          kind: 'walk',
+          to: () => {
+            if (!this._quakeBroken.includes(entry) || !entry.el.isConnected) {
+              return null;
+            }
+            const rect = entry.el.getBoundingClientRect();
+            if (
+              rect.width === 0 ||
+              rect.bottom < 0 ||
+              rect.top > window.innerHeight
+            ) {
+              return null;
+            }
+            return this.clampX(
+              robot,
+              rect.left + rect.width / 2 - robot.width / 2
+            );
+          },
+          /* 2.0 (au lieu du 1.6 de la spec) : mesuré en conditions réelles,
+             4 réparations + trajets à 1.6 frôlaient le timer absolu de
+             14 s — le bricoleur presse le pas, la finale reste entière. */
+          speedFactor: 2.0,
+        },
+        {
+          kind: 'do',
+          run: () => {
+            /* Face à l'élément, regard levé (mécanisme _lookUp existant),
+               étincelles de soudure sur son propre SVG. */
+            if (entry.el.isConnected) {
+              const rect = entry.el.getBoundingClientRect();
+              robot.dir =
+                rect.left + rect.width / 2 >= this.centerOf(robot) ? 1 : -1;
+              this.applyDirection(robot);
+            }
+            this._lookUp = { char: robot, remaining: 1600 };
+            robot.el.classList.add('is-sparking');
+          },
+        },
+        /* Le rythme de soudure du réparateur du cadre-comète, raccourci. */
+        { kind: 'pose', phase: 'push', ms: this.qaSit(700) },
+        { kind: 'pose', phase: 'crouch', ms: this.qaSit(140) },
+        {
+          kind: 'do',
+          run: () => {
+            this.repairOne(entry);
+            /* Encouragement du blob une soudure sur deux (cosmétique). */
+            if (index % 2 === 0) {
+              this._delayed.push({
+                in: 150,
+                run: () => {
+                  if (!this._quakeScene || buddy.flight) {
+                    return;
+                  }
+                  this.setPhase(
+                    buddy,
+                    index % 4 === 0 ? 'jump' : 'excited',
+                    900
+                  );
+                  if (buddy.bubbleRemaining <= 0) {
+                    this.say(
+                      buddy,
+                      this.pickLine(QUAKE_CHEER_LINES, buddy),
+                      1600
+                    );
+                  }
+                },
+              });
+            }
+          },
+        },
+        { kind: 'do', run: () => robot.el.classList.remove('is-sparking') }
+      );
+    });
+    /* FINALE — chorégraphie signature de buildRepare : petit pas de recul,
+       inspection satisfaite, cheer (le burst d'étincelles part tout seul
+       avec is-cheering), bulle, repos. endPerch → clearPerchEffects →
+       restoreQuake balaie l'overlay et les .quake-heal résiduelles. */
+    steps.push(
+      {
+        kind: 'jump',
+        to: () => ({ x: robot.x - robot.dir * 34, y: 0 }),
+        height: 14,
+        ms: 300,
+      },
+      { kind: 'pose', phase: 'look', ms: this.qaSit(700) },
+      { kind: 'pose', phase: 'cheer', ms: this.qaSit(900) },
+      {
+        kind: 'do',
+        run: () => {
+          this.say(robot, QUAKE_DONE_LINE);
+          this._delayed.push({
+            in: 400,
+            run: () => {
+              if (this._scene === 'perch' && this._quakeScene) {
+                if (!buddy.flight) {
+                  this.setPhase(buddy, 'jump', 800);
+                }
+                this.say(buddy, QUAKE_DONE_ECHO_LINE);
+              }
+            },
+          });
+        },
+      },
+      { kind: 'pose', phase: 'rest', ms: this.qaSit(1400) }
+    );
+    return steps;
+  }
+
+  /**
+   * Répare UN élément : pop élastique de retour (.quake-heal porte le
+   * ressort avec dépassement), retrait des classes de casse dans la même
+   * frame, fissure fondue (groupe SVG lié). L'élément sort du registre :
+   * restoreQuake n'y repassera pas.
+   */
+  private repairOne(entry: QuakeBroken): void {
+    const index = this._quakeBroken.indexOf(entry);
+    if (index === -1) {
+      return;
+    }
+    this._quakeBroken.splice(index, 1);
+    this.healQuakeElement(entry);
+    this.armQuakeHealSweep();
+    if (entry.crackId >= 0) {
+      this._quakeOverlay
+        ?.querySelector(`g[data-crack='${entry.crackId}']`)
+        ?.classList.add('is-healed');
+    }
+    /* Dernier élément réparé : l'overlay (fissures toutes fondues) part
+       dès la fin du fondu — cosmétique, restoreQuake reste le garant. */
+    if (this._quakeBroken.length === 0) {
+      const overlay = this._quakeOverlay;
+      if (overlay) {
+        this._delayed.push({
+          in: 350,
+          run: () => {
+            if (this._quakeOverlay === overlay) {
+              overlay.remove();
+              this._quakeOverlay = undefined;
+            }
+          },
+        });
+      }
+    }
+  }
+
+  /** Pose le pop de retour et retire toutes les classes de casse. */
+  private healQuakeElement(entry: QuakeBroken): void {
+    entry.el.classList.add('quake-heal');
+    entry.el.classList.remove('quake-broken', ...entry.classes);
+    this._quakeHealing.push(entry.el);
+  }
+
+  /** Balayage différé des .quake-heal (transition résiduelle) : minuterie
+      NATIVE — indépendante de la rAF, de _delayed et de la machine à
+      scènes, elle survit à stopScene et ngOnDestroy. 700 ms > ressort
+      500 ms : jamais de pop coupé en vol. */
+  private armQuakeHealSweep(): void {
+    clearTimeout(this._quakeHealTimer);
+    this._quakeHealTimer = window.setTimeout(() => {
+      for (const el of this._quakeHealing) {
+        el.classList.remove('quake-heal');
+      }
+      this._quakeHealing = [];
+    }, 700);
+  }
+
+  /**
+   * RESTAURATION ABSOLUE — idempotente, sans dépendance à la machine à
+   * scènes. Garde de vacuité : appel routinier (clearPerchEffects de tous
+   * les autres numéros) à coût nul. Chemins garantis : timer absolu (tête
+   * de _onFrame), clearPerchEffects (endPerch/abortPerch/controlledFall/
+   * stopScene/ngOnDestroy), swiperslidechange, restauration d'urgence.
+   */
+  private restoreQuake(): void {
+    if (
+      this._quakeBroken.length === 0 &&
+      !this._quakeOverlay &&
+      !this._quakeTremorEl
+    ) {
+      return;
+    }
+    for (const entry of this._quakeBroken) {
+      this.healQuakeElement(entry);
+    }
+    this._quakeBroken = [];
+    this.armQuakeHealSweep();
+    this._quakeTremorEl?.classList.remove('quake-tremor');
+    this._quakeTremorEl = undefined;
+    this._quakeOverlay?.remove();
+    this._quakeOverlay = undefined;
+    this._quakeRestoreIn = 0;
   }
 
   /** Bulle d'invitation à activer les capteurs, une fois, peu après l'arrivée. */
