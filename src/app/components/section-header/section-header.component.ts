@@ -36,10 +36,19 @@ export type SectionHeaderSize = 'default' | 'mini';
         }
       </div>
     } @else {
-      <div reveal class="mb-12 flex gap-5 place-self-center">
-        <img [src]="icon()" alt="" class="h-14 w-14 place-self-center" />
+      <!-- Tailles réduites < md : l'en-tête doit tenir dans le conteneur
+           w-3/4 des petits écrans (« Compétences » débordait à droite). -->
+      <div
+        reveal
+        class="mb-8 flex max-w-full gap-3 place-self-center md:mb-12 md:gap-5"
+      >
+        <img
+          [src]="icon()"
+          alt=""
+          class="h-10 w-10 place-self-center md:h-14 md:w-14"
+        />
         <h2
-          class="content-center bg-linear-to-r from-lightBlue to-purple bg-clip-text font-analogue text-5xl font-regular text-transparent"
+          class="content-center bg-linear-to-r from-lightBlue to-purple bg-clip-text font-analogue text-4xl font-regular text-transparent md:text-5xl"
         >
           {{ title() }}
         </h2>
