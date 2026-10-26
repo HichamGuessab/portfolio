@@ -21,13 +21,31 @@
     U+2215, U+FEFF, U+FFFD;
 }
 
+/* Deux replis calibrés (mesurés sur les titres du site) : la graisse
+   normale d'Arial pour 300-549, sa graisse grasse pour 550-700 — Arial
+   Bold est bien plus large que Space Grotesk 600, un seul repli ferait
+   passer le nom du héros sur deux lignes avant le chargement de la police. */
 @font-face {
   font-family: 'Space Grotesk Fallback';
+  font-weight: 300 549;
   src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans');
   ascent-override: 90.36%;
   descent-override: 26.81%;
   line-gap-override: 0%;
   size-adjust: 108.9%;
+}
+
+@font-face {
+  font-family: 'Space Grotesk Fallback';
+  font-weight: 550 700;
+  src:
+    local('Arial Bold'), local('Arial-BoldMT'), local('Helvetica Neue Bold'),
+    local('HelveticaNeue-Bold'), local('Liberation Sans Bold'),
+    local('LiberationSans-Bold');
+  ascent-override: 98.14%;
+  descent-override: 29.12%;
+  line-gap-override: 0%;
+  size-adjust: 100.26%;
 }
 
 @theme {
