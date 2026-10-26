@@ -19,9 +19,7 @@ import { SpySectionDirective } from '../../directives/spy-section.directive';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EducationSectionComponent {
-  /** Ordre chronologique, de gauche à droite (le service liste du plus
-      élevé au plus ancien) : la frise culmine sur le Master. */
-  protected readonly degrees: Degree[] = [
-    ...inject(EducationService).getDegrees(),
-  ].reverse();
+  /** Ordre chronologique, de gauche à droite : la frise culmine sur le
+      Master. */
+  protected readonly degrees: Degree[] = inject(EducationService).getDegrees();
 }

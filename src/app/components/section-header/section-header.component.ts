@@ -1,7 +1,38 @@
-import { Component, input, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  input,
+  InputSignal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { IconComponent } from '../icon/icon.component';
 import { IconName } from '../icon/icons';
 import { RevealDirective } from '../../directives/reveal.directive';
+
+/**
+ * Sur-titre de section : numéro HUD, tiret dégradé et libellé projeté
+ * (`<p sectionEyebrow="02">Réalisations</p>`). Partagé par l'en-tête de
+ * section et la carte Contact, qui a sa propre mise en page.
+ */
+@Component({
+  selector: 'p[sectionEyebrow]',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    class:
+      'flex items-center gap-3 font-mono text-xs tracking-[0.2em] text-lightBlue uppercase',
+  },
+  template: `
+    <span class="text-lightBlue/75 tabular-nums">{{ sectionEyebrow() }}</span>
+    <span
+      aria-hidden="true"
+      class="h-px w-8 bg-linear-to-r from-lightBlue to-purple"
+    ></span>
+    <ng-content />
+  `,
+})
+export class SectionEyebrowComponent {
+  /** Numéro HUD de la section (« 02 »…). */
+  readonly sectionEyebrow: InputSignal<string> = input.required<string>();
+}
 
 /**
  * Variantes de l'en-tête de section :
@@ -15,7 +46,7 @@ export type SectionHeaderSize = 'default' | 'mini';
 @Component({
   selector: 'section-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [IconComponent, RevealDirective],
+  imports: [IconComponent, RevealDirective, SectionEyebrowComponent],
   template: `
     @if (size() === 'mini') {
       <div class="mb-2 flex items-center gap-2 2xl:mb-3">
@@ -40,16 +71,7 @@ export type SectionHeaderSize = 'default' | 'mini';
       </div>
     } @else {
       <div reveal data-perch="title" class="mb-10 max-w-2xl md:mb-14">
-        <p
-          class="mb-4 flex items-center gap-3 font-mono text-xs tracking-[0.2em] text-lightBlue uppercase"
-        >
-          <span class="text-lightBlue/75 tabular-nums">{{ index() }}</span>
-          <span
-            aria-hidden="true"
-            class="h-px w-8 bg-linear-to-r from-lightBlue to-purple"
-          ></span>
-          {{ eyebrow() }}
-        </p>
+        <p [sectionEyebrow]="index()" class="mb-4">{{ eyebrow() }}</p>
         <h2
           [id]="titleId()"
           class="font-display text-4xl font-semibold tracking-tight text-balance text-wildSand md:text-5xl"

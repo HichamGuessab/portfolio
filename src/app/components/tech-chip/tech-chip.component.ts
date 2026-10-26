@@ -8,8 +8,8 @@ import {
   InputSignalWithTransform,
   Signal,
 } from '@angular/core';
-import { TechId, Technology } from '../../interfaces';
-import { TECHNOLOGIES } from '../../data/technologies';
+import { Technology } from '../../interfaces';
+import { TECHNOLOGIES, TechId } from '../../data/technologies';
 import { IconComponent } from '../icon/icon.component';
 
 /**

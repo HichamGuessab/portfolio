@@ -66,12 +66,6 @@
     ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas,
     monospace;
 
-  --font-weight-light: 300;
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-
   --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -100,7 +94,6 @@
 :root {
   --light-blue: #53dcfd;
   --purple: #a88cff;
-  --navy-blue: #0f2c57;
   --night-blue: #0d1953;
   --dark-blue: #040d39;
 
@@ -149,10 +142,7 @@
     background-color: var(--dark-blue);
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
-  }
-
-  /* Ancres et focus clavier s'arrêtent sous l'en-tête collant (64 px). */
-  html {
+    /* Ancres et focus clavier s'arrêtent sous l'en-tête collant (64 px). */
     scroll-padding-top: 4rem;
   }
 
@@ -186,36 +176,6 @@
   main:focus {
     outline: none;
   }
-}
-
-/* ------------------------------------------------------------------ */
-/* Ambiance : deux halos lumineux et une trame de points très discrète, */
-/* fixés derrière la page (une couche composée, jamais repeinte au      */
-/* défilement).                                                         */
-/* ------------------------------------------------------------------ */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      60rem 42rem at 12% -12%,
-      color-mix(in srgb, var(--light-blue) 11%, transparent),
-      transparent 62%
-    ),
-    radial-gradient(
-      52rem 40rem at 105% 30%,
-      color-mix(in srgb, var(--purple) 10%, transparent),
-      transparent 60%
-    ),
-    radial-gradient(
-        circle at 1px 1px,
-        rgb(255 255 255 / 0.045) 1px,
-        transparent 0
-      )
-      0 0 / 28px 28px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,6 +222,13 @@ body::before {
     outline: none;
   }
 
+  /* Carte à halo (SpotlightDirective) : contexte d'empilement propre, où
+     le halo ::before se peint sous le contenu sans passer sous le fond. */
+  [data-spotlight] {
+    position: relative;
+    isolation: isolate;
+  }
+
   /* Lien d'évitement : hors écran jusqu'au focus clavier. */
   .skip-link {
     @apply fixed top-3 left-3 z-50 -translate-y-24 rounded-full bg-lightBlue px-4 py-2 text-sm font-semibold text-darkBlue transition-transform focus-visible:translate-y-0;
@@ -274,6 +241,7 @@ body::before {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: -1;
   border-radius: inherit;
   pointer-events: none;
   background: radial-gradient(
@@ -400,9 +368,13 @@ body::before {
 }
 
 /* Pastilles de la stack en apesanteur autour du portrait. */
-.tech-float {
-  @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-nightBlue/85 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-wildSand shadow-[0_10px_30px_-12px_rgba(4,13,57,0.9)] backdrop-blur-sm max-lg:hidden print:hidden;
-  animation: tech-float 7s ease-in-out infinite;
+@layer components {
+  /* Dans la couche components : les utilitaires de chaque pastille
+     ([animation-delay:…]) l'emportent sur le raccourci animation. */
+  .tech-float {
+    @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-nightBlue/85 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-wildSand shadow-[0_10px_30px_-12px_rgba(4,13,57,0.9)] backdrop-blur-sm max-lg:hidden print:hidden;
+    animation: tech-float 7s ease-in-out infinite;
+  }
 }
 
 @keyframes tech-float {
@@ -657,7 +629,6 @@ body:has(compact-board) {
     margin: 14mm 16mm;
   }
 
-  body::before,
   site-header,
   app-mascot,
   .skip-link,
@@ -751,9 +722,9 @@ body:has(compact-board) {
 /* toujours retirées par un failsafe temporel absolu (restoreQuake).   */
 /* Cibles : les éléments data-perch visibles de la section lue (titre, */
 /* cartes, liens de contact, portrait) et le h1 du héros.              */
-/* !important + ordre source APRÈS .reveal : victoire garantie sur     */
-/* .reveal-visible { transform: none } (spécificité égale) et sur les  */
-/* transitions / hover:-translate des cartes et des boutons.           */
+/* !important : victoire garantie sur le transform des apparitions    */
+/* (.reveal-pending.reveal-visible) et sur les transitions /           */
+/* hover:-translate des cartes et des boutons.                         */
 /* ------------------------------------------------------------------ */
 
 /* Tremblé d'écran (500 ms, amplitude décroissante) — posé sur

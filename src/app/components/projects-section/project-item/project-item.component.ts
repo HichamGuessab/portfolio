@@ -10,6 +10,7 @@ import { Project, Technology } from '../../../interfaces';
 import { TECHNOLOGIES } from '../../../data/technologies';
 import { PROJECT_CATEGORIES } from '../../../services/project.service';
 import { IconComponent } from '../../icon/icon.component';
+import { figma } from '../../icon/logos';
 import { TechChipComponent } from '../../tech-chip/tech-chip.component';
 
 /**
@@ -47,4 +48,6 @@ export class ProjectItemComponent {
   protected readonly number: Signal<string> = computed(() =>
     String(this.index() + 1).padStart(2, '0')
   );
+
+  protected readonly figma = figma;
 }

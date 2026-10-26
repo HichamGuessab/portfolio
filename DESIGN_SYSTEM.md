@@ -84,7 +84,7 @@ métadonnées `text-xs` mono.
 | `education-item`                                                            | carte de diplôme, liseré dégradé pour le plus élevé                                                                                   |
 | `tech-chip`                                                                 | pastille logo + nom de marque, variante `primary` dégradée                                                                            |
 | `contact-section`, `site-footer`                                            | appel à l'action final, copie d'e-mail, version imprimable                                                                            |
-| `app-icon`, `app-icon-defs`                                                 | icônes SVG en ligne (registre `icons.ts`), dégradé partagé                                                                            |
+| `app-icon`, `app-icon-defs`                                                 | icônes SVG en ligne (registre `icons.ts`, logos différés dans `logos.ts`), dégradé partagé                                            |
 | `app-portrait`                                                              | portrait responsive AVIF / WebP / JPEG                                                                                                |
 | `compact-board`, `screen-frame`, `badge`                                    | mode compact secret                                                                                                                   |
 | `.btn`, `.btn-primary`, `.btn-ghost`, `.btn-lg`, `.icon-btn`, `.link-arrow` | actions                                                                                                                               |

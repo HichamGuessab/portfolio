@@ -23,9 +23,12 @@ export function formatMonth(value: string): string {
   return month ? `${MONTHS[Number(month) - 1]} ${year}` : year;
 }
 
-/** « sept. 2023 – août 2025 », « août 2025 – aujourd’hui ». */
-export function formatPeriod(period: Period): string {
-  const end = period.end ? formatMonth(period.end) : 'aujourd’hui';
+/**
+ * « sept. 2023 – août 2025 », « août 2025 – aujourd’hui » ; `ongoing` remplace
+ * « aujourd’hui » pour une période en cours (libellé court du mode compact).
+ */
+export function formatPeriod(period: Period, ongoing = 'aujourd’hui'): string {
+  const end = period.end ? formatMonth(period.end) : ongoing;
   return `${formatMonth(period.start)} – ${end}`;
 }
 

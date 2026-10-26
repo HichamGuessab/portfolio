@@ -7,8 +7,10 @@ import {
   signal,
   WritableSignal,
 } from '@angular/core';
+import { Degree } from '../../interfaces';
 import { ProfileService } from '../../services/profile.service';
 import { ProjectService } from '../../services/project.service';
+import { EducationService } from '../../services/education.service';
 import { SpySectionDirective } from '../../directives/spy-section.directive';
 import { IconComponent } from '../icon/icon.component';
 import { PortraitComponent } from '../portrait/portrait.component';
@@ -41,19 +43,20 @@ export class ProfileSectionComponent {
 
   protected readonly profile: ProfileService = inject(ProfileService);
 
-  private readonly _years = this.profile.yearsOfExperience();
+  private readonly _degree: Degree =
+    inject(EducationService).getHighestDegree();
 
   /** Chiffres clés du héros, dérivés des données. */
   protected readonly figures: KeyFigure[] = [
-    {
-      value: `${this._years} an${this._years > 1 ? 's' : ''}`,
-      label: 'd’expérience en entreprise',
-    },
+    { value: this.profile.experience, label: 'd’expérience en entreprise' },
     {
       value: String(inject(ProjectService).getProjects().length),
       label: 'projets publiés sur GitHub',
     },
-    { value: 'Bac+5', label: 'Master Ingénierie du logiciel' },
+    {
+      value: this._degree.level ?? this._degree.name,
+      label: `${this._degree.name} ${this._degree.field}`,
+    },
   ];
 
   /** Photo compacte chargée : retrait du flou d'attente. */

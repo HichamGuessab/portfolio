@@ -1,24 +1,11 @@
 import {
   computed,
   Injectable,
-  PLATFORM_ID,
   Signal,
   signal,
   WritableSignal,
-  inject,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
 import { SectionId } from '../interfaces';
-
-/** Ordre de lecture des sections (index exposé aux mascottes). */
-export const SECTION_ORDER: readonly SectionId[] = [
-  'profil',
-  'experience',
-  'projets',
-  'competences',
-  'formation',
-  'contact',
-];
 
 /**
  * Bande de détection : une section devient active quand elle traverse une
@@ -31,45 +18,59 @@ const BAND_MARGIN = '-35% 0px -60% 0px';
  * Section active de la page (scroll-spy), pour la navigation et les
  * commentaires des mascottes. Deux IntersectionObserver, aucune écoute de
  * scroll : l'un suit la bande de lecture, l'autre le pied de page — en bas
- * de page, la dernière section (trop courte pour atteindre la bande) est
- * déclarée active.
+ * de page, la dernière section (contact, trop courte pour atteindre la
+ * bande) est déclarée active. Quand plus aucune section n'est suivie (mode
+ * compact), l'état revient au profil : la page recréée repart du haut, sans
+ * faux changement de section.
+ *
+ * Appelé uniquement après le premier rendu navigateur (afterNextRender) :
+ * rien ne s'exécute pendant le pré-rendu.
  */
 @Injectable({
   providedIn: 'root',
 })
 export class SectionSpyService {
-  private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-
   private readonly _band: WritableSignal<SectionId> = signal('profil');
   private readonly _atBottom: WritableSignal<boolean> = signal(false);
 
   /** Section actuellement lue. */
   readonly active: Signal<SectionId> = computed(() =>
-    this._atBottom() ? SECTION_ORDER[SECTION_ORDER.length - 1] : this._band()
-  );
-
-  /** Index de la section active dans SECTION_ORDER. */
-  readonly activeIndex: Signal<number> = computed(() =>
-    SECTION_ORDER.indexOf(this.active())
+    this._atBottom() ? 'contact' : this._band()
   );
 
   private _bandObserver?: IntersectionObserver;
   private _bottomObserver?: IntersectionObserver;
+  private _observedSections = 0;
 
-  /** Suit une section ; renvoie la fonction de désinscription. */
-  observeSection(element: HTMLElement, id: SectionId): () => void {
-    const observer = this.bandObserver();
-    if (!observer) {
+  /** Suit une section, repérée par son id ; renvoie la désinscription. */
+  observeSection(element: HTMLElement): () => void {
+    if (typeof IntersectionObserver === 'undefined') {
       return () => undefined;
     }
-    element.dataset['spy'] = id;
+    this._bandObserver ??= new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            this._band.set(entry.target.id as SectionId);
+          }
+        }
+      },
+      { rootMargin: BAND_MARGIN }
+    );
+    const observer = this._bandObserver;
     observer.observe(element);
-    return () => observer.unobserve(element);
+    this._observedSections++;
+    return () => {
+      observer.unobserve(element);
+      if (--this._observedSections === 0) {
+        this._band.set('profil');
+      }
+    };
   }
 
   /** Suit le pied de page : visible = bas de page atteint. */
   observeBottom(element: HTMLElement): () => void {
-    if (!this._isBrowser || typeof IntersectionObserver === 'undefined') {
+    if (typeof IntersectionObserver === 'undefined') {
       return () => undefined;
     }
     this._bottomObserver ??= new IntersectionObserver((entries) => {
@@ -81,23 +82,5 @@ export class SectionSpyService {
       observer.unobserve(element);
       this._atBottom.set(false);
     };
-  }
-
-  private bandObserver(): IntersectionObserver | undefined {
-    if (!this._isBrowser || typeof IntersectionObserver === 'undefined') {
-      return undefined;
-    }
-    this._bandObserver ??= new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = (entry.target as HTMLElement).dataset['spy'];
-          if (entry.isIntersecting && id) {
-            this._band.set(id as SectionId);
-          }
-        }
-      },
-      { rootMargin: BAND_MARGIN }
-    );
-    return this._bandObserver;
   }
 }

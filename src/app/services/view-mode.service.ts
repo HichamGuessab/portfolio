@@ -1,12 +1,4 @@
-import {
-  afterNextRender,
-  computed,
-  inject,
-  Injectable,
-  PLATFORM_ID,
-  signal,
-} from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { afterNextRender, computed, Injectable, signal } from '@angular/core';
 
 export type ViewMode = 'slideshow' | 'compact';
 
@@ -59,9 +51,6 @@ export class ViewModeService {
   );
 
   constructor() {
-    if (!isPlatformBrowser(inject(PLATFORM_ID))) {
-      return;
-    }
     afterNextRender(() => {
       this.restoreMode();
       const query = window.matchMedia(COMPACT_MEDIA_QUERY);
