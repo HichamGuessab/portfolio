@@ -9,17 +9,20 @@ import {
   OnDestroy,
   Signal,
   signal,
+  untracked,
   viewChild,
   WritableSignal,
 } from '@angular/core';
+import { Link, SectionId } from '../../interfaces';
 import { MotionService } from '../../services/motion.service';
+import { SectionSpyService } from '../../services/section-spy.service';
 import { ViewModeService } from '../../services/view-mode.service';
 
 /**
  * Ancienne clé (session + localStorage) du masquage du duo, retiré : les
  * mascottes sont désormais permanentes (elles portent le seul accès à la
- * bascule diaporama / compact). La clé est nettoyée au démarrage pour que
- * les visiteurs de la session en cours retrouvent le duo immédiatement.
+ * bascule page / compact). La clé est nettoyée au démarrage pour que les
+ * visiteurs de la session en cours retrouvent le duo immédiatement.
  */
 const LEGACY_DISMISS_KEY = 'portfolio-mascot-hidden';
 
@@ -57,7 +60,7 @@ const MOBILE_CADENCE = 1.5;
 /** Anti-spam des petites réactions au toucher sur mobile (ms). */
 const TAP_COOLDOWN = 1600;
 
-/* --- Surprise du triple-clic (bascule diaporama / compact) --- */
+/* --- Surprise du triple-clic (bascule page / compact) --- */
 
 /** Fenêtre (ms) pendant laquelle 3 clics sur un personnage font la surprise. */
 const TRIPLE_CLICK_WINDOW = 1200;
@@ -117,10 +120,24 @@ const PERCH_DELAY = { min: 10000, max: 20000 } as const;
     un perchoir mobile toutes les ~22-45 s. */
 const PERCH_MOBILE_FACTOR = 1.5;
 
-/** Délais de grâce avant tout scan DOM : les rects mentent pendant les
-    transitions (view-fade-in + reveals + dessin du cadre / effet cards). */
+/** Délai de grâce avant tout scan DOM après une bascule de mode : les rects
+    mentent pendant les transitions (view-fade-in + reveals + dessin du
+    cadre). */
 const PERCH_GRACE_MODE = 1400;
-const PERCH_GRACE_SLIDE = 450;
+
+/** Page qui défile : les sprites sont en position: fixed, un perché
+    flotterait loin de son élément. Grâce prolongée à chaque défilement —
+    aucun perchoir n'est planifié avant ~1 s d'immobilité de la page. */
+const PERCH_GRACE_SCROLL = 1000;
+
+/** En-tête collant de la page (h-16, z-40) : cette bande du haut d'écran
+    n'est jamais « visible » pour les perchoirs ni pour le séisme. Elle
+    n'existe pas en mode compact (pas d'en-tête). */
+const HEADER_BAND = 64;
+
+/** Marge sous l'en-tête : un perché, tête comprise, ne le frôle jamais
+    (il passerait devant, au-dessus de ses liens). */
+const HEADER_CLEARANCE = 8;
 
 /** Après une bascule de mode, premier tirage forcé à ≥ 5 s : le visiteur
     découvre le nouveau décor avant que le duo ne l'escalade. */
@@ -129,7 +146,8 @@ const PERCH_AFTER_MODE_MIN = 5000;
 /** Re-mesure de l'ancre active pendant une assise (couvre l'accordéon 300 ms). */
 const PERCH_REMEASURE = 300;
 
-/** Pas de bulle quand la tête du perché est trop près du haut de l'écran. */
+/** Pas de bulle quand la tête du perché est trop près du haut de l'écran
+    (sur la page, compté depuis le bas de l'en-tête collant). */
 const BUBBLE_MIN_TOP = 120;
 
 /** Dérive tolérée (px) de l'ancre avant glissement doux vers sa position. */
@@ -171,7 +189,7 @@ const SHAKE_COOLDOWN = 4200;
 /** Délai (ms) avant la bulle d'invitation à activer les capteurs. */
 const SENSOR_INVITE_DELAY = 3200;
 
-/* --- « SÉISME » (mobile uniquement, diaporama forcé < md) ---
+/* --- « SÉISME » (mobile uniquement : sous md, seule la page existe) ---
    Le seul numéro autorisé à poser des classes sur de VRAIS éléments de la
    page (assouplissement délibéré de la règle historique) : transform /
    filter / opacity UNIQUEMENT, jamais de propriété de layout, retrait
@@ -283,8 +301,8 @@ const REACT_FRESH_MS = 600;
 const REACT_LATE_MS = 900;
 
 /** « Le surf de transition » : couloir dédié très court — il joue à chaque
-    coup de molette ou presque (retour haptique visuel du scroll), avec un
-    léger décalage robot/blob pour l'effet de vague. */
+    changement de section ou presque (retour haptique visuel du
+    défilement), avec un léger décalage robot/blob pour l'effet de vague. */
 const SURF_COOLDOWN = 1500;
 const SURF_STAGGER = 120;
 
@@ -439,7 +457,10 @@ interface Flight {
 
 /** État complet d'un personnage, piloté hors zone Angular. */
 interface Character {
-  el: HTMLButtonElement;
+  /** Conteneur du personnage (.duo-char) : il porte la translation, les
+      classes de phase et les variables CSS ; il contient le bouton
+      cliquable et, à côté, la bulle. */
+  el: HTMLElement;
   bubble: HTMLElement;
   bubbleText: HTMLElement;
   width: number;
@@ -547,7 +568,9 @@ type PerchName =
 /**
  * Table de sélecteurs des perchoirs — centralisée ici (lecture seule :
  * querySelectorAll + getBoundingClientRect, jamais de mutation des hôtes).
- * Alternative au marquage data-perch : aucun autre composant n'est touché.
+ * Mode compact : sélecteurs structurels du pont de commandement. Page :
+ * points d'accroche data-perch posés par les sections, toujours lus dans
+ * la section active du scroll-spy (`#<id> …`).
  */
 const PERCH_SELECTORS = {
   /** Tuiles projets de la grille 4×3 du mode compact. */
@@ -577,102 +600,97 @@ const PERCH_SELECTORS = {
   hud: 'p.shrink-0.tabular-nums',
   /** Conteneur des badges de contact (dernier arrêt de la visite guidée). */
   contacts: '.compact-contacts',
-  /** Photo de profil ronde (diaporama : « sommet du monde »). */
-  photo: "img[alt='Portrait de Hicham Guessab']",
-  /** Badges de la slide profil (diaporama). */
-  badgeSlideshow: 'profile-section badge a',
-  /** Carte active de l'effet cards, par index de slide du diaporama.
-      Combinateur enfant obligatoire : la slide VERTICALE active porte aussi
-      `swiper-slide-active` et contient TOUT le deck — en descendant,
-      querySelector renverrait toujours la carte n°1 du DOM. La slide
-      verticale a pour enfant direct la section (jamais un item) : seul le
-      swiper imbriqué peut matcher. */
-  activeCard: {
-    1: 'swiper-slide.swiper-slide-active > project-item > div',
-    3: 'swiper-slide.swiper-slide-active > experience-item > div',
-    4: 'swiper-slide.swiper-slide-active > education-item > div',
-  } as Record<number, string>,
+  /** Portrait du héros (« sommet du monde ») : boîte carrée, photo ronde
+      liserée à l'intérieur — son rect est celui du cercle. */
+  photo: '[data-perch="photo"]',
+  /** En-tête de section (sur-titre + h2) : experience, projets,
+      competences, formation. */
+  title: '[data-perch="title"]',
+  /** Cartes : organisations, projets (grandes cartes et lignes
+      d'archive), familles de compétences, diplômes, carte Contact. */
+  card: '[data-perch="card"]',
+  /** Chips de compétences de #competences. */
+  chipPage: '[data-perch="chip"]',
+  /** Liens de contact sortants : boutons GitHub / LinkedIn du héros,
+      e-mail et réseaux de #contact. */
+  social: '[data-perch="social"]',
 } as const;
 
 /* --- Sélecteurs des réactions au survol, dérivés du registre ---
    La délégation mouseover reste UNIQUE : un seul closest sur l'union,
    classification par matches (aucune lecture layout dans le handler). */
 
-/** Badges de contact (ovation) : pont compact et slide profil. */
-const BADGE_HOVER_SELECTOR = `${PERCH_SELECTORS.badgeCompact}, ${PERCH_SELECTORS.badgeSlideshow}`;
+/** Badges de contact (ovation) : pont compact et liens de contact de la
+    page. */
+const BADGE_HOVER_SELECTOR = `${PERCH_SELECTORS.badgeCompact}, ${PERCH_SELECTORS.social}`;
 
-/** Chips de compétences (l'expert) : compact et diaporama. */
-const CHIP_HOVER_SELECTOR = `${PERCH_SELECTORS.chip}, skill-item`;
+/** Chips de compétences (l'expert) : pont compact et page. */
+const CHIP_HOVER_SELECTOR = `${PERCH_SELECTORS.chip}, ${PERCH_SELECTORS.chipPage}`;
+
+/** Projets (« J'accours pour voir ») : cartes de #projets et tuiles du pont
+    compact. */
+const PROJECT_HOVER_SELECTOR = `#projets ${PERCH_SELECTORS.card}, ${PERCH_SELECTORS.tile}`;
 
 /** Union complète surveillée par la délégation mouseover. La dégringolade
     n'en fait PAS partie : le dépli d'une rangée est détecté sur le flip
     d'aria-expanded (MutationObserver), jamais depuis un événement d'entrée
     — l'accordéon se déplie aussi sur mouseenter/focus, un survol ou un
     clic n'est donc pas un signal fiable de dépli. */
-const REACT_HOVER_SELECTOR = `${BADGE_HOVER_SELECTOR}, ${CHIP_HOVER_SELECTOR}, project-item, ${PERCH_SELECTORS.tile}`;
+const REACT_HOVER_SELECTOR = `${BADGE_HOVER_SELECTOR}, ${CHIP_HOVER_SELECTOR}, ${PROJECT_HOVER_SELECTOR}`;
 
-/* --- « SÉISME » : cibles de casse, par index de slide du diaporama ---
-   Résolues via rectsOf + filtre rectInViewport (lecture seule, au
-   déclenchement uniquement). JAMAIS le swiper-slide lui-même (transform
-   inline géré par Swiper) : toujours le div enfant, même désambiguïsation
-   par combinateur enfant que PERCH_SELECTORS.activeCard (la slide
-   VERTICALE active porte aussi swiper-slide-active mais a pour enfant
-   direct la section, jamais un item). Les hôtes `badge` et
-   `skill-category` ne reçoivent un transform que parce qu'ils sont
-   blockifiés par leur conteneur flex/grid. */
+/** « Bon voyage ! » : un lien sortant vaut « social » depuis un lien de
+    contact (data-perch du héros et de #contact, badges du pont compact) ou
+    quand il mène aux profils GitHub / LinkedIn, où qu'il soit (pied de
+    page, liens des sections). Tout autre lien sortant — dépôt, maquette,
+    code du site — reste un projet. */
+const VOYAGE_SOCIAL_SELECTOR = `${PERCH_SELECTORS.social}, ${PERCH_SELECTORS.contacts}`;
+const VOYAGE_SOCIAL_URLS: ReadonlySet<string> = new Set<string>([
+  Link.Github,
+  Link.LinkedIn,
+]);
+
+/* --- « SÉISME » : cibles de casse, par section de la page ---
+   Sélecteurs lus DANS la section active (`#<id> …`, comme les perchoirs),
+   résolus via rectsOf + filtre rectInViewport (entièrement visibles sous
+   l'en-tête collant ; lecture seule, au déclenchement uniquement). Les
+   classes de casse sont posées sur les éléments data-perch eux-mêmes —
+   jamais sur la section, ni sur <main> (porteur du tremblé). */
 interface QuakeTargetSpec {
   selector: string;
-  /** Nombre d'éléments pris sur ce sélecteur (défaut 1). */
+  /** Nombre d'éléments visibles pris sur ce sélecteur (défaut 1). */
   take?: number;
   /** Casse : 'tilt' (bascule), 'card' (affaissement ou bascule),
       'neon' (bascule + clignotement d'opacité). */
   kind: 'tilt' | 'card' | 'neon';
 }
 
-const QUAKE_TARGETS: Record<number, readonly QuakeTargetSpec[]> = {
-  0: [
-    { selector: `profile-section ${PERCH_SELECTORS.photo}`, kind: 'tilt' },
-    { selector: 'profile-section h1', kind: 'neon' },
-    { selector: 'profile-section badge', take: 2, kind: 'neon' },
+/** Sections à cartes : l'en-tête qui grésille, puis au plus deux cartes
+    visibles. */
+const QUAKE_SECTION_TARGETS: readonly QuakeTargetSpec[] = [
+  { selector: PERCH_SELECTORS.title, kind: 'neon' },
+  { selector: PERCH_SELECTORS.card, take: 2, kind: 'card' },
+];
+
+const QUAKE_TARGETS: Record<SectionId, readonly QuakeTargetSpec[]> = {
+  profil: [
+    { selector: PERCH_SELECTORS.photo, kind: 'tilt' },
+    { selector: '#profil-title', kind: 'neon' },
+    { selector: PERCH_SELECTORS.social, take: 2, kind: 'neon' },
   ],
-  1: [
-    { selector: 'projects-section section-header > div', kind: 'neon' },
-    {
-      selector: 'swiper-slide.swiper-slide-active > project-item > div',
-      kind: 'card',
-    },
-    {
-      selector: 'swiper-slide.swiper-slide-next > project-item > div',
-      kind: 'card',
-    },
-  ],
-  2: [
-    { selector: 'skills-section section-header > div', kind: 'neon' },
-    { selector: 'skills-section skill-category', take: 2, kind: 'tilt' },
-  ],
-  3: [
-    { selector: 'experience-section section-header > div', kind: 'neon' },
-    {
-      selector: 'swiper-slide.swiper-slide-active > experience-item > div',
-      kind: 'card',
-    },
-    {
-      selector: 'swiper-slide.swiper-slide-next > experience-item > div',
-      kind: 'card',
-    },
-  ],
-  4: [
-    { selector: 'education-section section-header > div', kind: 'neon' },
-    {
-      selector: 'swiper-slide.swiper-slide-active > education-item > div',
-      kind: 'card',
-    },
-    {
-      selector: 'swiper-slide.swiper-slide-next > education-item > div',
-      kind: 'card',
-    },
+  experience: QUAKE_SECTION_TARGETS,
+  projets: QUAKE_SECTION_TARGETS,
+  competences: QUAKE_SECTION_TARGETS,
+  formation: QUAKE_SECTION_TARGETS,
+  contact: [
+    { selector: PERCH_SELECTORS.card, kind: 'card' },
+    { selector: PERCH_SELECTORS.social, take: 2, kind: 'neon' },
   ],
 };
+
+/** Porteur du tremblé d'écran : le <main> de la page. L'hôte app-mascot vit
+    HORS de <main> (bloc @defer de l'app) : un transform sur main ne devient
+    donc jamais le containing block des sprites fixed. */
+const QUAKE_TREMOR_SELECTOR = 'main#contenu';
 
 /** Élément cassé par le séisme : classes de casse posées + fissure liée. */
 interface QuakeBroken {
@@ -725,7 +743,7 @@ const GREET_DIALOGUES: readonly { robot: string; buddy: string }[] = [
   { robot: 'Ce portfolio est magnifique, non ?', buddy: 'Comme son auteur !' },
 ] as const;
 
-/** Réaction à la bascule diaporama / compact. */
+/** Réaction à la bascule page / compact. */
 const MODE_LINES: readonly string[] = [
   'Oh, changement de décor !',
   'Joli, ce nouveau mode !',
@@ -758,9 +776,9 @@ const SURPRISE_COMPACT_LINES: readonly string[] = [
   'Surprise ! Tout le portfolio sur un seul écran !',
 ] as const;
 
-const SURPRISE_SLIDESHOW_LINES: readonly string[] = [
-  'Tadaaa ! Retour au grand diaporama !',
-  'Et hop, chaque section reprend sa scène !',
+const SURPRISE_PAGE_LINES: readonly string[] = [
+  'Tadaaa ! Retour à la grande page !',
+  'Et hop, chaque section reprend sa place !',
 ] as const;
 
 /** Cri de joie de l'autre personnage pendant la célébration. */
@@ -790,10 +808,12 @@ const FUNAMBULE_LINE = 'Oups… tout va bien, tout va bien.';
 /** Trampoline de chips, au 3e rebond. */
 const TRAMPOLINE_LINE = 'Pouf ! Pouf ! Pouf ! C’est moelleux, les compétences.';
 
-/** L'attaché de presse, selon le badge vanté. */
+/** L'attaché de presse, selon le badge vanté (éloges, jamais de promesse
+    de délai de réponse). */
 const PRESS_GITHUB_LINE = 'Tout son code est là-dessous !';
-const PRESS_EMAIL_LINE = 'Un message et il répond dans la journée !';
-const PRESS_DEFAULT_LINE = 'Cliquez là, il répond vite !';
+const PRESS_EMAIL_LINE = 'Un petit message, et sa journée s’illumine !';
+const PRESS_DEFAULT_LINE =
+  'Un clic ici, et vous voilà en excellente compagnie !';
 
 /** Coucou console (petite bulle, 1 fois sur 3). */
 const CONSOLE_PEEK_LINE = 'Ooooh. J’adore celui-là.';
@@ -842,11 +862,15 @@ const TOUR_COMPACT_LINES: readonly string[] = [
   'Et ici, de quoi lui écrire. Faites-lui signe !',
 ] as const;
 
-/** La visite guidée — diaporama, slide profil puis slides à cartes. */
+/** La visite guidée — page : le héros (photo puis liens de contact), les
+    sections à cartes (une carte visible, puis le reste de la pile), la
+    carte Contact. */
 const TOUR_PHOTO_LINE = 'Le voici ! Élégant, non ?';
 const TOUR_BADGES_LINE = 'Un clic ici, et vous êtes en contact.';
 const TOUR_CARD_LINE = 'Regardez-moi cette carte. Du travail soigné.';
 const TOUR_PILE_LINE = 'Et il y en a toute une pile !';
+const TOUR_CONTACT_LINE =
+  'Et voici ma carte préférée : celle pour lui écrire !';
 
 /** Le réparateur du cadre-comète. */
 const REPARE_LINE = 'Maintenance terminée. Ce cadre brille comme son auteur.';
@@ -860,14 +884,25 @@ const HUD_LINE =
 const HUD_RESIZE_LINE =
   'Recalibrage détecté… tout est encore parfaitement aligné.';
 
-/** Commentaires contextuels par section du diaporama (variantes tirées au sort). */
-const SECTION_LINES: readonly (readonly string[])[] = [
-  ['C’est lui ! C’est Hicham !', 'Quel profil ! Et quel sourire.'],
-  ['Regardez-moi ces projets !', 'Ma section préférée, celle-ci.'],
-  ['Tant de compétences, si peu de pixels.', 'Il maîtrise tout ça. Vraiment.'],
-  ['De la vraie expérience de terrain !', 'Du concret, rien que du concret.'],
-  ['Un cerveau très bien entraîné.', 'La formation, ça paye !'],
-] as const;
+/** Commentaires contextuels par section de la page (variantes tirées au
+    sort), au changement de section du scroll-spy. */
+const SECTION_LINES: Record<SectionId, readonly string[]> = {
+  profil: ['C’est lui ! C’est Hicham !', 'Quel profil ! Et quel sourire.'],
+  experience: [
+    'De la vraie expérience de terrain !',
+    'Du concret, rien que du concret.',
+  ],
+  projets: ['Regardez-moi ces projets !', 'Ma section préférée, celle-ci.'],
+  competences: [
+    'Tant de compétences, si peu de pixels.',
+    'Il maîtrise tout ça. Vraiment.',
+  ],
+  formation: ['Un cerveau très bien entraîné.', 'La formation, ça paye !'],
+  contact: [
+    'Le plus bel endroit du portfolio, si vous voulez mon avis !',
+    'Un petit mot pour Hicham ? Vous avez décidément bon goût !',
+  ],
+};
 
 /** Célébration d'un survol prolongé de projet. */
 const PROJECT_LINES: readonly string[] = [
@@ -893,7 +928,7 @@ const ACCORDION_FALL_LINES: readonly string[] = [
 
 /** « Bon voyage ! » : selon le type de lien sortant cliqué. */
 const VOYAGE_PROJECT_LINE = 'Bonne visite ! Ce projet vaut le détour.';
-const VOYAGE_EMAIL_LINE = 'Excellente idée : il répond dans la journée !';
+const VOYAGE_EMAIL_LINE = 'Excellente idée : il sera ravi de vous lire !';
 const VOYAGE_SOCIAL_LINE = 'Dites-lui bonjour de notre part !';
 
 /** « Le surf de transition » (bulle rare : 1 fois sur 4, le blob). */
@@ -987,24 +1022,27 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
  * Duo de mascottes du portfolio : le petit robot historique, désormais
  * accompagné d'un ami tout mignon (un blob sautillant aux couleurs de la
  * charte). Ils se promènent le long du bas de l'écran, discutent en bulles,
- * réagissent au monde (curseur, bascule de mode, changement de slide,
- * survol des projets) et jouent de petites chorégraphies ensemble
+ * réagissent au monde (curseur, bascule de mode, changement de section de
+ * la page, survol des projets) et jouent de petites chorégraphies ensemble
  * (rencontre, high-five, poursuite).
  *
  * Le duo garde aussi un secret : sur ordinateur, un TRIPLE-CLIC sur l'un des
- * deux personnages bascule le portfolio entre diaporama et mode compact
- * (mini-célébration à l'appui). Les mascottes glissent des indices dans
- * leurs bulles ambiantes — avec insistance tant que la surprise n'a jamais
- * été découverte (localStorage), plus rarement ensuite.
+ * deux personnages bascule le portfolio entre la page défilante et le mode
+ * compact (mini-célébration à l'appui). Les mascottes glissent des indices
+ * dans leurs bulles ambiantes — avec insistance tant que la surprise n'a
+ * jamais été découverte (localStorage), plus rarement ensuite.
  *
  * L'interface est aussi leur TERRAIN DE JEU : à cadence soutenue (un moment
  * perché toutes les ~15 s en moyenne), un comportement se joue — le robot
- * escalade la baie projets, marche en funambule, vante les badges, répare le
- * cadre-comète, inspecte le readout du HUD ou mène la visite guidée ; le
- * blob rebondit sur les chips, gravit les marches du diplôme, picore le
- * caret de la console, emprunte une chip, joue à cache-cache, chevauche la
- * carte active en rodéo, squatte le 12e slot libre ou conquiert le sommet
- * de la photo.
+ * escalade la baie projets, marche en funambule, vante les liens de
+ * contact, répare le cadre-comète, inspecte le readout du HUD ou mène la
+ * visite guidée ; le blob rebondit sur les chips, gravit les marches du
+ * diplôme, picore le caret de la console, emprunte une chip, joue à
+ * cache-cache, chevauche une carte en rodéo, squatte le 12e slot libre ou
+ * conquiert le sommet de la photo. Sur la page, les perchoirs se prennent
+ * dans la section lue (scroll-spy), sur des éléments entièrement visibles
+ * sous l'en-tête collant — et s'interrompent dès que la page défile (les
+ * sprites sont fixed : un perché flotterait loin de son élément).
  * Deux règles d'or : le monde est INTOUCHABLE (lecture seule des rects,
  * toutes les illusions physiques vivent sur les sprites — zéro layout
  * shift) et les perchoirs restent des MOMENTS (la promenade au sol est
@@ -1013,11 +1051,12 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
  * Le duo RÉAGIT aussi aux actions du visiteur (arbitre unique, couloir
  * global de 5 s, cooldowns propres) : il accourt sous une carte projet
  * survolée, dégringole quand l'accordéon bouge sous ses pieds, salue les
- * départs vers les liens sortants, surfe chaque changement de slide,
- * ovationne les badges de contact, titube sous un tourbillon de souris,
+ * départs vers les liens sortants, surfe chaque changement de section,
+ * ovationne les liens de contact, titube sous un tourbillon de souris,
  * vante les chips de compétences et s'endort après 45 s d'inactivité
  * (réveil en cascade au premier input). Règle absolue : les handlers
- * (tous passifs et délégués) MÉMORISENT, la boucle rAF CONSOMME.
+ * (tous passifs et délégués) et les effets MÉMORISENT, la boucle rAF
+ * CONSOMME.
  *
  * Non intrusif par construction :
  * - l'hôte est en `pointer-events: none`, seuls les personnages sont cliquables ;
@@ -1037,9 +1076,16 @@ const SENSOR_NONE_LINE = 'Pas de capteurs ici : je continue à pied !';
  * Refus de permission ou API absente : promenade normale, sans erreur.
  *
  * Toute la vie du duo tourne dans UNE seule boucle requestAnimationFrame
- * hors zone Angular : aucune détection de changement n'est déclenchée par
- * les déplacements, les bulles ou les regards. Seules des propriétés
- * composables (transform, opacity) et des variables CSS sont animées.
+ * impérative : aucune détection de changement n'est déclenchée par les
+ * déplacements, les bulles ou les regards. L'application tourne sans
+ * zone.js : seuls les signals liés au template (visible, spriteLabel,
+ * sensorsActive, _isDesktop) et les événements du template planifient un
+ * rendu — runOutsideAngular reste un simple garde-fou neutre. Seules des
+ * propriétés composables (transform, opacity) et des variables CSS sont
+ * animées.
+ *
+ * Le composant n'existe que côté navigateur : il est chargé en @defer
+ * (on idle) après l'hydratation de la page pré-rendue, hors de <main>.
  */
 @Component({
   selector: 'app-mascot',
@@ -1056,6 +1102,9 @@ export class MascotComponent implements OnDestroy {
 
   /** Mode d'affichage courant — le duo commente la bascule. */
   private readonly _viewMode: ViewModeService = inject(ViewModeService);
+
+  /** Scroll-spy de la page : section lue (perchoirs, séisme, commentaires). */
+  private readonly _spy: SectionSpyService = inject(SectionSpyService);
 
   /** Le duo est permanent : MotionService (signal readonly toujours vrai)
       reste l'unique point d'extension documenté — aucune voie de masquage. */
@@ -1077,12 +1126,11 @@ export class MascotComponent implements OnDestroy {
       : 'Mascotte : toucher pour activer la réaction aux mouvements du téléphone';
   });
 
-  private readonly _robotRef: Signal<
-    ElementRef<HTMLButtonElement> | undefined
-  > = viewChild<ElementRef<HTMLButtonElement>>('robotSprite');
-  private readonly _buddyRef: Signal<
-    ElementRef<HTMLButtonElement> | undefined
-  > = viewChild<ElementRef<HTMLButtonElement>>('buddySprite');
+  /** Conteneurs des personnages (bouton + bulle). */
+  private readonly _robotRef: Signal<ElementRef<HTMLElement> | undefined> =
+    viewChild<ElementRef<HTMLElement>>('robotChar');
+  private readonly _buddyRef: Signal<ElementRef<HTMLElement> | undefined> =
+    viewChild<ElementRef<HTMLElement>>('buddyChar');
   private readonly _guideRef: Signal<ElementRef<HTMLElement> | undefined> =
     viewChild<ElementRef<HTMLElement>>('cursorGuide');
 
@@ -1116,7 +1164,8 @@ export class MascotComponent implements OnDestroy {
   /* --- Moteur perchoir --- */
   /** Compte à rebours du prochain tirage perchoir (gelé hors scène 'free'). */
   private _nextPerchIn = 0;
-  /** Délai de grâce anti-rects-mensongers (bascule de mode, slide). */
+  /** Délai de grâce anti-rects-mensongers (bascule de mode, page qui
+      défile) : aucun perchoir n'est planifié tant qu'il court. */
   private _perchGrace = 0;
   /** Personnage perché (l'autre continue sa vie libre au sol). */
   private _perchWho?: Character;
@@ -1144,8 +1193,18 @@ export class MascotComponent implements OnDestroy {
   };
   /** Courte échelle : le robot est escorté (il ne vit pas en tickFree). */
   private _perchEscort = false;
-  /** Index de la slide active du diaporama (écouteur swiperslidechange). */
-  private _activeSlide = 0;
+  /** Section lue de la page (SectionSpyService.active), consommée par la
+      rAF (tickPageMotion). Figée en mode compact, où elle ne sert pas. */
+  private _activeSection: SectionId = 'profil';
+  /** Changement de section mémorisé par l'effet du scroll-spy (la rAF
+      consomme : surf, commentaire, descente express du perché). */
+  private _sectionPending?: SectionId;
+  /** Après une bascule de mode, le scroll-spy se recale sur les sections
+      recréées : ce recalage-là ne vaut pas un changement de section du
+      visiteur (pas de surf ni de commentaire) jusqu'à cet horodatage. */
+  private _sectionSilentUntil = 0;
+  /** Défilement de la page signalé par l'écouteur passif (drapeau seul). */
+  private _scrollPending = false;
   /** Horodatage de la dernière visite guidée (numéro bridé à ~1 / 2 min). */
   private _lastGuidedTourAt = Number.NEGATIVE_INFINITY;
   /** Horodatage du dernier resize (variante de « L'inspecteur du HUD »). */
@@ -1173,7 +1232,7 @@ export class MascotComponent implements OnDestroy {
   private _voyageType?: 'project' | 'email' | 'social';
   private _voyageX = 0;
   private _voyagePokedAt = 0;
-  /** Changement de slide vertical à surfer (horodatage seul). */
+  /** Changement de section à surfer (horodatage seul). */
   private _surfPokedAt = 0;
   /** Détecteur de tourbillon : 3 nombres (signe, compteur, fenêtre). */
   private _swirlSign = 0;
@@ -1261,8 +1320,8 @@ export class MascotComponent implements OnDestroy {
   private _quakeBroken: QuakeBroken[] = [];
   /** Overlay SVG des fissures (document.body, hors zone Angular). */
   private _quakeOverlay?: SVGSVGElement;
-  /** Conteneur porteur de .quake-tremor (jamais <main> : app-mascot y est
-      en fixed, un transform ancêtre en ferait le containing block). */
+  /** Porteur de .quake-tremor : main#contenu (l'hôte app-mascot vit hors de
+      <main>, un transform sur main ne capture pas les sprites fixed). */
   private _quakeTremorEl?: HTMLElement;
   /** Éléments en cours de « pop » de retour (.quake-heal à balayer). */
   private _quakeHealing: HTMLElement[] = [];
@@ -1325,7 +1384,7 @@ export class MascotComponent implements OnDestroy {
       }
     });
 
-    /* Réaction à la bascule diaporama / compact : petit saut + commentaire.
+    /* Réaction à la bascule page / compact : petit saut + commentaire.
        Les perchoirs disparaissent avec le décor : chute contrôlée du perché,
        purge du registre et délai de grâce avant tout nouveau scan (les rects
        mentent pendant view-fade-in + reveals + dessin du cadre). */
@@ -1338,6 +1397,20 @@ export class MascotComponent implements OnDestroy {
       }
       this._zone.runOutsideAngular(() => this.syncConsoleObserver(compact));
     });
+
+    /* Scroll-spy de la page : l'effet ne fait que MÉMORISER la nouvelle
+       section lue — la rAF consomme (tickPageMotion : séisme remis en
+       place, descente express du perché, surf, commentaire). La valeur
+       initiale est ignorée : aucune réaction au chargement. */
+    let knownSection: SectionId | undefined;
+    effect(() => {
+      const section = this._spy.active();
+      const known = knownSection;
+      knownSection = section;
+      if (known !== undefined && known !== section) {
+        this._sectionPending = section;
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -1349,7 +1422,7 @@ export class MascotComponent implements OnDestroy {
   /**
    * Point d'entrée du clic/tap sur un personnage.
    * Ordinateur : chaque clic compte pour la surprise du triple-clic (petite
-   * réaction à chaque fois, bascule diaporama / compact au troisième) — un
+   * réaction à chaque fois, bascule page / compact au troisième) — un
    * personnage perché reste cliquable, le compteur fonctionne en l'air.
    * Mobile : premier toucher = activation des capteurs de mouvement (la
    * permission iOS exige ce geste), ensuite petite réaction amusée.
@@ -1390,8 +1463,8 @@ export class MascotComponent implements OnDestroy {
 
   /**
    * Compte les clics sur un personnage : trois clics sur le même en moins de
-   * TRIPLE_CLICK_WINDOW déclenchent la surprise (bascule diaporama /
-   * compact). Chaque clic intermédiaire vaut une petite réaction complice.
+   * TRIPLE_CLICK_WINDOW déclenchent la surprise (bascule page / compact).
+   * Chaque clic intermédiaire vaut une petite réaction complice.
    */
   private handleDesktopClick(which: 'robot' | 'buddy'): void {
     const now = performance.now();
@@ -1426,7 +1499,7 @@ export class MascotComponent implements OnDestroy {
   }
 
   /**
-   * Troisième clic : bascule diaporama / compact (persistée par
+   * Troisième clic : bascule page / compact (persistée par
    * ViewModeService) avec mini-célébration du duo — saut synchronisé,
    * étincelles et bulles « Tadaaa ! ». Fenêtre trop petite pour le mode
    * compact : une bulle l'explique, rien ne bascule.
@@ -1470,7 +1543,7 @@ export class MascotComponent implements OnDestroy {
       this.say(
         clicked,
         this.pickLine(
-          goingCompact ? SURPRISE_COMPACT_LINES : SURPRISE_SLIDESHOW_LINES,
+          goingCompact ? SURPRISE_COMPACT_LINES : SURPRISE_PAGE_LINES,
           clicked
         )
       );
@@ -1747,10 +1820,7 @@ export class MascotComponent implements OnDestroy {
   /* Mise en place et démontage de la scène (hors zone Angular)         */
   /* ------------------------------------------------------------------ */
 
-  private startScene(
-    robotEl: HTMLButtonElement,
-    buddyEl: HTMLButtonElement
-  ): void {
+  private startScene(robotEl: HTMLElement, buddyEl: HTMLElement): void {
     /* Sur mobile, les sprites sont réduits à ~70 % (voir le CSS) : les
        largeurs logiques suivent pour que bords et bulles restent justes. */
     const mobile = !this._isDesktop();
@@ -1866,11 +1936,13 @@ export class MascotComponent implements OnDestroy {
         if (!mail && link.target !== '_blank') {
           return;
         }
-        /* GitHub/LinkedIn ne valent « social » que depuis un badge de
-           contact : une tuile projet hébergée sur GitHub reste un projet. */
+        /* « social » : lien de contact ou profil GitHub / LinkedIn (voir
+           VOYAGE_SOCIAL_SELECTOR) — une carte projet hébergée sur GitHub
+           reste un projet. */
         this._voyageType = mail
           ? 'email'
-          : link.closest('badge') !== null
+          : link.closest(VOYAGE_SOCIAL_SELECTOR) !== null ||
+              VOYAGE_SOCIAL_URLS.has(href)
             ? 'social'
             : 'project';
         this._voyageX = event.clientX || window.innerWidth / 2;
@@ -1909,45 +1981,20 @@ export class MascotComponent implements OnDestroy {
       attributeOldValue: true,
     });
 
-    /* Changement de slide du diaporama principal : écoute en phase de capture
-       au niveau du document (le swiper est recréé à chaque bascule de mode).
-       Le swiper des cartes projets est filtré par son absence de direction
-       verticale. */
-    document.addEventListener(
-      'swiperslidechange',
-      (event) => {
-        /* « SÉISME » : la slide part avec ses dégâts — restauration
-           immédiate (les éléments de l'ancienne slide repartent d'un pop).
-           L'abortPerch ci-dessous y repasserait via clearPerchEffects,
-           mais la fenêtre 0-2 s (casse posée, plan pas encore lancé) se
-           joue hors 'perch' : l'appel direct couvre tout. */
-        if (this._quakeBroken.length > 0) {
-          this.restoreQuake();
-        }
-        /* Diaporama : TOUT changement de slide (sections verticales comme
-           cartes de l'effet cards) invalide les perchoirs — saut au sol
-           immédiat, le sprite touche terre avant la fin de la transition
-           (~400 ms), puis délai de grâce avant tout re-scan. */
-        if (this._scene === 'perch' && !this._viewMode.isCompact()) {
-          this.abortPerch(350);
-        }
-        if (!this._viewMode.isCompact()) {
-          this._perchGrace = Math.max(this._perchGrace, PERCH_GRACE_SLIDE);
-        }
-        const target = event.target as HTMLElement | null;
-        if (target?.getAttribute?.('direction') !== 'vertical') {
-          return;
-        }
-        const index = (event as CustomEvent).detail?.[0]?.activeIndex;
-        if (typeof index === 'number') {
-          this._activeSlide = index;
-          /* « Le surf de transition » : le handler ne fait qu'horodater,
-             la rAF joue la vague (couloir dédié SURF_COOLDOWN). */
-          this._surfPokedAt = performance.now();
-          this.reactToSectionChange(index);
-        }
+    /* Défilement de la page : poseur de drapeau uniquement (passif, aucune
+       lecture layout) — la rAF consomme (tickPageMotion : descente express
+       du perché, grâce prolongée tant que la page bouge). Écouteur non
+       capturant sur window : seul le défilement du document arrive ici —
+       le mode compact ne défile jamais, et le scroll de ses conteneurs
+       internes (accordéon) ne remonte pas jusqu'à window. Défiler est
+       aussi un input du visiteur (compteur de la sieste). */
+    window.addEventListener(
+      'scroll',
+      () => {
+        this._scrollPending = true;
+        this._lastInputAt = performance.now();
       },
-      { signal, capture: true }
+      { signal, passive: true }
     );
 
     /* Survols délégués (document, UN seul closest sur l'union) : cartes
@@ -2022,10 +2069,15 @@ export class MascotComponent implements OnDestroy {
       this.randomDuration(this.qaAmbient(DUO_FIRST_DELAY)) * this._cadence;
     this._nextPerchIn = this.nextPerchDelay(true);
     this._perchGrace = 0;
-    /* L'index de slide est relu depuis le swiper réel : le franchissement du
-       breakpoint md redémarre la scène SANS toucher au diaporama, un reset
-       aveugle à 0 désynchroniserait les perchoirs (cibles hors viewport). */
-    this.syncActiveSlide();
+    /* La section lue est relue depuis le scroll-spy (lecture non suivie :
+       startScene s'exécute dans l'effet de la scène, qui ne doit dépendre
+       que des sprites et du breakpoint) — le franchissement du breakpoint
+       md redémarre la scène au milieu de la page, un reset aveugle sur le
+       profil désynchroniserait perchoirs et séisme. */
+    this._activeSection = untracked(() => this._spy.active());
+    this._sectionPending = undefined;
+    this._sectionSilentUntil = 0;
+    this._scrollPending = false;
     this._contextCooldown = 0;
     this._sectionCooldown = 0;
     this._tapCooldown = 0;
@@ -2136,7 +2188,7 @@ export class MascotComponent implements OnDestroy {
   }
 
   private createCharacter(
-    el: HTMLButtonElement,
+    el: HTMLElement,
     init: {
       width: number;
       height: number;
@@ -2224,6 +2276,11 @@ export class MascotComponent implements OnDestroy {
         }
       }
     }
+
+    /* Page qui défile / section qui change (mémorisés par l'écouteur de
+       scroll et l'effet du scroll-spy) : consommés AVANT les capteurs (le
+       séisme vise la section à jour) et l'arbitre des réactions (surf). */
+    this.tickPageMotion(timestamp);
 
     this.updateBubble(robot, delta);
     this.updateBubble(buddy, delta);
@@ -2604,19 +2661,103 @@ export class MascotComponent implements OnDestroy {
     return Math.max(0, window.innerHeight - 2 - screenY);
   }
 
-  /** Vrai si le rect est entièrement visible dans le viewport — les slides
-      verticales hors écran restent rendues (css-mode), leurs rects mentent. */
-  private rectInViewport(rect: DOMRect): boolean {
-    return rect.top >= 0 && rect.bottom <= window.innerHeight;
+  /** Haut de la zone utile de l'écran : sous l'en-tête collant de la page,
+      au ras du bord en mode compact (pas d'en-tête). */
+  private headerBand(): number {
+    return this._viewMode.isCompact() ? 0 : HEADER_BAND;
   }
 
-  /** Resynchronise `_activeSlide` sur l'instance réelle du swiper vertical
-      (absente en compact ou juste après recréation : slide 0 dans les deux cas). */
-  private syncActiveSlide(): void {
-    const host = document.querySelector(
-      'swiper-container[direction="vertical"]'
-    ) as { swiper?: { activeIndex?: number } } | null;
-    this._activeSlide = host?.swiper?.activeIndex ?? 0;
+  /** Vrai si le rect est entièrement visible : sous l'en-tête collant (la
+      bande de 64 px ne compte pas comme visible) et au-dessus du bas de
+      l'écran. Les éléments à moitié défilés hors champ sont ignorés. */
+  private rectInViewport(rect: DOMRect): boolean {
+    return rect.top >= this.headerBand() && rect.bottom <= window.innerHeight;
+  }
+
+  /** Vrai si un sprite de hauteur `clearance`, posé sur le bord supérieur du
+      rect, garde la tête sous l'en-tête collant (marge comprise). */
+  private clearsHeader(rect: DOMRect, clearance: number): boolean {
+    return rect.top - clearance >= this.headerBand() + HEADER_CLEARANCE;
+  }
+
+  /** Scan ponctuel d'un sélecteur DANS la section lue de la page. */
+  private sectionRects(selector: string): { el: Element; rect: DOMRect }[] {
+    return this.rectsOf(`#${this._activeSection} ${selector}`);
+  }
+
+  /**
+   * Carte perchable de la section lue (page) : un [data-perch="card"]
+   * entièrement visible sous l'en-tête collant, assez bas pour que le
+   * sprite posé sur son bord supérieur (`clearance`) garde la tête sous
+   * l'en-tête, sans autre carte dans cette bande (même règle que la vigie :
+   * rien au-dessus à recouvrir — dans une grille, c'est la rangée du haut)
+   * — la plus proche du centre du viewport parmi celles qu'accepte
+   * `accept`. Un seul scan, au déclenchement.
+   */
+  private pickCard(
+    clearance: number,
+    accept: (rect: DOMRect) => boolean = () => true
+  ): { el: Element; rect: DOMRect } | null {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const cards = this.sectionRects(PERCH_SELECTORS.card);
+    let best: { el: Element; rect: DOMRect } | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const card of cards) {
+      const rect = card.rect;
+      if (
+        !this.rectInViewport(rect) ||
+        !this.clearsHeader(rect, clearance) ||
+        this.headroomTaken(card, clearance, rect.left, rect.right, cards) ||
+        !accept(rect)
+      ) {
+        continue;
+      }
+      const distance = Math.hypot(
+        rect.left + rect.width / 2 - centerX,
+        rect.top + rect.height / 2 - centerY
+      );
+      if (distance < bestDistance) {
+        best = card;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Vrai si un autre élément de `others` occupe la bande où se tiendrait
+   * un sprite de hauteur `clearance` posé sur le bord supérieur de
+   * `anchor`, entre `left` et `right` : le perché le recouvrirait (contenu
+   * masqué, clics interceptés par son corps). Rects déjà mesurés : aucune
+   * lecture layout supplémentaire.
+   */
+  private headroomTaken(
+    anchor: { el: Element; rect: DOMRect },
+    clearance: number,
+    left: number,
+    right: number,
+    others: readonly { el: Element; rect: DOMRect }[]
+  ): boolean {
+    const top = anchor.rect.top;
+    return others.some(
+      ({ el, rect }) =>
+        !el.contains(anchor.el) &&
+        !anchor.el.contains(el) &&
+        rect.bottom > top - clearance &&
+        rect.top < top &&
+        rect.right > left &&
+        rect.left < right
+    );
+  }
+
+  /** Vrai si, sur mobile, un saut vers `screenY` reste sous le plafond
+      (40 % du viewport) — toujours vrai sur ordinateur. */
+  private withinJumpCap(screenY: number): boolean {
+    return (
+      this._isDesktop() ||
+      this.elevationTo(screenY) <= window.innerHeight * MOBILE_JUMP_CAP
+    );
   }
 
   /** Position écran du haut du sprite (règle « pas de bulle trop haut »). */
@@ -2624,9 +2765,10 @@ export class MascotComponent implements OnDestroy {
     return window.innerHeight - 2 - char.y - char.height;
   }
 
-  /** Bulle d'un perché : jamais quand elle sortirait par le haut de l'écran. */
+  /** Bulle d'un perché : jamais quand elle sortirait par le haut de la zone
+      utile (bord de l'écran, ou bas de l'en-tête collant sur la page). */
   private sayPerched(char: Character, text: string, duration?: number): void {
-    if (this.spriteTop(char) < BUBBLE_MIN_TOP) {
+    if (this.spriteTop(char) < this.headerBand() + BUBBLE_MIN_TOP) {
       return;
     }
     this.say(char, text, duration);
@@ -2752,16 +2894,20 @@ export class MascotComponent implements OnDestroy {
   }
 
   /** Compte à rebours du prochain perchoir — décrémenté en scène 'free'
-      uniquement (gelé pendant approach / duo / chase / perch). */
+      uniquement (gelé pendant approach / duo / chase / perch). Échu
+      pendant un délai de grâce (page qui défile, décor qui change), le
+      tirage n'est pas perdu : il attend l'accalmie — sur la page, ~1 s
+      d'immobilité. */
   private tickPerchCountdown(delta: number): void {
     this._nextPerchIn -= delta;
     if (this._nextPerchIn > 0) {
       return;
     }
-    this._nextPerchIn = this.nextPerchDelay();
     if (this._perchGrace > 0) {
+      this._nextPerchIn = 0;
       return;
     }
+    this._nextPerchIn = this.nextPerchDelay();
     /* Mobile : jamais de perchoir quand le sol penche (zone morte du tilt). */
     if (!this._isDesktop() && Math.abs(this._tilt) > TILT_DEADZONE) {
       return;
@@ -2797,6 +2943,10 @@ export class MascotComponent implements OnDestroy {
         ]
       : this._isDesktop()
         ? [
+            /* Page : tout se joue dans la section lue — cartes (funambule,
+               rodéo, visite), liens de contact du héros et de #contact
+               (attaché de presse, visite), portrait du héros (sommet). Un
+               numéro sans ancre visible est simplement retiré du tirage. */
             { name: 'funambule', weight: 25 },
             { name: 'attache', weight: 20 },
             { name: 'sommet', weight: 20 },
@@ -2804,8 +2954,8 @@ export class MascotComponent implements OnDestroy {
             { name: 'visite', weight: 15 },
           ]
         : [
-            /* Mobile : seuls le funambule (carte active) et l'attaché de
-               presse (slide profil) sont retenus. */
+            /* Mobile : seuls le funambule (carte visible) et l'attaché de
+               presse (liens de contact) sont retenus. */
             { name: 'funambule', weight: 45 },
             { name: 'attache', weight: 30 },
           ];
@@ -2919,7 +3069,7 @@ export class MascotComponent implements OnDestroy {
    * les perchoirs : scene='perch' + drapeau _reactivePlan. Les compteurs
    * de vie autonome restent naturellement gelés hors 'free' — c'est le
    * but. Tous les chemins d'abort existants (triple-clic, secousse,
-   * bascule, slide) s'appliquent tels quels.
+   * bascule, défilement de la page) s'appliquent tels quels.
    */
   private startReactionPlan(who: Character, steps: PerchStep[]): void {
     this._scene = 'perch';
@@ -3299,9 +3449,10 @@ export class MascotComponent implements OnDestroy {
   }
 
   /**
-   * Descente express (triple-clic, changement de slide) : saut direct au
-   * sol, sans cérémonie — la scène redevient 'free' immédiatement, le
-   * compteur de clics et la célébration ne sont pas retardés.
+   * Descente express (triple-clic, page qui défile, changement de
+   * section) : saut direct au sol, sans cérémonie — la scène redevient
+   * 'free' immédiatement, le compteur de clics et la célébration ne sont
+   * pas retardés.
    */
   private abortPerch(ms: number): void {
     const who = this._perchWho;
@@ -3379,7 +3530,8 @@ export class MascotComponent implements OnDestroy {
        Jamais hors tournée : le perché d'AVANT le séisme, tombé au
        déclenchement, atterrit ~450 ms plus tard — son endPerch balaierait
        la casse toute fraîche. La fenêtre sans tournée est couverte par le
-       timer absolu, le swiperslidechange et le stopScene explicite. */
+       timer absolu, le défilement de la page (tickPageMotion) et le
+       stopScene explicite. */
     if (this._quakeScene) {
       this.restoreQuake();
     }
@@ -3484,28 +3636,28 @@ export class MascotComponent implements OnDestroy {
 
   /**
    * « Le funambule » : traversée lente (12 px/s) d'un bord supérieur — la
-   * console de lecture en compact, la carte active de l'effet cards en
-   * diaporama — avec un faux pas scripté à mi-parcours pour le suspense.
+   * console de lecture en compact, une carte visible de la section lue sur
+   * la page — avec un faux pas scripté à mi-parcours pour le suspense.
    */
   private buildFunambule(
     robot: Character
   ): { who: Character; steps: PerchStep[] } | null {
-    let info: { el: Element; rect: DOMRect } | null;
-    if (this._viewMode.isCompact()) {
-      info = this.firstRect(PERCH_SELECTORS.console);
-    } else {
-      const selector = PERCH_SELECTORS.activeCard[this._activeSlide];
-      if (!selector) {
-        return null;
-      }
-      info = this.firstRect(selector);
-    }
+    const info = this._viewMode.isCompact()
+      ? this.firstRect(PERCH_SELECTORS.console)
+      : /* Page : la carte visible la plus centrale parmi celles qui
+           laissent la place d'une traversée (et, sur mobile, restent sous
+           le plafond de saut). */
+        this.pickCard(
+          robot.height,
+          (rect) =>
+            rect.width - robot.width - 16 >= 40 &&
+            this.withinJumpCap(rect.top + 2)
+        );
     if (!info || info.rect.top < 60 || !this.rectInViewport(info.rect)) {
       return null;
     }
     const el = info.el;
-    const topY = this.elevationTo(info.rect.top + 2);
-    if (!this._isDesktop() && topY > window.innerHeight * MOBILE_JUMP_CAP) {
+    if (!this.withinJumpCap(info.rect.top + 2)) {
       return null;
     }
     /* Traversée limitée à ~110 px (12 px/s pendant 8-10 s au total). */
@@ -3708,19 +3860,21 @@ export class MascotComponent implements OnDestroy {
 
   /**
    * « L'attaché de presse » : le robot se pose sur le bord supérieur d'un
-   * badge de contact et le vante, bras tendu, antenne clignotante. Le badge
-   * reste cliquable autour du sprite.
+   * badge de contact (pont compact) ou d'un lien de contact de la section
+   * lue (héros, #contact) et le vante, bras tendu, antenne clignotante. Le
+   * lien reste cliquable autour du sprite.
    */
   private buildAttache(
     robot: Character
   ): { who: Character; steps: PerchStep[] } | null {
-    const compact = this._viewMode.isCompact();
-    if (!compact && this._activeSlide !== 0) {
-      return null;
-    }
-    const badges = this.rectsOf(
-      compact ? PERCH_SELECTORS.badgeCompact : PERCH_SELECTORS.badgeSlideshow
-    );
+    /* Page : seuls les liens entièrement visibles, assez bas pour que la
+       tête du robot reste sous l'en-tête (et sous le plafond de saut sur
+       mobile), sans autre lien ni bouton là où se tiendrait son corps —
+       perché sur LinkedIn, il couvrirait le bouton e-mail juste au-dessus.
+       Les sections sans lien de contact sont sautées. */
+    const badges = this._viewMode.isCompact()
+      ? this.rectsOf(PERCH_SELECTORS.badgeCompact)
+      : this.pageBadges(robot);
     if (badges.length === 0) {
       return null;
     }
@@ -3729,14 +3883,8 @@ export class MascotComponent implements OnDestroy {
       return null;
     }
     const el = pick.el;
-    const href = (el as HTMLAnchorElement).href ?? '';
-    const line = href.includes('github')
-      ? PRESS_GITHUB_LINE
-      : href.startsWith('mailto') || href.includes('contact@')
-        ? PRESS_EMAIL_LINE
-        : PRESS_DEFAULT_LINE;
-    const topY = this.elevationTo(pick.rect.top + 2);
-    if (!this._isDesktop() && topY > window.innerHeight * MOBILE_JUMP_CAP) {
+    const line = this.pressLine(el);
+    if (!this.withinJumpCap(pick.rect.top + 2)) {
       return null;
     }
     /* Pose au-dessus du bord supérieur : chevauchement de 2 px seulement. */
@@ -3784,6 +3932,30 @@ export class MascotComponent implements OnDestroy {
         },
       ],
     };
+  }
+
+  /** Liens de contact perchables de la section lue (attaché de presse). */
+  private pageBadges(robot: Character): { el: Element; rect: DOMRect }[] {
+    const links = this.sectionRects(PERCH_SELECTORS.social);
+    if (links.length === 0) {
+      return links;
+    }
+    const controls = this.sectionRects('a[href], button');
+    return links.filter((link) => {
+      const center = link.rect.left + link.rect.width / 2;
+      return (
+        this.rectInViewport(link.rect) &&
+        this.clearsHeader(link.rect, robot.height) &&
+        this.withinJumpCap(link.rect.top + 2) &&
+        !this.headroomTaken(
+          link,
+          robot.height,
+          center - robot.width / 2,
+          center + robot.width / 2,
+          controls
+        )
+      );
+    });
   }
 
   /**
@@ -4007,25 +4179,31 @@ export class MascotComponent implements OnDestroy {
     return { who: buddy, steps };
   }
 
-  /* --- Comportements — mode diaporama --- */
+  /* --- Comportements — page défilante --- */
 
   /**
-   * « Le sommet du monde » : slide profil uniquement — le blob conquiert le
-   * sommet de la photo ronde, puis glisse le long de la COURBE du cercle
-   * avant d'être éjecté en parabole (réception stumble, puis fou rire).
+   * « Le sommet du monde » : section profil uniquement — le blob conquiert
+   * le sommet du portrait rond du héros, puis glisse le long de la COURBE
+   * du cercle avant d'être éjecté en parabole (réception stumble, puis fou
+   * rire). Le portrait doit être entièrement visible, assez bas pour que le
+   * blob perché garde la tête sous l'en-tête collant.
    */
   private buildSommet(
     buddy: Character
   ): { who: Character; steps: PerchStep[] } | null {
     if (
       this._viewMode.isCompact() ||
-      this._activeSlide !== 0 ||
+      this._activeSection !== 'profil' ||
       !this._isDesktop()
     ) {
       return null;
     }
-    const info = this.firstRect(PERCH_SELECTORS.photo);
-    if (!info || info.rect.top < 40 || !this.rectInViewport(info.rect)) {
+    const info = this.sectionRects(PERCH_SELECTORS.photo)[0];
+    if (
+      !info ||
+      !this.rectInViewport(info.rect) ||
+      !this.clearsHeader(info.rect, buddy.height)
+    ) {
       return null;
     }
     const el = info.el;
@@ -4637,9 +4815,12 @@ export class MascotComponent implements OnDestroy {
    * entièrement AU SOL (walk + 'point' + bulles — aucun vol : disponible
    * partout, très robuste). Le robot guide, le blob escorté suit et
    * s'émerveille à ~70 px derrière. Trois arrêts en compact (identité,
-   * baie projets, badges), deux en diaporama selon la slide active. Les x
-   * d'arrêt sont lus au DÉMARRAGE (un seul scan), pas re-suivis : au sol,
-   * une dérive de quelques px est invisible. Bridée à ~1 visite / 2 min.
+   * baie projets, badges), deux sur la page selon la section lue (portrait
+   * puis liens de contact du héros ; une carte visible puis « la pile » ;
+   * la carte Contact puis ses liens). Les x d'arrêt sont lus au DÉMARRAGE
+   * (un seul scan), pas re-suivis : au sol, une dérive de quelques px est
+   * invisible — et la page qui défile interrompt la visite. Bridée à ~1
+   * visite / 2 min.
    */
   private buildVisite(
     robot: Character,
@@ -4673,10 +4854,12 @@ export class MascotComponent implements OnDestroy {
           line: TOUR_COMPACT_LINES[2],
         }
       );
-    } else if (this._activeSlide === 0) {
-      const photo = this.firstRect(PERCH_SELECTORS.photo);
-      const badges = this.rectsOf(PERCH_SELECTORS.badgeSlideshow);
-      if (!photo || badges.length === 0) {
+    } else if (this._activeSection === 'profil') {
+      const photo = this.sectionRects(PERCH_SELECTORS.photo)[0];
+      const badges = this.sectionRects(PERCH_SELECTORS.social).filter(
+        ({ rect }) => this.rectInViewport(rect)
+      );
+      if (!photo || !this.rectInViewport(photo.rect) || badges.length === 0) {
         return null;
       }
       const badgesCenter =
@@ -4692,17 +4875,17 @@ export class MascotComponent implements OnDestroy {
         { center: badgesCenter, line: TOUR_BADGES_LINE }
       );
     } else {
-      const selector = PERCH_SELECTORS.activeCard[this._activeSlide];
-      const card = selector ? this.firstRect(selector) : null;
+      const card = this.pickCard(0);
       if (!card) {
         return null;
       }
       const center = card.rect.left + card.rect.width / 2;
       /* Deuxième arrêt : un pas de côté, vers le centre de l'écran. */
       const aside = center + (center < window.innerWidth / 2 ? 120 : -120);
+      const contact = this._activeSection === 'contact';
       stops.push(
-        { center, line: TOUR_CARD_LINE },
-        { center: aside, line: TOUR_PILE_LINE }
+        { center, line: contact ? TOUR_CONTACT_LINE : TOUR_CARD_LINE },
+        { center: aside, line: contact ? TOUR_BADGES_LINE : TOUR_PILE_LINE }
       );
     }
     this._lastGuidedTourAt = now;
@@ -4801,12 +4984,12 @@ export class MascotComponent implements OnDestroy {
   }
 
   /**
-   * « Le rodéo du deck » : slides à effet cards (1, 3, 4), ordinateur
-   * uniquement. Le blob s'assoit au COIN de la carte active (15 % ou 85 %
+   * « Le rodéo du deck » : sections à cartes de la page, ordinateur
+   * uniquement. Le blob s'assoit au COIN d'une carte visible (15 % ou 85 %
    * de la largeur : le contenu reste lisible, même règle que la vigie,
    * follow:true absorbe le hover:-translate-y-1) et la « chevauche » —
-   * deux ruades scriptées en 'wobble'. Si le visiteur change de carte,
-   * l'invalidation EXISTANTE du swiperslidechange fait tomber le perché :
+   * deux ruades scriptées en 'wobble'. Si le visiteur fait défiler la page,
+   * l'invalidation du défilement (tickPageMotion) fait tomber le perché :
    * la chute devient le clou du spectacle. Sortie en vrille. ~8 s.
    */
   private buildRodeo(
@@ -4815,12 +4998,8 @@ export class MascotComponent implements OnDestroy {
     if (this._viewMode.isCompact() || !this._isDesktop()) {
       return null;
     }
-    const selector = PERCH_SELECTORS.activeCard[this._activeSlide];
-    if (!selector) {
-      return null;
-    }
-    const info = this.firstRect(selector);
-    if (!info || info.rect.top < 60 || !this.rectInViewport(info.rect)) {
+    const info = this.pickCard(buddy.height);
+    if (!info) {
       return null;
     }
     const el = info.el;
@@ -5116,6 +5295,8 @@ export class MascotComponent implements OnDestroy {
           scene: this._scene,
           napping: this._napping,
           reactive: this._reactivePlan,
+          section: this._activeSection,
+          perchGrace: Math.max(0, Math.round(this._perchGrace)),
           quake: {
             broken: this._quakeBroken.length,
             restoreIn: Math.max(0, Math.round(this._quakeRestoreIn)),
@@ -5165,9 +5346,7 @@ export class MascotComponent implements OnDestroy {
     this._reactCooldown = 0;
     switch (name) {
       case 'accourse': {
-        const el =
-          document.querySelector(PERCH_SELECTORS.tile) ??
-          document.querySelector('project-item');
+        const el = this.qaPick(PROJECT_HOVER_SELECTOR);
         if (!el) {
           console.info('[mascot] accourse : aucune tuile/carte visible');
           return;
@@ -5181,9 +5360,7 @@ export class MascotComponent implements OnDestroy {
         return;
       }
       case 'chips': {
-        const el =
-          document.querySelector(PERCH_SELECTORS.chip) ??
-          document.querySelector('skill-item');
+        const el = this.qaPick(CHIP_HOVER_SELECTOR);
         if (!el) {
           console.info('[mascot] chips : aucune chip visible');
           return;
@@ -5209,9 +5386,7 @@ export class MascotComponent implements OnDestroy {
         return;
       }
       case 'ovation': {
-        const el =
-          document.querySelector(PERCH_SELECTORS.badgeCompact) ??
-          document.querySelector(PERCH_SELECTORS.badgeSlideshow);
+        const el = this.qaPick(BADGE_HOVER_SELECTOR);
         if (!el) {
           console.info('[mascot] ovation : aucun badge visible');
           return;
@@ -5243,10 +5418,10 @@ export class MascotComponent implements OnDestroy {
       }
       case 'seisme': {
         /* Simule la secousse TRÈS forte mémorisée par _onMotion — la rAF
-           consomme au battement suivant (mobile/diaporama uniquement). */
+           consomme au battement suivant (mobile uniquement : page seule). */
         if (this._isDesktop()) {
           console.info(
-            '[mascot] seisme : mobile uniquement (viewport < md, diaporama forcé)'
+            '[mascot] seisme : mobile uniquement (viewport < md, page défilante)'
           );
           return;
         }
@@ -5262,16 +5437,34 @@ export class MascotComponent implements OnDestroy {
     }
   }
 
+  /** QA : premier élément du sélecteur présent à l'écran (à défaut, le
+      premier rendu) — la réaction simulée part d'un élément que le
+      visiteur pourrait réellement survoler. */
+  private qaPick(selector: string): Element | null {
+    let fallback: Element | null = null;
+    for (const el of document.querySelectorAll(selector)) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        continue;
+      }
+      fallback ??= el;
+      if (rect.bottom > this.headerBand() && rect.top < window.innerHeight) {
+        return el;
+      }
+    }
+    return fallback;
+  }
+
   /* ------------------------------------------------------------------ */
   /* Réactions au monde                                                  */
   /* ------------------------------------------------------------------ */
 
   /**
-   * Bascule diaporama / compact : le décor entier change, les perchoirs
+   * Bascule page / compact : le décor entier change, les perchoirs
    * disparaissent. Chute contrôlée du perché (elle ne dépend que de x/y du
    * sprite, pas du DOM disparu), purge du registre, délai de grâce de 1,4 s
    * avant tout scan (view-fade-in + reveals 250-750 ms + dessin du cadre
-   * 1,1 s) et premier tirage repoussé à ≥ 8 s pour laisser le visiteur
+   * 1,1 s) et premier tirage repoussé à ≥ 5 s pour laisser le visiteur
    * découvrir le nouveau décor.
    */
   private onModeSwitched(): void {
@@ -5284,14 +5477,63 @@ export class MascotComponent implements OnDestroy {
     }
     this._perchGrace = PERCH_GRACE_MODE;
     this._nextPerchIn = Math.max(this._nextPerchIn, PERCH_AFTER_MODE_MIN);
-    /* Retour en diaporama : le swiper est recréé à la slide 0 sans émettre
-       swiperslidechange (l'index ne change pas) — resynchronisation ici,
-       sinon _activeSlide garderait sa valeur d'avant le mode compact. */
-    this.syncActiveSlide();
+    /* Retour sur la page : les sections sont recréées (en haut de page) et
+       le scroll-spy se recale dans la foulée — ce recalage n'est pas un
+       changement de section du visiteur : ni surf ni commentaire pendant
+       la grâce de bascule. Lecture non suivie : on est dans l'effet de la
+       bascule, qui ne doit dépendre que du mode. */
+    this._activeSection = untracked(() => this._spy.active());
+    this._sectionPending = undefined;
+    this._sectionSilentUntil = performance.now() + PERCH_GRACE_MODE;
     this.reactToModeChange();
   }
 
-  /** Bascule diaporama / compact : petit saut de surprise et commentaire. */
+  /**
+   * Mouvements de la page, MÉMORISÉS par l'écouteur de scroll (drapeau) et
+   * par l'effet du scroll-spy (section), consommés ici une fois par frame.
+   * Les sprites sont en position: fixed : quand la page défile, un perché
+   * flotterait loin de son élément et les fissures du séisme (overlay fixed
+   * lui aussi) resteraient plantées à l'écran. D'où : dégâts remis d'un
+   * pop, descente express du perché (saut direct au sol, 350 ms), grâce
+   * prolongée tant que la page bouge — aucun perchoir avant ~1 s
+   * d'immobilité. Un changement de section ajoute le surf et le
+   * commentaire contextuel.
+   */
+  private tickPageMotion(timestamp: number): void {
+    const section = this._sectionPending;
+    if (section === undefined && !this._scrollPending) {
+      return;
+    }
+    this._sectionPending = undefined;
+    this._scrollPending = false;
+    const changed = section !== undefined && section !== this._activeSection;
+    if (section !== undefined) {
+      this._activeSection = section;
+    }
+    /* Mode compact : la page ne défile jamais et le scroll-spy, sans
+       sections, n'y signale que des recalages — suivi silencieux. */
+    if (this._viewMode.isCompact()) {
+      return;
+    }
+    /* « SÉISME » : la page emporte ses dégâts. Appel direct (idempotent) :
+       la fenêtre 0-2 s (casse posée, tournée pas encore lancée) se joue
+       hors 'perch' — abortPerch n'y repasserait pas. */
+    this.restoreQuake();
+    /* La sieste se joue au sol, au bord de l'écran : rien ne flotte. Le
+       défilement est un input — tickNap la réveille en cascade. */
+    if (this._scene === 'perch' && !this._napping) {
+      this.abortPerch(350);
+    }
+    this._perchGrace = Math.max(this._perchGrace, PERCH_GRACE_SCROLL);
+    if (changed && timestamp >= this._sectionSilentUntil) {
+      /* « Le surf de transition » : horodatage seul, la vague est jouée
+         par l'arbitre des réactions (couloir dédié SURF_COOLDOWN). */
+      this._surfPokedAt = timestamp;
+      this.reactToSectionChange(section);
+    }
+  }
+
+  /** Bascule page / compact : petit saut de surprise et commentaire. */
   private reactToModeChange(): void {
     const robot = this._robot;
     const buddy = this._buddy;
@@ -5309,13 +5551,13 @@ export class MascotComponent implements OnDestroy {
     this.say(robot, this.pickLine(MODE_LINES, robot));
   }
 
-  /** Nouvelle slide du diaporama : le robot pointe le contenu et commente. */
-  private reactToSectionChange(index: number): void {
+  /** Nouvelle section lue sur la page : le robot pointe le contenu et
+      commente (SECTION_COOLDOWN, jamais par-dessus sa propre bulle). */
+  private reactToSectionChange(section: SectionId): void {
     const robot = this._robot;
-    const lines = SECTION_LINES[index];
+    const lines = SECTION_LINES[section];
     if (
       !robot ||
-      !lines ||
       this._scene !== 'free' ||
       this._sectionCooldown > 0 ||
       robot.bubbleRemaining > 0
@@ -5388,12 +5630,13 @@ export class MascotComponent implements OnDestroy {
   }
 
   /**
-   * « Le surf de transition » : le sol « bouge » à chaque coup de molette —
-   * pose 'brace' + micro-rebond sur place, blob décalé de 120 ms (vague).
-   * Se cumule avec reactToSectionChange (qui garde ses bulles et son
-   * SECTION_COOLDOWN) ; jamais pendant un vol ni un perchoir
-   * (l'invalidation existante abortPerch(350) prime, elle a déjà remis la
-   * scène en 'free' — un perché encore en vol est filtré par char.flight).
+   * « Le surf de transition » : le sol « bouge » à chaque changement de
+   * section — pose 'brace' + micro-rebond sur place, blob décalé de 120 ms
+   * (vague). Se cumule avec reactToSectionChange (qui garde ses bulles et
+   * son SECTION_COOLDOWN) ; jamais pendant un vol ni un perchoir
+   * (l'invalidation du défilement, abortPerch(350), prime : elle a déjà
+   * remis la scène en 'free' — un perché encore en vol est filtré par
+   * char.flight).
    */
   private checkSurf(
     robot: Character,
@@ -5517,7 +5760,7 @@ export class MascotComponent implements OnDestroy {
 
   /**
    * « J'accours pour voir » : survol prolongé (≥ 1,2 s) d'une tuile projet
-   * compacte ou d'une carte du diaporama — le personnage le plus proche
+   * compacte ou d'une carte de #projets — le personnage le plus proche
    * accourt sous la carte, lève les yeux (--look-y forcé 1,8 s), petit
    * saut sur place, bulle 1 fois sur 2. Part depuis 'free' ou en
    * interrompant un perchoir SANS vol en cours (abortPerch 250 ms).
@@ -5667,12 +5910,7 @@ export class MascotComponent implements OnDestroy {
     if (rect.width === 0) {
       return false;
     }
-    const href = (badge as HTMLAnchorElement).href ?? '';
-    const line = href.includes('github')
-      ? PRESS_GITHUB_LINE
-      : href.startsWith('mailto') || href.includes('contact@')
-        ? PRESS_EMAIL_LINE
-        : PRESS_DEFAULT_LINE;
+    const line = this.pressLine(badge);
     this._ovationUntil = timestamp + this.qaCooldown(OVATION_COOLDOWN);
     this._reactCooldown = this.qaCooldown(REACT_GLOBAL_COOLDOWN);
     robot.dir = rect.left + rect.width / 2 >= this.centerOf(robot) ? 1 : -1;
@@ -5862,8 +6100,8 @@ export class MascotComponent implements OnDestroy {
 
   /**
    * Plan perchoir de la sieste (drapeau _napping) : le blob marche vers le
-   * pied de la cellule la plus proche (compact) ou le bord d'écran
-   * (diaporama) et s'y adosse en 'nest' avec un « Zzz… » renouvelé à
+   * pied de la cellule la plus proche (compact) ou le bord d'écran (page)
+   * et s'y adosse en 'nest' avec un « Zzz… » renouvelé à
    * chaque cycle ; le robot escorté s'adosse au bord ('lean') puis pique
    * du nez ('rest'). Les tirages autonomes sont gelés par construction
    * (scène 'perch'). La sieste cède TOUJOURS : réveil au premier input,
@@ -5984,8 +6222,9 @@ export class MascotComponent implements OnDestroy {
    * Toucher d'un personnage sur mobile (hors zone Angular).
    * Premier toucher : activation des capteurs (permission iOS demandée dans
    * ce geste). Ensuite : petite réaction amusée du personnage touché.
-   * Trois taps rapides : la surprise du triple-clic n'existe pas ici (le
-   * diaporama est forcé sous md), une bulle amusée le dit — rien ne bascule.
+   * Trois taps rapides : la surprise du triple-clic n'existe pas ici (seule
+   * la page défilante existe sous md), une bulle amusée le dit — rien ne
+   * bascule.
    */
   private handleMobileTap(which: 'robot' | 'buddy'): void {
     const now = performance.now();
@@ -6260,7 +6499,7 @@ export class MascotComponent implements OnDestroy {
     }
 
     /* « SÉISME » : secousse forte, consommée AVANT le trébuchement léger.
-       Gardes dans l'ordre : mobile/diaporama uniquement ; pas de séisme
+       Gardes dans l'ordre : mobile (page) uniquement ; pas de séisme
        déjà actif (sinon voie « restauration d'urgence ») ; cooldown 75 s ;
        pas de célébration surprise en cours. Une garde échoue → DOWNGRADE :
        _shakePending, posé par le même événement, joue le trébuchement
@@ -6309,7 +6548,8 @@ export class MascotComponent implements OnDestroy {
           /* Le trébuchement léger ne se joue pas PAR-DESSUS le séisme. */
           this._shakePending = false;
           this._shakeCooldown = SHAKE_COOLDOWN;
-          this.syncActiveSlide();
+          /* _activeSection est à jour : tickPageMotion a consommé tout
+             changement de section en tête de frame. */
           this.startQuake(robot, buddy);
         }
       }
@@ -6349,14 +6589,14 @@ export class MascotComponent implements OnDestroy {
   /* ------------------------------------------------------------------ */
 
   /**
-   * Secousse TRÈS forte : l'écran tremble, 3-4 éléments de la slide active
-   * basculent (classes transform/filter/opacity posées sur de VRAIS
-   * éléments — assouplissement délibéré, restauration garantie), de fines
-   * fissures SVG courent près des dégâts, le duo panique, puis le robot
-   * fait la tournée des réparations de gauche à droite. La restauration ne
-   * dépend JAMAIS de _delayed (purgé par stopScene) : timer absolu
-   * (_quakeRestoreIn, tête de _onFrame) + clearPerchEffects (tous les rails
-   * de sortie) + swiperslidechange.
+   * Secousse TRÈS forte : l'écran tremble, 3-4 éléments visibles de la
+   * section lue basculent (classes transform/filter/opacity posées sur de
+   * VRAIS éléments — assouplissement délibéré, restauration garantie), de
+   * fines fissures SVG courent près des dégâts, le duo panique, puis le
+   * robot fait la tournée des réparations de gauche à droite. La
+   * restauration ne dépend JAMAIS de _delayed (purgé par stopScene) : timer
+   * absolu (_quakeRestoreIn, tête de _onFrame) + clearPerchEffects (tous
+   * les rails de sortie) + défilement de la page (tickPageMotion).
    */
   private startQuake(robot: Character, buddy: Character): void {
     /* Même politique que reactToShake (« la secousse gagne toujours ») :
@@ -6396,30 +6636,36 @@ export class MascotComponent implements OnDestroy {
        intact dans 14 s (couvre aussi le tremblé si _delayed est purgé). */
     this._quakeRestoreIn = QUAKE_MAX_MS;
 
-    /* Tremblé d'écran sur le swiper vertical — jamais sur <main> :
-       app-mascot y est en fixed, un transform ancêtre en ferait le
-       containing block. Retrait cosmétique via _delayed, retrait GARANTI
-       par restoreQuake. */
-    const container = document.querySelector(
-      'swiper-container[direction="vertical"]'
-    ) as HTMLElement | null;
+    /* Tremblé d'écran sur main#contenu : l'hôte app-mascot vit hors de
+       <main>, les sprites fixed ne sont donc pas emportés. Retrait
+       cosmétique via _delayed, retrait GARANTI par restoreQuake. */
+    const container = document.querySelector<HTMLElement>(
+      QUAKE_TREMOR_SELECTOR
+    );
     if (container) {
+      /* Pivot recentré sur l'écran : main couvre toute la page (~10 000 px
+         sur mobile) — autour de SON centre, les 0,4° du tremblé balaieraient
+         l'écran de 30 px et plus au lieu des ±4 px dessinés. Une lecture de
+         rect au déclenchement ; transform-origin ne touche pas au layout et
+         part avec la classe (endTremor). */
+      const top = container.getBoundingClientRect().top;
+      container.style.transformOrigin = `50% ${Math.round(window.innerHeight / 2 - top)}px`;
       container.classList.add('quake-tremor');
       this._quakeTremorEl = container;
       this._delayed.push({
         in: QUAKE_TREMOR_MS + 50,
         run: () => {
           if (this._quakeTremorEl === container) {
-            container.classList.remove('quake-tremor');
-            this._quakeTremorEl = undefined;
+            this.endTremor();
           }
         },
       });
     }
 
-    /* Cibles : table par slide, rects lus UNE fois (patron existant),
-       filtre viewport, plafond QUAKE_MAX_BROKEN. */
-    const specs = QUAKE_TARGETS[this._activeSlide] ?? [];
+    /* Cibles : table par section, lues DANS la section lue, rects lus UNE
+       fois (patron existant), filtre viewport (sous l'en-tête collant),
+       plafond QUAKE_MAX_BROKEN. */
+    const specs = QUAKE_TARGETS[this._activeSection];
     const found: {
       el: HTMLElement;
       rect: DOMRect;
@@ -6428,7 +6674,7 @@ export class MascotComponent implements OnDestroy {
     for (const spec of specs) {
       let taken = 0;
       const take = spec.take ?? 1;
-      for (const info of this.rectsOf(spec.selector)) {
+      for (const info of this.sectionRects(spec.selector)) {
         if (taken >= take || found.length >= QUAKE_MAX_BROKEN) {
           break;
         }
@@ -6818,9 +7064,10 @@ export class MascotComponent implements OnDestroy {
   /**
    * RESTAURATION ABSOLUE — idempotente, sans dépendance à la machine à
    * scènes. Garde de vacuité : appel routinier (clearPerchEffects de tous
-   * les autres numéros) à coût nul. Chemins garantis : timer absolu (tête
-   * de _onFrame), clearPerchEffects (endPerch/abortPerch/controlledFall/
-   * stopScene/ngOnDestroy), swiperslidechange, restauration d'urgence.
+   * les autres numéros, chaque frame où la page défile) à coût nul.
+   * Chemins garantis : timer absolu (tête de _onFrame), clearPerchEffects
+   * (endPerch/abortPerch/controlledFall/stopScene/ngOnDestroy), défilement
+   * et changement de section (tickPageMotion), restauration d'urgence.
    */
   private restoreQuake(): void {
     if (
@@ -6835,11 +7082,25 @@ export class MascotComponent implements OnDestroy {
     }
     this._quakeBroken = [];
     this.armQuakeHealSweep();
-    this._quakeTremorEl?.classList.remove('quake-tremor');
-    this._quakeTremorEl = undefined;
+    this.endTremor();
     this._quakeOverlay?.remove();
     this._quakeOverlay = undefined;
     this._quakeRestoreIn = 0;
+  }
+
+  /** Fin du tremblé : classe et pivot inline retirés de main#contenu. */
+  private endTremor(): void {
+    const el = this._quakeTremorEl;
+    if (!el) {
+      return;
+    }
+    el.classList.remove('quake-tremor');
+    el.style.removeProperty('transform-origin');
+    /* <main> rendu tel qu'il a été trouvé : pas d'attribut style vide. */
+    if (!el.getAttribute('style')) {
+      el.removeAttribute('style');
+    }
+    this._quakeTremorEl = undefined;
   }
 
   /** Bulle d'invitation à activer les capteurs, une fois, peu après l'arrivée. */
@@ -7014,6 +7275,17 @@ export class MascotComponent implements OnDestroy {
     }
     this._lastGreetIndex = index;
     return GREET_DIALOGUES[index];
+  }
+
+  /** Réplique de l'attaché de presse selon le lien vanté (son href : aucune
+      lecture layout) — GitHub, e-mail, ou LinkedIn par défaut. */
+  private pressLine(link: Element): string {
+    const href = (link as HTMLAnchorElement).href ?? '';
+    return href.includes('github')
+      ? PRESS_GITHUB_LINE
+      : href.startsWith('mailto') || href.includes('contact@')
+        ? PRESS_EMAIL_LINE
+        : PRESS_DEFAULT_LINE;
   }
 
   /* ------------------------------------------------------------------ */

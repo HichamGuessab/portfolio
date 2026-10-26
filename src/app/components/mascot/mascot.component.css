@@ -14,22 +14,47 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Sprites : les boutons qui portent les personnages.                  */
-/* Leur translation horizontale est pilotée en TypeScript (rAF).       */
+/* Personnages : conteneurs positionnés le long du bas de l'écran.     */
+/* Leur translation (et le penchement capteurs) est pilotée en         */
+/* TypeScript (rAF). Chacun porte sa bulle et, à côté, le bouton du    */
+/* dessin : le texte des bulles ne se mêle jamais au nom accessible    */
+/* du bouton. Le conteneur ne capte aucun pointeur — seul le bouton.   */
 /* ------------------------------------------------------------------ */
-.duo-sprite {
+.duo-char {
   position: absolute;
   bottom: 2px;
   left: 0;
+  pointer-events: none;
+  will-change: transform;
+  /* Penchement (inclinaison du téléphone) : pivot aux pieds. */
+  transform-origin: 50% 100%;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.robot-char {
+  width: 64px;
+  height: 78px;
+  z-index: 2;
+}
+
+.buddy-char {
+  width: 48px;
+  height: 56px;
+  z-index: 1;
+}
+
+/* Le bouton : le dessin cliquable, aux dimensions du personnage. */
+.duo-sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
   border-radius: 16px; /* contour de focus arrondi (outline global) */
   cursor: var(--cursor-interactive, pointer);
   pointer-events: auto;
-  will-change: transform;
-  /* Penchement (inclinaison du téléphone) : pivot aux pieds. */
-  transform-origin: 50% 100%;
   /* Tactile : pas de zoom double-tap, de surbrillance ni de menu d'appui long. */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -38,30 +63,18 @@
   user-select: none;
 }
 
-.robot-sprite {
-  width: 64px;
-  height: 78px;
-  z-index: 2;
-}
-
-.buddy-sprite {
-  width: 48px;
-  height: 56px;
-  z-index: 1;
-}
-
-/* Sur mobile (< md), le duo est conservé mais réduit à ~70 % : les boutons
-   prennent la taille visuelle réduite (bulles bien posées au-dessus des
-   têtes, largeurs logiques réduites côté TypeScript) et le dessin est mis à
-   l'échelle depuis leur coin haut-gauche. Les bulles se font plus étroites
-   pour ne jamais provoquer de défilement horizontal. */
+/* Sur mobile (< md), le duo est conservé mais réduit à ~70 % : les
+   personnages prennent la taille visuelle réduite (bulles bien posées
+   au-dessus des têtes, largeurs logiques réduites côté TypeScript) et le
+   dessin est mis à l'échelle depuis leur coin haut-gauche. Les bulles se
+   font plus étroites pour ne jamais provoquer de défilement horizontal. */
 @media (max-width: 767.98px) {
-  .robot-sprite {
+  .robot-char {
     width: 45px;
     height: 55px;
   }
 
-  .buddy-sprite {
+  .buddy-char {
     width: 34px;
     height: 40px;
   }
@@ -78,8 +91,9 @@
 }
 
 /* Couches de transformation isolées pour éviter tout conflit :
-   bouton = translation (TS) → .mascot-pop = apparition/disparition
-   → .mascot-flip = retournement gauche/droite → SVG = cycles animés. */
+   conteneur = translation (TS) → bouton (sans transform)
+   → .mascot-pop = apparition/disparition → .mascot-flip = retournement
+   gauche/droite → SVG = cycles animés. */
 .mascot-pop,
 .mascot-flip,
 .duo-svg {
@@ -159,7 +173,7 @@
 }
 
 /* L'ami arrive un instant après le robot, comme s'il le suivait. */
-.buddy-sprite .mascot-pop {
+.buddy-char .mascot-pop {
   animation-delay: 0.6s;
 }
 
@@ -275,7 +289,7 @@
 /* Le blob n'a pas d'antenne : son alerte, ce sont les yeux écarquillés
    (clignement suspendu). Trois classes pour primer sur les règles de
    phase à deux classes (is-nesting, is-hiding…). */
-.buddy-sprite.is-alert .buddy-eyes {
+.buddy-char.is-alert .buddy-eyes {
   animation: none;
   transform: scaleY(1.25);
 }
