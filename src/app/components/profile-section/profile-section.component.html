@@ -1,123 +1,213 @@
 @if (layout() === 'compact') {
-  <!-- Layout compact « pont de commandement » : photo dans un liseré dégradé
-       (le cadre en tirets appartient désormais à l'écran, voir screen-frame),
+  <!-- Layout compact « pont de commandement » : photo dans un liseré dégradé,
        pile serrée des titres à sa droite, accroche intégrale dessous.
-       Aucun mot supprimé : seuls les <br> doubles du layout hero sautent.
        Le reveal est porté par la cellule du pont, pas par ce contenu. -->
   <div class="flex min-h-0 flex-col gap-3 2xl:gap-4">
     <div class="flex items-center gap-4 2xl:gap-5">
       <div
         class="shrink-0 rounded-xl bg-linear-to-b from-lightBlue to-purple p-px"
       >
-        <img
-          (load)="imageLoaded.set(true)"
-          [class.blur-md]="!imageLoaded()"
-          src="assets/images/pp.png"
-          alt="Portrait de Hicham Guessab"
-          class="h-20 w-20 rounded-xl object-cover transition-all duration-500 2xl:h-24 2xl:w-24"
+        <app-portrait
+          sizes="96px"
+          [imgClass]="
+            'h-20 w-20 rounded-xl object-cover transition-all duration-500 2xl:h-24 2xl:w-24' +
+            (imageLoaded() ? '' : ' blur-md')
+          "
+          (loaded)="imageLoaded.set(true)"
         />
       </div>
       <div class="flex flex-col gap-0.5">
-        <p class="text-sm font-medium text-lightBlue">Hello ! Je suis</p>
+        <p class="text-sm font-medium text-lightBlue">{{ profile.greeting }}</p>
         <h1
-          class="inline-block text-gradient text-3xl font-medium 2xl:text-4xl"
+          class="inline-block text-gradient font-display text-3xl font-semibold tracking-tight 2xl:text-4xl"
         >
-          Hicham Guessab
+          {{ profile.name }}
         </h1>
-        <p class="font-analogue text-base 2xl:text-lg">Ingénieur logiciel</p>
+        <p class="font-display text-base 2xl:text-lg">{{ profile.role }}</p>
       </div>
     </div>
-    <p
-      class="max-w-prose text-[13px] leading-relaxed font-light text-white/85 2xl:text-sm"
-    >
-      Aujourd'hui
-      <strong class="text-gradient">Développeur web et mobile,</strong>
-      je reste ouvert aux belles opportunités !
-      <br />
-      J'ai contribué à plusieurs projets, comme des
-      <strong class="text-gradient">SaaS</strong>
-      ou des sites vitrines.
-      <br />
-      Je suis spécialisé dans le développement
-      <strong class="text-gradient">Front-End</strong>
-      et particulièrement sur les technologies Angular et TypeScript.
-      <br />
-      Je reste
-      <strong class="text-gradient">touche à tout</strong>
-      et je peux m'adapter rapidement à d'autres technologies.
+    <!-- La ponctuation doit rester collée aux <strong> : pas de reformatage. -->
+    <!-- prettier-ignore -->
+    <p class="max-w-prose text-[13px] leading-relaxed font-light text-white/85 2xl:text-sm">
+      Spécialisé <strong class="text-gradient">Front-End</strong>, je conçois et
+      maintiens des applications web et mobile avec Angular et TypeScript.
+      J’ai contribué à des <strong class="text-gradient">SaaS</strong> comme à
+      des sites vitrines, et je reste
+      <strong class="text-gradient">touche-à-tout</strong>&nbsp;: je m’adapte
+      vite à de nouvelles technologies.
     </p>
   </div>
 } @else {
-  <!-- Layout hero (diaporama) : inchangé. -->
-  <div reveal class="flex items-center justify-between">
-    <div class="flex flex-col gap-3">
-      <p class="text-2xl font-medium text-lightBlue md:text-3xl">
-        Hello ! Je suis
-      </p>
-      <h1
-        class="inline-block text-gradient pl-5 text-4xl font-medium md:pl-8 md:text-6xl"
-      >
-        Hicham Guessab
-      </h1>
-      <p class="pl-5 font-analogue text-lg font-medium md:pl-8 md:text-2xl">
-        Ingénieur logiciel
-      </p>
-    </div>
-    <div
-      class="h-28 w-28 rounded-full bg-linear-to-b from-lightBlue to-purple md:h-48 md:w-48"
-    >
-      <img
-        (load)="imageLoaded.set(true)"
-        [class.blur-md]="!imageLoaded()"
-        src="assets/images/pp.png"
-        alt="Portrait de Hicham Guessab"
-        class="h-full w-full rounded-full object-cover p-px transition-all duration-500 md:h-48 md:w-48 md:p-1"
-      />
-    </div>
-  </div>
-  <p
-    reveal
-    [revealDelay]="120"
-    class="pl-5 font-light sm:text-lg md:pl-8 md:text-xl"
+  <section
+    id="profil"
+    spySection="profil"
+    aria-labelledby="profil-title"
+    class="relative overflow-x-clip"
   >
-    Aujourd'hui
-    <strong class="text-gradient">Développeur web et mobile,</strong>
-    je reste ouvert aux belles opportunités !
-    <br />
-    J'ai contribué à plusieurs projets, comme des
-    <strong class="text-gradient">SaaS</strong>
-    ou des sites vitrines.
-    <br />
-    <br />
-    Je suis spécialisé dans le développement
-    <strong class="text-gradient">Front-End</strong>
-    et particulièrement sur les technologies Angular et TypeScript.
-    <br />
-    Je reste
-    <strong class="text-gradient">touche à tout</strong>
-    et je peux m'adapter rapidement à d'autres technologies.
-  </p>
-  <div class="flex flex-wrap place-content-evenly gap-3">
-    <badge
-      reveal
-      [revealDelay]="240"
-      [image]="BlueImage.Github"
-      [url]="Link.Github"
-      name="Github"
-    />
-    <badge
-      reveal
-      [revealDelay]="320"
-      [image]="BlueImage.Linkedin"
-      [url]="Link.LinkedIn"
-      name="LinkedIn"
-    />
-    <badge
-      reveal
-      [revealDelay]="400"
-      [image]="BlueImage.At"
-      [url]="Link.Email"
-      name="contact&#64;hichamguessab.com"
-    />
-  </div>
+    <div
+      class="mx-auto grid max-w-6xl items-center gap-7 px-5 pt-7 pb-16 sm:gap-8 sm:px-8 md:pt-12 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:gap-16 lg:py-16"
+    >
+      <!-- Colonne texte : disponibilité, identité, accroche, actions. -->
+      <div class="hero-enter flex flex-col items-start">
+        <p
+          class="inline-flex items-center gap-2.5 rounded-full border border-lightBlue/25 bg-lightBlue/8 px-3.5 py-1.5 text-sm text-lightBlue"
+        >
+          <span aria-hidden="true" class="relative flex size-2">
+            <span
+              class="availability-ping absolute inset-0 rounded-full bg-lightBlue"
+            ></span>
+            <span class="relative size-2 rounded-full bg-lightBlue"></span>
+          </span>
+          {{ profile.availability }}
+        </p>
+
+        <p class="mt-6 font-display text-xl text-lightBlue md:mt-8 md:text-2xl">
+          {{ profile.greeting }}
+        </p>
+        <h1
+          id="profil-title"
+          class="mt-1 text-gradient pb-1 font-display text-[clamp(2.5rem,11vw,4.5rem)] leading-[1.02] font-semibold tracking-tight lg:text-[min(5rem,6.6vw)]"
+        >
+          {{ profile.name }}
+        </h1>
+        <p class="mt-4 font-display text-xl text-wildSand md:mt-5 md:text-2xl">
+          {{ profile.role }}
+          <span class="text-white/30" aria-hidden="true">/</span>
+          &ngsp;
+          <span class="text-white/70">Développeur web et mobile</span>
+        </p>
+
+        <!-- La ponctuation doit rester collée aux <strong> : pas de reformatage. -->
+        <!-- prettier-ignore -->
+        <p class="mt-5 max-w-xl text-base leading-relaxed text-pretty text-white/70 sm:text-lg md:mt-6">
+          Spécialisé <strong class="text-gradient font-medium">Front-End</strong>,
+          je conçois et maintiens des applications web et mobile avec
+          <strong class="font-medium text-wildSand">Angular</strong> et
+          <strong class="font-medium text-wildSand">TypeScript</strong>. J’ai
+          contribué à des <strong class="font-medium text-wildSand">SaaS</strong>
+          comme à des sites vitrines, et je reste
+          <strong class="text-gradient font-medium">touche-à-tout</strong>&nbsp;:
+          je m’adapte vite à de nouvelles technologies.
+        </p>
+
+        <div
+          class="mt-8 flex flex-wrap items-center gap-3 md:mt-9 print:hidden"
+        >
+          <a href="#projets" class="btn btn-primary btn-lg">
+            Voir mes projets
+            <app-icon name="arrow-down" class="size-4" />
+          </a>
+          <a href="#contact" class="btn btn-ghost btn-lg">Me contacter</a>
+          <span
+            aria-hidden="true"
+            class="mx-1 hidden h-6 w-px bg-white/10 sm:block"
+          ></span>
+          @for (link of [profile.github, profile.linkedin]; track link.name) {
+            <a
+              [href]="link.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-perch="social"
+              class="icon-btn max-sm:hidden"
+            >
+              <app-icon [name]="link.icon" class="size-5" />
+              <span class="sr-only">{{ link.name }} (nouvel onglet)</span>
+            </a>
+          }
+        </div>
+
+        <dl
+          class="mt-12 grid w-full max-w-xl grid-cols-3 gap-4 border-t border-white/8 pt-7"
+        >
+          @for (figure of figures; track figure.label) {
+            <div class="flex flex-col gap-1">
+              <dt class="order-2 text-sm leading-snug text-white/60">
+                {{ figure.label }}
+              </dt>
+              <dd
+                class="order-1 font-display text-3xl font-semibold tracking-tight text-wildSand md:text-4xl"
+              >
+                {{ figure.value }}
+              </dd>
+            </div>
+          }
+        </dl>
+      </div>
+
+      <!-- Colonne portrait : halo, orbite en tirets (écho du circuit),
+           liseré dégradé, pastilles de la stack en apesanteur. -->
+      <div
+        class="hero-enter-portrait relative order-first ml-1 w-24 sm:ml-2 sm:w-40 lg:order-none lg:mx-auto lg:w-full lg:max-w-[25rem]"
+      >
+        <div data-perch="photo" class="relative aspect-square">
+          <div
+            aria-hidden="true"
+            class="absolute -inset-[22%] rounded-full bg-[radial-gradient(closest-side,rgba(83,220,253,0.24),rgba(168,140,255,0.14)_55%,transparent)] print:hidden"
+          ></div>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 100 100"
+            class="portrait-orbit absolute -inset-[9%] h-[118%] w-[118%] overflow-visible print:hidden"
+          >
+            <circle
+              cx="50"
+              cy="50"
+              r="49.6"
+              fill="none"
+              stroke="url(#icon-gradient)"
+              stroke-width="0.4"
+              stroke-dasharray="1.4 2.4"
+              stroke-linecap="round"
+              opacity="0.75"
+            />
+            <circle cx="50" cy="0.4" r="1.3" fill="#53DCFD" />
+            <circle cx="50" cy="99.6" r="0.9" fill="#A88CFF" />
+          </svg>
+          <div
+            class="relative rounded-full bg-linear-to-br from-lightBlue via-lightBlue/30 to-purple p-[3px] shadow-[0_0_70px_-12px_rgba(83,220,253,0.5)]"
+          >
+            <app-portrait
+              priority
+              sizes="(min-width: 1024px) 25rem, (min-width: 640px) 10rem, 6rem"
+              imgClass="aspect-square w-full rounded-full bg-navyBlue object-cover"
+            />
+          </div>
+          <span
+            aria-hidden="true"
+            class="tech-float absolute top-[10%] -left-[10%]"
+          >
+            <app-icon name="angular" gradient class="size-4" />
+            Angular
+          </span>
+          <span
+            aria-hidden="true"
+            class="tech-float absolute top-[52%] -right-[4%] [animation-delay:-2.5s] xl:-right-[12%]"
+          >
+            <app-icon name="typescript" gradient class="size-4" />
+            TypeScript
+          </span>
+          <span
+            aria-hidden="true"
+            class="tech-float absolute bottom-[2%] left-[2%] [animation-delay:-5s]"
+          >
+            <app-icon name="capacitor" gradient class="size-4" />
+            Capacitor
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <a
+      href="#experience"
+      class="group absolute bottom-6 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-xs tracking-[0.2em] text-white/55 uppercase transition hover:text-lightBlue print:hidden lg:[@media(min-height:820px)]:flex"
+    >
+      <span
+        aria-hidden="true"
+        class="flex h-9 w-6 justify-center rounded-full border border-current pt-2"
+      >
+        <span class="scroll-wheel h-2 w-0.5 rounded-full bg-current"></span>
+      </span>
+      Découvrir
+    </a>
+  </section>
 }

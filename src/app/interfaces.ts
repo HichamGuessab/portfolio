@@ -1,93 +1,122 @@
-export interface Skill {
+import { IconName } from './components/icon/icons';
+
+/**
+ * Identifiants des technologies citées sur le site (compétences, projets,
+ * expériences). Le libellé et le logo de chacune sont déclarés une seule
+ * fois dans TECHNOLOGIES (src/app/data/technologies.ts).
+ */
+export type TechId =
+  | 'android'
+  | 'angular'
+  | 'arduino'
+  | 'bash'
+  | 'capacitor'
+  | 'cpp'
+  | 'docker'
+  | 'express'
+  | 'figma'
+  | 'flutter'
+  | 'git'
+  | 'gitlab'
+  | 'ice'
+  | 'ionic'
+  | 'ios'
+  | 'java'
+  | 'mongodb'
+  | 'nodejs'
+  | 'npm'
+  | 'postgresql'
+  | 'python'
+  | 'raspberry-pi'
+  | 'react-native'
+  | 'redux'
+  | 'tailwind'
+  | 'typescript'
+  | 'xml';
+
+export interface Technology {
   name: string;
-  image: Image;
-  type: SkillType;
+  icon: IconName;
 }
 
-export enum SkillType {
-  Default = 'default',
-  Shiny = 'shiny',
+/**
+ * Période d'activité. Mois au format ISO « AAAA-MM » ou année seule
+ * « AAAA » ; sans fin, la période court jusqu'à aujourd'hui.
+ */
+export interface Period {
+  start: string;
+  end?: string;
 }
+
+export interface Skill {
+  tech: TechId;
+  /** Stack principale : mise en avant au dégradé signature. */
+  primary?: boolean;
+}
+
+export interface SkillGroup {
+  name: string;
+  /** Une phrase de contexte sous le titre de la famille. */
+  description: string;
+  icon: IconName;
+  skills: Skill[];
+}
+
+export type ProjectCategory = 'web' | 'mobile' | 'software';
 
 export interface Project {
   name: string;
   description: string;
-  technologies: Image[];
-  url: string;
+  category: ProjectCategory;
+  /** Pictogramme d'illustration de la carte. */
+  icon: IconName;
+  technologies: TechId[];
+  /** Dépôt GitHub du code source. */
+  repository: string;
+  /** Maquette Figma, quand elle est publique. */
+  design?: string;
+  /** Projet mis en avant (grande carte en tête de section). */
+  featured?: boolean;
+}
+
+export interface ExperienceRole {
+  title: string;
+  /** Nature du contrat (« CDI », « Alternance »…). */
+  contract?: string;
+  period: Period;
+  summary?: string;
+  highlights?: string[];
+  technologies?: TechId[];
+}
+
+export interface Experience {
+  organization: string;
+  /** Précision affichée sous l'organisation (secteur, cadre…). */
+  context?: string;
+  /** Postes occupés, du plus récent au plus ancien. */
+  roles: ExperienceRole[];
 }
 
 export interface Degree {
   name: string;
-  type: string;
+  field: string;
   institution: string;
-  date: string;
+  period: Period;
+  /** Niveau (« Bac+5 »…), affiché en étiquette. */
+  level?: string;
 }
 
-export interface Experience {
+export interface SocialLink {
   name: string;
-  company: string;
-  date: string;
-  description: string;
+  url: string;
+  icon: IconName;
+  /** Texte visible quand il diffère du nom (adresse e-mail…). */
+  display?: string;
 }
 
-export enum Section {
-  Education = 'education',
-  Experience = 'experience',
-  Profile = 'profile',
-  Projects = 'projects',
-  Skills = 'skills',
-}
-
-export type Image = BlueImage | ShinyImage | WhiteImage;
-
-export enum BlueImage {
-  About = 'assets/images/blue-about.png',
-  At = 'assets/images/blue-at.png',
-  Directory = 'assets/images/blue-directory.png',
-  Github = 'assets/images/blue-github.svg',
-  Identity = 'assets/images/blue-identity.png',
-  Linkedin = 'assets/images/blue-linkedin.png',
-  Stack = 'assets/images/blue-stack.png',
-  Study = 'assets/images/blue-study.png',
-  Technology = 'assets/images/blue-technology.png',
-  Work = 'assets/images/blue-work.png',
-}
-
-export enum ShinyImage {
-  Angular = 'assets/images/shiny-angular.png',
-  Figma = 'assets/images/shiny-figma.png',
-  Tailwind = 'assets/images/shiny-tailwind.png',
-  Typescript = 'assets/images/shiny-typescript.png',
-}
-
-export enum WhiteImage {
-  Angular = 'assets/images/white-angular.png',
-  Arduino = 'assets/images/white-arduino.png',
-  Bash = 'assets/images/white-bash.png',
-  Cpp = 'assets/images/white-cpp.png',
-  Docker = 'assets/images/white-docker.png',
-  Express = 'assets/images/white-express.png',
-  Figma = 'assets/images/white-figma.png',
-  Flutter = 'assets/images/white-flutter.png',
-  Git = 'assets/images/white-git.png',
-  GithubMascot = 'assets/images/white-github-mascot.png',
-  Gitlab = 'assets/images/white-gitlab.png',
-  Ice = 'assets/images/white-ice.png',
-  Ionic = 'assets/images/white-ionic.png',
-  Java = 'assets/images/white-java.png',
-  Mongodb = 'assets/images/white-mongodb.png',
-  Nodejs = 'assets/images/white-nodejs.png',
-  Npm = 'assets/images/white-npm.png',
-  Pgsql = 'assets/images/white-pgsql.png',
-  Python = 'assets/images/white-python.png',
-  Raspberry = 'assets/images/white-raspberry-pi.png',
-  Redux = 'assets/images/white-redux.png',
-  ReactNative = 'assets/images/white-reactNative.png',
-  Sql = 'assets/images/white-sql.png',
-  Tailwind = 'assets/images/white-tailwind.png',
-  Typescript = 'assets/images/white-typescript.png',
-  XML = 'assets/images/white-xml.png',
-}
+/** Ancres des sections de la page, dans l'ordre de lecture. */
+export type SectionId =
+  'profil' | 'experience' | 'projets' | 'competences' | 'formation' | 'contact';
 
 export enum Link {
   Email = 'mailto:contact@hichamguessab.com',

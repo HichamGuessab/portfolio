@@ -8,14 +8,15 @@ import {
   WritableSignal,
 } from '@angular/core';
 import {
-  BlueImage,
   Degree,
-  Experience,
   Link,
+  Period,
   Project,
-  Skill,
-  SkillType,
+  SkillGroup,
+  TechId,
 } from '../../interfaces';
+import { TECHNOLOGIES } from '../../data/technologies';
+import { formatPeriod } from '../../data/period';
 import { ProjectService } from '../../services/project.service';
 import { ExperienceService } from '../../services/experience.service';
 import { EducationService } from '../../services/education.service';
@@ -24,13 +25,24 @@ import { ProfileSectionComponent } from '../profile-section/profile-section.comp
 import { SectionHeaderComponent } from '../section-header/section-header.component';
 import { BadgeComponent } from '../badge/badge.component';
 import { ScreenFrameComponent } from '../screen-frame/screen-frame.component';
+import { IconComponent } from '../icon/icon.component';
+import { IconName } from '../icon/icons';
 import { RevealDirective } from '../../directives/reveal.directive';
 
-/** Une baie de compétences du pont : libellé de catégorie + chips. */
-interface SkillBay {
-  name: string;
-  skills: Skill[];
+/** Rangée de l'accordéon-registre : un poste (les organisations à plusieurs
+    postes donnent plusieurs rangées, du plus récent au plus ancien). */
+interface ExperienceRow {
+  id: string;
+  date: string;
+  title: string;
+  organization: string;
+  summary?: string;
+  highlights: string[];
 }
+
+/** Libellé de date court du registre : « août 2025 – auj. ». */
+const shortPeriod = (period: Period): string =>
+  formatPeriod(period).replace('aujourd’hui', 'auj.');
 
 /**
  * « Circuit fermé » — le pont de commandement du mode compact : un unique
@@ -52,6 +64,7 @@ interface SkillBay {
     SectionHeaderComponent,
     BadgeComponent,
     ScreenFrameComponent,
+    IconComponent,
     RevealDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -130,20 +143,28 @@ export class CompactBoardComponent {
   private readonly _skillService: SkillService = inject(SkillService);
 
   protected readonly projects: Project[] = inject(ProjectService).getProjects();
-  protected readonly experiences: Experience[] =
-    inject(ExperienceService).getExperiences();
+
+  /** Un poste par rangée, du plus récent au plus ancien. */
+  protected readonly experienceRows: ExperienceRow[] = inject(ExperienceService)
+    .getExperiences()
+    .flatMap((experience) =>
+      experience.roles.map((role) => ({
+        id: `${experience.organization}-${role.period.start}`,
+        date: shortPeriod(role.period),
+        title: role.contract ? `${role.title} (${role.contract})` : role.title,
+        organization: experience.organization,
+        summary: role.summary,
+        highlights: role.highlights ?? [],
+      }))
+    );
 
   /** Ordre chronologique gauche → droite (le service liste du plus récent). */
   protected readonly degrees: Degree[] = [
     ...inject(EducationService).getDegrees(),
   ].reverse();
 
-  protected readonly skillBays: SkillBay[] = [
-    { name: 'Design', skills: this._skillService.getDesignSkills() },
-    { name: 'Front-end', skills: this._skillService.getFrontEndSkills() },
-    { name: 'Back-end', skills: this._skillService.getBackEndSkills() },
-    { name: 'Outils', skills: this._skillService.getToolsSkills() },
-  ];
+  protected readonly skillBays: SkillGroup[] =
+    this._skillService.getSkillGroups();
 
   /**
    * Projet « actif » lu par la console : Portfolio par défaut, puis le
@@ -167,9 +188,8 @@ export class CompactBoardComponent {
     window.innerHeight
   );
 
-  protected readonly BlueImage = BlueImage;
   protected readonly Link = Link;
-  protected readonly SkillType = SkillType;
+  protected readonly formatPeriod = formatPeriod;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -206,6 +226,14 @@ export class CompactBoardComponent {
 
   protected onCircuitLeave(): void {
     this.frameExcited.set(false);
+  }
+
+  protected techIcon(tech: TechId): IconName {
+    return TECHNOLOGIES[tech].icon;
+  }
+
+  protected techName(tech: TechId): string {
+    return TECHNOLOGIES[tech].name;
   }
 
   /** Index HUD à deux chiffres (« 01 » … « 11 »). */

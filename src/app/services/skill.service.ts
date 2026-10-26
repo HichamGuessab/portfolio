@@ -1,43 +1,59 @@
 import { Injectable } from '@angular/core';
-import { Image, ShinyImage, Skill, SkillType, WhiteImage } from '../interfaces';
+import { SkillGroup } from '../interfaces';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SkillService {
-  getDesignSkills(): Skill[] {
-    return [this.createSkill('figma', ShinyImage.Figma, SkillType.Shiny)];
-  }
+  /** Familles de compétences ; `primary` = stack principale. */
+  private readonly _groups: SkillGroup[] = [
+    {
+      name: 'Front-end & mobile',
+      description:
+        'Interfaces web et applications mobiles hybrides, sur iOS comme sur Android.',
+      icon: 'layers',
+      skills: [
+        { tech: 'typescript', primary: true },
+        { tech: 'angular', primary: true },
+        { tech: 'tailwind', primary: true },
+        { tech: 'ionic' },
+        { tech: 'capacitor' },
+        { tech: 'redux' },
+      ],
+    },
+    {
+      name: 'Design',
+      description:
+        'Maquettage d’interfaces : ce portfolio est d’abord né sur Figma.',
+      icon: 'palette',
+      skills: [{ tech: 'figma', primary: true }],
+    },
+    {
+      name: 'Back-end',
+      description: 'API, serveurs et bases de données relationnelles.',
+      icon: 'server',
+      skills: [
+        { tech: 'java' },
+        { tech: 'nodejs' },
+        { tech: 'express' },
+        { tech: 'postgresql' },
+      ],
+    },
+    {
+      name: 'Outils',
+      description: 'Versionnement, conteneurs et automatisation du quotidien.',
+      icon: 'wrench',
+      skills: [
+        { tech: 'git' },
+        { tech: 'gitlab' },
+        { tech: 'docker' },
+        { tech: 'bash' },
+        { tech: 'npm' },
+      ],
+    },
+  ];
 
-  getFrontEndSkills(): Skill[] {
-    return [
-      this.createSkill('typescript', ShinyImage.Typescript, SkillType.Shiny),
-      this.createSkill('angular', ShinyImage.Angular, SkillType.Shiny),
-      this.createSkill('tailwind', ShinyImage.Tailwind, SkillType.Shiny),
-      this.createSkill('ionic', WhiteImage.Ionic, SkillType.Default),
-      this.createSkill('redux', WhiteImage.Redux, SkillType.Default),
-    ];
-  }
-
-  getBackEndSkills(): Skill[] {
-    return [
-      this.createSkill('java', WhiteImage.Java, SkillType.Default),
-      this.createSkill('nodejs', WhiteImage.Nodejs, SkillType.Default),
-      this.createSkill('express', WhiteImage.Express, SkillType.Default),
-      this.createSkill('postgresql', WhiteImage.Pgsql, SkillType.Default),
-    ];
-  }
-
-  getToolsSkills(): Skill[] {
-    return [
-      this.createSkill('git & gitlab', WhiteImage.Git, SkillType.Default),
-      this.createSkill('docker', WhiteImage.Docker, SkillType.Default),
-      this.createSkill('bash', WhiteImage.Bash, SkillType.Default),
-      this.createSkill('npm', WhiteImage.Npm, SkillType.Default),
-    ];
-  }
-
-  private createSkill(name: string, image: Image, skillType: SkillType): Skill {
-    return { name, image, type: skillType };
+  getSkillGroups(): SkillGroup[] {
+    return this._groups;
   }
 }

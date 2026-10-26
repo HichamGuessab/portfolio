@@ -1,42 +1,50 @@
 import {
   Component,
+  computed,
   input,
   InputSignal,
   ChangeDetectionStrategy,
+  Signal,
 } from '@angular/core';
-import { Project, WhiteImage } from '../../../interfaces';
+import { Project, Technology } from '../../../interfaces';
+import { TECHNOLOGIES } from '../../../data/technologies';
+import { PROJECT_CATEGORIES } from '../../../services/project.service';
+import { IconComponent } from '../../icon/icon.component';
+import { TechChipComponent } from '../../tech-chip/tech-chip.component';
 
-/* Noms de marque qui ne peuvent pas être dérivés du nom de fichier
-   par simple capitalisation. */
-const TECH_NAME_OVERRIDES: Record<string, string> = {
-  reactNative: 'React Native',
-  cpp: 'C++',
-  nodejs: 'Node.js',
-  pgsql: 'PostgreSQL',
-  mongodb: 'MongoDB',
-  xml: 'XML',
-};
+/**
+ * Carte projet. Toute la carte mène au dépôt GitHub (lien étiré depuis le
+ * titre, un seul arrêt de tabulation) ; un lien secondaire — la maquette
+ * Figma — reste cliquable au-dessus.
+ * - « featured » : grande carte des projets mis en avant ;
+ * - « compact » : ligne de la liste d'archive « Autres projets ».
+ */
+export type ProjectItemVariant = 'featured' | 'compact';
 
 @Component({
   selector: 'project-item',
   templateUrl: './project-item.component.html',
+  imports: [IconComponent, TechChipComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  standalone: true,
+  host: { class: 'block h-full' },
 })
 export class ProjectItemComponent {
   project: InputSignal<Project> = input.required<Project>();
-  protected readonly WhiteImage = WhiteImage;
+  variant: InputSignal<ProjectItemVariant> =
+    input<ProjectItemVariant>('featured');
 
-  techName(path: string): string {
-    const key = (path.split('/').pop() ?? '')
-      .replace(/^white-/, '')
-      .replace(/\.(png|svg)$/, '');
-    const name =
-      TECH_NAME_OVERRIDES[key] ??
-      key
-        .split('-')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    return `Logo ${name}`;
-  }
+  /** Numéro HUD affiché sur la carte (« 01 »…). */
+  index: InputSignal<number> = input(0);
+
+  protected readonly category: Signal<string> = computed(
+    () => PROJECT_CATEGORIES[this.project().category]
+  );
+
+  protected readonly technologies: Signal<Technology[]> = computed(() =>
+    this.project().technologies.map((tech) => TECHNOLOGIES[tech])
+  );
+
+  protected readonly number: Signal<string> = computed(() =>
+    String(this.index() + 1).padStart(2, '0')
+  );
 }

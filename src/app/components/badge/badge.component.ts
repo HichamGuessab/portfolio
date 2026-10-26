@@ -6,27 +6,32 @@ import {
   Signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { Image, Link } from '../../interfaces';
+import { IconComponent } from '../icon/icon.component';
+import { IconName } from '../icon/icons';
 
 /**
- * Tailles du badge : « default » (diaporama, inchangé) ou « sm » (variante
- * réduite de la barre de statut du mode compact).
+ * Pastille de contact de la barre de statut du mode compact (icône + texte).
  */
-export type BadgeSize = 'default' | 'sm';
-
 @Component({
   selector: 'badge',
-  templateUrl: './badge.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [],
+  imports: [IconComponent],
+  template: `
+    <a
+      [href]="url()"
+      [attr.target]="isExternal() ? '_blank' : null"
+      [attr.rel]="isExternal() ? 'noopener noreferrer' : null"
+      class="inline-flex place-items-center justify-center gap-2 rounded-2xl bg-nightBlue px-3 py-1.5 text-xs text-lightBlue transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-navyBlue focus-visible:bg-navyBlue"
+    >
+      <app-icon [name]="icon()" class="size-4" />
+      <span>{{ name() }}</span>
+    </a>
+  `,
 })
 export class BadgeComponent {
   name: InputSignal<string> = input.required<string>();
-  image: InputSignal<Image> = input.required<Image>();
-  url: InputSignal<Link> = input.required<Link>();
-
-  /** Variante d'affichage (voir BadgeSize). */
-  size: InputSignal<BadgeSize> = input<BadgeSize>('default');
+  icon: InputSignal<IconName> = input.required<IconName>();
+  url: InputSignal<string> = input.required<string>();
 
   /* Un lien mailto ne doit pas s'ouvrir dans un nouvel onglet
      (onglet vide dans certains navigateurs). */

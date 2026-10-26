@@ -1,36 +1,33 @@
-import {
-  Component,
-  inject,
-  OnInit,
-  ChangeDetectionStrategy,
-} from '@angular/core';
-import { SkillCategoryComponent } from './skill-category/skill-category.component';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { SkillGroup } from '../../interfaces';
 import { SkillService } from '../../services/skill.service';
-import { BlueImage, Skill } from '../../interfaces';
 import { SectionHeaderComponent } from '../section-header/section-header.component';
+import { IconComponent } from '../icon/icon.component';
+import { TechChipComponent } from '../tech-chip/tech-chip.component';
 import { RevealDirective } from '../../directives/reveal.directive';
+import { SpySectionDirective } from '../../directives/spy-section.directive';
+
+/** Familles affichées en carte large dans la grille bento (lg). */
+const WIDE_GROUPS = new Set([0, 3]);
 
 @Component({
   selector: 'skills-section',
   templateUrl: './skills-section.component.html',
-  imports: [SkillCategoryComponent, SectionHeaderComponent, RevealDirective],
+  imports: [
+    SectionHeaderComponent,
+    IconComponent,
+    TechChipComponent,
+    RevealDirective,
+    SpySectionDirective,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex flex-col' },
+  host: { class: 'block' },
 })
-export class SkillsSectionComponent implements OnInit {
-  designSkills: Skill[] = [];
-  frontEndSkills: Skill[] = [];
-  backEndSkills: Skill[] = [];
-  toolsSkills: Skill[] = [];
+export class SkillsSectionComponent {
+  protected readonly groups: SkillGroup[] =
+    inject(SkillService).getSkillGroups();
 
-  skillService: SkillService = inject(SkillService);
-
-  ngOnInit() {
-    this.designSkills = this.skillService.getDesignSkills();
-    this.frontEndSkills = this.skillService.getFrontEndSkills();
-    this.backEndSkills = this.skillService.getBackEndSkills();
-    this.toolsSkills = this.skillService.getToolsSkills();
+  protected isWide(index: number): boolean {
+    return WIDE_GROUPS.has(index);
   }
-
-  protected readonly BlueImage = BlueImage;
 }

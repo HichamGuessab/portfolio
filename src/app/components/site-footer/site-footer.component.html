@@ -1,0 +1,65 @@
+<!-- Marge basse généreuse : le duo de mascottes se promène au ras de
+     l'écran, il ne doit jamais masquer un lien du pied de page. -->
+<footer class="border-t border-white/8">
+  <div
+    class="mx-auto grid max-w-6xl gap-8 px-5 pt-12 pb-32 sm:px-8 md:grid-cols-[1fr_auto] md:items-end md:pb-28"
+  >
+    <div>
+      <p class="font-display text-lg font-semibold tracking-tight">
+        {{ profile.name }}
+      </p>
+      <p class="mt-1 text-sm text-white/60">
+        {{ profile.role }} · Développeur web et mobile
+      </p>
+      <p class="mt-5 max-w-lg text-sm leading-relaxed text-white/55">
+        Conçu sur Figma, développé avec Angular et Tailwind CSS.
+        <a
+          href="https://github.com/HichamGuessab/portfolio"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-white/75 underline decoration-white/25 underline-offset-4 transition hover:text-wildSand hover:decoration-lightBlue"
+        >
+          Voir le code source
+          <span class="sr-only">(nouvel onglet)</span>
+        </a>
+      </p>
+      <p class="mt-3 hidden text-xs text-white/55 lg:block print:hidden">
+        Un secret se cache dans ce portfolio… les mascottes en savent quelque
+        chose.
+      </p>
+    </div>
+
+    <div class="flex flex-col gap-4 md:items-end">
+      <ul class="flex items-center gap-2 print:hidden">
+        @for (
+          link of [profile.github, profile.linkedin, profile.mail];
+          track link.name
+        ) {
+          <li>
+            <a
+              [href]="link.url"
+              [attr.target]="link.url.startsWith('mailto:') ? null : '_blank'"
+              [attr.rel]="
+                link.url.startsWith('mailto:') ? null : 'noopener noreferrer'
+              "
+              class="icon-btn"
+            >
+              <app-icon [name]="link.icon" class="size-5" />
+              <span class="sr-only">{{ link.name }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+      <p class="flex items-center gap-4 text-sm text-white/55">
+        © {{ year }} {{ profile.name }}
+        <a
+          href="#profil"
+          class="inline-flex items-center gap-1.5 text-white/75 transition hover:text-lightBlue print:hidden"
+        >
+          Haut de page
+          <app-icon name="arrow-up" class="size-4" />
+        </a>
+      </p>
+    </div>
+  </div>
+</footer>

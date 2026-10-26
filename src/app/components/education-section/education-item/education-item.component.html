@@ -1,54 +1,50 @@
-<!-- Racine = enfant direct de <education-item> : la mascotte s'y perche
-     (PERCH_SELECTORS → 'swiper-slide.swiper-slide-active > education-item > div'),
-     ne pas envelopper cette div. -->
-<div
-  class="group relative flex h-auto w-80 max-w-full flex-col gap-4 overflow-hidden rounded-2xl border border-lightBlue bg-navyBlue p-6 transition duration-300 ease-out hover:-translate-y-1 hover:border-purple"
-  [class]="highlight() ? 'shadow-[0_0_28px_rgba(168,140,255,0.28)]' : ''"
+<!-- data-perch : point d'accroche des mascottes (cartes de la page). -->
+<article
+  data-perch="card"
+  class="group relative h-full rounded-2xl p-px transition duration-300"
+  [class]="
+    highlight()
+      ? 'bg-linear-to-br from-lightBlue to-purple shadow-[0_0_40px_-8px_rgba(168,140,255,0.45)]'
+      : 'bg-white/8 hover:bg-lightBlue/35'
+  "
 >
-  <!-- Liseré dégradé signature : réservé au diplôme le plus élevé (Master). -->
-  @if (highlight()) {
-    <span
-      aria-hidden="true"
-      class="absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-lightBlue to-purple"
-    ></span>
-  }
+  <div
+    data-spotlight
+    class="relative flex h-full flex-col rounded-[15px] bg-nightBlue p-6"
+  >
+    <div class="flex min-h-6 items-center justify-between gap-3">
+      <p class="font-mono text-xs tracking-wider text-lightBlue/85 uppercase">
+        <time [attr.datetime]="education().period.start">{{ period() }}</time>
+      </p>
+      @if (education().level; as level) {
+        <span
+          class="rounded-md px-2 py-0.5 text-xs font-semibold"
+          [class]="
+            highlight()
+              ? 'bg-linear-to-r from-lightBlue to-purple text-darkBlue'
+              : 'bg-white/6 text-white/75'
+          "
+        >
+          {{ level }}
+        </span>
+      }
+    </div>
 
-  <!-- Métadonnées hautes : date + nœud écho de la timeline du mode compact. -->
-  <div class="flex items-center justify-between gap-2">
-    <p
-      class="text-sm text-lightBlue/80 tabular-nums transition duration-300 group-hover:text-lightBlue"
+    <h3
+      class="mt-5 font-display text-2xl font-semibold tracking-tight text-wildSand"
     >
-      {{ education().date }}
-    </p>
-    <span
-      aria-hidden="true"
-      class="flex h-3 w-3 shrink-0 rounded-full bg-linear-to-b from-lightBlue to-purple p-px"
-      [class]="highlight() ? 'shadow-[0_0_10px_rgba(168,140,255,0.7)]' : ''"
-    >
-      <!-- Anneau creux pour les autres diplômes, plein pour le Master. -->
-      <span
-        class="h-full w-full rounded-full"
-        [class]="highlight() ? 'bg-transparent' : 'bg-navyBlue'"
-      ></span>
-    </span>
-  </div>
-
-  <!-- Hiérarchie : diplôme fort en blanc, spécialité en dégradé signature. -->
-  <div class="flex flex-col gap-1">
-    <h3 class="text-3xl font-medium text-white">
       {{ education().name }}
     </h3>
-    <p class="text-gradient text-lg font-medium">
-      {{ education().type }}
+    <p class="mt-1 text-gradient font-medium">{{ education().field }}</p>
+
+    <div
+      aria-hidden="true"
+      class="mt-5 h-px w-full bg-linear-to-r from-lightBlue/40 to-purple/40"
+    ></div>
+
+    <p class="mt-4 flex items-center gap-2 text-sm text-white/65">
+      <app-icon name="map-pin" class="size-4 text-white/50" />
+      {{ education().institution }}
     </p>
   </div>
-
-  <div
-    aria-hidden="true"
-    class="h-px w-full bg-linear-to-r from-lightBlue/50 to-purple/50"
-  ></div>
-
-  <p class="text-sm font-light text-white/75 italic">
-    {{ education().institution }}
-  </p>
-</div>
+</article>

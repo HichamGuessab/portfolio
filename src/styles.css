@@ -1,6 +1,35 @@
 @import 'tailwindcss';
 @source './';
 
+/* ------------------------------------------------------------------ */
+/* Typographie : Space Grotesk (titres, chiffres, navigation) auto-     */
+/* hébergée, sous-ensemble latin (couvre le français), une seule        */
+/* variable font préchargée dans index.html. Corps de texte en police   */
+/* système : zéro octet, rendu natif. Le fallback métrique (Arial       */
+/* recalé) supprime le décalage de mise en page au chargement.         */
+/* ------------------------------------------------------------------ */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url('/assets/fonts/space-grotesk-latin-wght-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Space Grotesk Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans');
+  ascent-override: 90.36%;
+  descent-override: 26.81%;
+  line-gap-override: 0%;
+  size-adjust: 108.9%;
+}
+
 @theme {
   --color-wildSand: #f5f5f5;
   --color-lightBlue: #53dcfd;
@@ -9,14 +38,23 @@
   --color-darkBlue: #040d39;
   --color-purple: #a88cff;
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-analogue: Georgia, serif;
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-display:
+    'Space Grotesk', 'Space Grotesk Fallback', system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas,
+    monospace;
 
   --font-weight-light: 300;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 /*
@@ -85,46 +123,457 @@
   [contenteditable]:not([contenteditable='false']) {
     cursor: text;
   }
-
-  /* Flèches et pagination du Swiper (shadow DOM : ciblées via ::part). */
-  swiper-container::part(button-prev),
-  swiper-container::part(button-next),
-  swiper-container::part(bullet),
-  swiper-container::part(bullet-active) {
-    cursor: var(--cursor-interactive);
-  }
 }
 
 @layer base {
+  html {
+    color-scheme: dark;
+    background-color: var(--dark-blue);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Ancres et focus clavier s'arrêtent sous l'en-tête collant (64 px). */
+  html {
+    scroll-padding-top: 4rem;
+  }
+
+  /* Défilement doux vers les ancres, sauf demande contraire du système. */
+  @media (prefers-reduced-motion: no-preference) {
+    html:focus-within {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body {
+    @apply bg-darkBlue font-sans text-wildSand antialiased;
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--light-blue) 30%, transparent);
+    color: #ffffff;
+  }
+
   :focus-visible {
     outline: 2px solid var(--light-blue);
-    outline-offset: 2px;
+    outline-offset: 3px;
+  }
+
+  /* Le focus programmatique du <main> (lien d'évitement) reste invisible. */
+  main:focus {
+    outline: none;
   }
 }
 
-/* Mode compact « pont de commandement » : la page ne défile JAMAIS — tout
-   tient dans le viewport, seuls certains blocs internes peuvent défiler. */
+/* ------------------------------------------------------------------ */
+/* Ambiance : deux halos lumineux et une trame de points très discrète, */
+/* fixés derrière la page (une couche composée, jamais repeinte au      */
+/* défilement).                                                         */
+/* ------------------------------------------------------------------ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      60rem 42rem at 12% -12%,
+      color-mix(in srgb, var(--light-blue) 11%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      52rem 40rem at 105% 30%,
+      color-mix(in srgb, var(--purple) 10%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 1px 1px,
+      rgb(255 255 255 / 0.045) 1px,
+      transparent 0
+    )
+      0 0 / 28px 28px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Composants partagés                                                 */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium whitespace-nowrap transition duration-200 ease-out;
+  }
+
+  .btn-lg {
+    @apply px-5 py-3 text-[15px] sm:px-6 sm:text-base;
+  }
+
+  /* Action principale : le dégradé signature, texte darkBlue (contraste
+     ≥ 7:1 sur toute la largeur du dégradé). */
+  .btn-primary {
+    @apply bg-linear-to-r from-lightBlue to-purple text-darkBlue shadow-[0_8px_28px_-10px_rgba(83,220,253,0.65)] hover:-translate-y-0.5 hover:shadow-[0_12px_34px_-10px_rgba(168,140,255,0.75)] active:translate-y-0;
+  }
+
+  .btn-ghost {
+    @apply border border-white/15 bg-white/[0.03] text-wildSand hover:-translate-y-0.5 hover:border-lightBlue/50 hover:bg-white/[0.06] active:translate-y-0;
+  }
+
+  .icon-btn {
+    @apply grid size-11 place-items-center rounded-full border border-white/12 text-white/80 transition duration-200 hover:-translate-y-0.5 hover:border-lightBlue/50 hover:text-lightBlue;
+  }
+
+  .link-arrow {
+    @apply inline-flex items-center gap-1.5 font-medium text-lightBlue underline decoration-lightBlue/30 underline-offset-[6px] transition hover:decoration-lightBlue;
+  }
+
+  /* Lien étiré : le titre porte le lien, son ::after couvre toute la carte
+     (parent en position relative). Un seul arrêt de tabulation par carte. */
+  .stretched-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+
+  .stretched-link:focus-visible {
+    outline: none;
+  }
+
+  /* Lien d'évitement : hors écran jusqu'au focus clavier. */
+  .skip-link {
+    @apply fixed top-3 left-3 z-50 -translate-y-24 rounded-full bg-lightBlue px-4 py-2 text-sm font-semibold text-darkBlue transition-transform focus-visible:translate-y-0;
+  }
+}
+
+/* Halo qui suit le pointeur sur les cartes (SpotlightDirective) : deux
+   variables CSS, un dégradé radial, une transition d'opacité. */
+[data-spotlight]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    26rem circle at var(--spot-x, 50%) var(--spot-y, 0%),
+    color-mix(in srgb, var(--light-blue) 8%, transparent),
+    transparent 45%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+[data-spotlight]:hover::before {
+  opacity: 1;
+}
+
+/* Progression de lecture sous l'en-tête (scroll-driven animation). */
+.scroll-progress {
+  display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-progress {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--light-blue), var(--purple));
+    transform-origin: 0 50%;
+    animation: scroll-progress linear both;
+    animation-timeline: scroll(root block);
+  }
+
+  @keyframes scroll-progress {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Héros                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Entrée du héros en CSS pur : elle joue dès le premier affichage du HTML
+   pré-rendu, sans attendre JavaScript. Translation seule, sans fondu : le
+   texte est lisible dès la première image (un fondu retarderait le LCP
+   d'une seconde sur mobile). */
+@keyframes hero-rise {
+  from {
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+.hero-enter > * {
+  animation: hero-rise 0.8s var(--ease-out-soft) backwards;
+}
+
+.hero-enter > :nth-child(2) {
+  animation-delay: 60ms;
+}
+.hero-enter > :nth-child(3) {
+  animation-delay: 110ms;
+}
+.hero-enter > :nth-child(4) {
+  animation-delay: 170ms;
+}
+.hero-enter > :nth-child(5) {
+  animation-delay: 230ms;
+}
+.hero-enter > :nth-child(6) {
+  animation-delay: 300ms;
+}
+.hero-enter > :nth-child(7) {
+  animation-delay: 380ms;
+}
+
+/* Portrait : léger zoom d'arrivée, sans fondu (c'est l'élément LCP sur
+   ordinateur, il doit être visible dès la première image). */
+@keyframes portrait-in {
+  from {
+    transform: scale(0.95);
+  }
+}
+
+.hero-enter-portrait {
+  animation: portrait-in 0.9s var(--ease-out-soft) 120ms backwards;
+}
+
+/* Pastille « disponible » : onde lumineuse lente. */
+@keyframes availability-ping {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.availability-ping {
+  animation: availability-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.availability-ping-static {
+  box-shadow: 0 0 8px var(--light-blue);
+}
+
+/* Orbite du portrait : rotation très lente (transform seul). */
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.portrait-orbit {
+  animation: orbit-spin 60s linear infinite;
+}
+
+/* Pastilles de la stack en apesanteur autour du portrait. */
+.tech-float {
+  @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-nightBlue/85 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-wildSand shadow-[0_10px_30px_-12px_rgba(4,13,57,0.9)] backdrop-blur-sm max-lg:hidden print:hidden;
+  animation: tech-float 7s ease-in-out infinite;
+}
+
+@keyframes tech-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+/* Indice de défilement : la molette descend doucement. */
+@keyframes scroll-wheel {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.scroll-wheel {
+  animation: scroll-wheel 1.8s ease-out infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/* Frises (Expérience, Formation)                                      */
+/* ------------------------------------------------------------------ */
+
+/* Ligne de vie verticale de l'Expérience, nœuds alignés sur les cartes. */
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: 2rem;
+  bottom: 2rem;
+  left: 7px;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    var(--light-blue),
+    color-mix(in srgb, var(--purple) 45%, transparent) 60%,
+    transparent
+  );
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  top: 1.85rem;
+  left: 0;
+  width: 15px;
+  height: 15px;
+  border-radius: 9999px;
+  background: var(--dark-blue);
+  border: 2px solid color-mix(in srgb, var(--light-blue) 55%, transparent);
+}
+
+.timeline-item-current::before {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--light-blue), var(--purple));
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--light-blue) 16%, transparent),
+    0 0 18px color-mix(in srgb, var(--light-blue) 55%, transparent);
+}
+
+/* Postes successifs dans une même organisation : mini-frise interne. */
+.role-step {
+  padding-left: 1.5rem;
+}
+
+.role-step::before {
+  content: '';
+  position: absolute;
+  top: 0.55rem;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background: var(--night-blue);
+  border: 1.5px solid color-mix(in srgb, var(--light-blue) 65%, transparent);
+}
+
+.role-step::after {
+  content: '';
+  position: absolute;
+  top: 1.45rem;
+  bottom: -1.3rem;
+  left: 4px;
+  width: 1px;
+  background: rgb(255 255 255 / 0.12);
+}
+
+.role-step:last-child::after {
+  display: none;
+}
+
+.role-step-current::before {
+  border-color: var(--light-blue);
+  background: var(--light-blue);
+  box-shadow: 0 0 10px var(--light-blue);
+}
+
+/* Frise de la Formation : fil pointillé (écho du circuit du mode compact),
+   vertical sur mobile, horizontal à partir de md. */
+.degree-line {
+  padding-left: 1.75rem;
+}
+
+.degree-line::before {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 6px;
+  width: 2px;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--light-blue) 40%, transparent) 0 8px,
+    transparent 8px 15px
+  );
+}
+
+.degree-step::before {
+  content: '';
+  position: absolute;
+  top: 1.6rem;
+  left: -1.75rem;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background:
+    linear-gradient(var(--dark-blue), var(--dark-blue)) padding-box,
+    linear-gradient(135deg, var(--light-blue), var(--purple)) border-box;
+  border: 2px solid transparent;
+}
+
+.degree-step:last-child::before {
+  background: linear-gradient(135deg, var(--light-blue), var(--purple));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--purple) 70%, transparent);
+}
+
+@media (min-width: 768px) {
+  .degree-line {
+    padding-top: 2.25rem;
+    padding-left: 0;
+  }
+
+  .degree-line::before {
+    top: 6px;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 2px;
+    background: repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--light-blue) 40%, transparent) 0 10px,
+      transparent 10px 18px
+    );
+  }
+
+  .degree-step::before {
+    top: -2.25rem;
+    left: 1.5rem;
+  }
+}
+
+/* Trame de la carte Contact : quadrillage fin, estompé vers les bords. */
+.contact-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+}
+
+/* ------------------------------------------------------------------ */
+/* Mode compact « pont de commandement » : la page ne défile JAMAIS —   */
+/* tout tient dans le viewport, seuls certains blocs internes peuvent   */
+/* défiler.                                                            */
+/* ------------------------------------------------------------------ */
 html:has(compact-board),
 body:has(compact-board) {
   overflow: hidden;
 }
 
-/* Flèches de navigation Swiper : masquées sur mobile, visibles à partir du breakpoint sm */
-swiper-container::part(button-prev),
-swiper-container::part(button-next) {
-  display: none;
-}
-
-@media (min-width: 640px) {
-  swiper-container::part(button-prev),
-  swiper-container::part(button-next) {
-    display: block;
-  }
-}
-
-/* Fondu doux à la création d'une vue (bascule diaporama/compact et premier
-   chargement). Pas de fill-mode : l'état final est l'état naturel, le contenu
-   reste visible même si l'animation est neutralisée. */
+/* Fondu doux à la création d'une vue (bascule page/compact). Pas de
+   fill-mode : l'état final est l'état naturel, le contenu reste visible
+   même si l'animation est neutralisée. */
 @keyframes view-fade-in {
   from {
     opacity: 0;
@@ -135,28 +584,138 @@ swiper-container::part(button-next) {
   animation: view-fade-in 0.3s ease-out;
 }
 
-/* Animations d'entrée des sections (directive [reveal]).
-   Seules opacity et transform sont animées (aucun recalcul de layout).
-   Actives pour tout le monde : la directive pose .reveal-visible dès
-   l'entrée dans le viewport (ou immédiatement sans IntersectionObserver),
-   aucun contenu ne reste masqué. */
-.reveal {
+/* ------------------------------------------------------------------ */
+/* Animations d'entrée au défilement (directive [reveal]).             */
+/* Seules opacity et transform sont animées (aucun recalcul de layout). */
+/* La directive n'arme (.reveal-pending) que les éléments encore hors   */
+/* écran après le premier rendu : le HTML pré-rendu reste visible.      */
+/* ------------------------------------------------------------------ */
+.reveal-pending {
   opacity: 0;
-  transform: translateY(14px);
-}
-
-/* will-change seulement tant que l'animation est à venir. */
-.reveal:not(.reveal-visible) {
+  transform: translate3d(0, 18px, 0);
   will-change: opacity, transform;
 }
 
-.reveal-visible {
+.reveal-pending.reveal-visible {
   opacity: 1;
   transform: none;
+  will-change: auto;
   transition:
-    opacity 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
-    transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+    opacity 0.6s var(--ease-out-soft),
+    transform 0.6s var(--ease-out-soft);
   transition-delay: var(--reveal-delay, 0ms);
+}
+
+/* Mouvement réduit : les apparitions restent (fondu), les déplacements et
+   les boucles décoratives s'arrêtent. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-pending {
+    transform: none;
+  }
+
+  .hero-enter > *,
+  .hero-enter-portrait {
+    animation: none;
+  }
+
+  .portrait-orbit,
+  .tech-float,
+  .scroll-wheel,
+  .availability-ping {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Impression / export PDF (bouton « Version imprimable ») : document   */
+/* clair et sobre, sans décor ni mascottes, liens rendus lisibles.      */
+/* ------------------------------------------------------------------ */
+@media print {
+  @page {
+    margin: 14mm 16mm;
+  }
+
+  body::before,
+  site-header,
+  app-mascot,
+  .skip-link,
+  .scroll-progress {
+    display: none !important;
+  }
+
+  /* Papier clair, et un corps resserré (toutes les tailles sont en rem). */
+  html {
+    color-scheme: light !important;
+    font-size: 11.5px !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Encre sombre partout : les textes en dégradé (bg-clip: text) et les
+     fonds sombres disparaissent au profit d'un rendu papier. */
+  *,
+  ::before,
+  ::after {
+    color: #10163a !important;
+    -webkit-text-fill-color: currentColor !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .reveal-pending {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  section {
+    padding-block: 0 0 10mm !important;
+  }
+
+  article,
+  li,
+  dl,
+  [data-perch] {
+    break-inside: avoid;
+  }
+
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  /* Liserés : gris léger, et plus de cadre dégradé en double. */
+  [class*='border'] {
+    border-color: #cfd4e6 !important;
+  }
+
+  [class*='p-px'] {
+    padding: 0 !important;
+  }
+
+  [class*='p-px'] > div,
+  [class*='p-px'] > span {
+    border: 1px solid #cfd4e6 !important;
+  }
+
+  a {
+    text-decoration: none !important;
+  }
+
+  /* L'adresse des liens utiles est imprimée à leur suite. */
+  [data-print-url]::after {
+    content: ' — ' attr(href);
+    position: static !important;
+    font-size: 8.5pt;
+    font-weight: 400;
+    color: #4a5070 !important;
+    word-break: break-all;
+  }
 }
 
 /* ------------------------------------------------------------------ */

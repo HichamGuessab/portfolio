@@ -5,43 +5,31 @@ import { Degree } from '../interfaces';
   providedIn: 'root',
 })
 export class EducationService {
-  degrees: Degree[] = [];
-
-  baccalaureate: Degree = this.buildEducation(
-    'Baccalauréat',
-    'Scientifique',
-    'Villeneuve-Lez-Avignon',
-    '2017 - 2020'
-  );
-
-  license: Degree = this.buildEducation(
-    'Licence',
-    'Ingénierie du logiciel',
-    "Université d'Avignon - CERI",
-    '2020 - 2023'
-  );
-
-  master: Degree = this.buildEducation(
-    'Master',
-    'Ingénierie du logiciel',
-    "Université d'Avignon - CERI",
-    '2023 - 2025'
-  );
-
-  constructor() {
-    this.degrees = [this.master, this.license, this.baccalaureate];
-  }
-
-  buildEducation(
-    name: string,
-    type: string,
-    institution: string,
-    date: string
-  ): Degree {
-    return { name, type, institution, date };
-  }
+  /** Du diplôme le plus élevé au plus ancien. */
+  private readonly _degrees: Degree[] = [
+    {
+      name: 'Master',
+      field: 'Ingénierie du logiciel',
+      institution: 'Université d’Avignon · CERI',
+      period: { start: '2023', end: '2025' },
+      level: 'Bac+5',
+    },
+    {
+      name: 'Licence',
+      field: 'Ingénierie du logiciel',
+      institution: 'Université d’Avignon · CERI',
+      period: { start: '2020', end: '2023' },
+      level: 'Bac+3',
+    },
+    {
+      name: 'Baccalauréat',
+      field: 'Scientifique',
+      institution: 'Villeneuve-lès-Avignon',
+      period: { start: '2017', end: '2020' },
+    },
+  ];
 
   getDegrees(): Degree[] {
-    return this.degrees;
+    return this._degrees;
   }
 }
