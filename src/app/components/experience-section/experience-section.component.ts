@@ -25,5 +25,4 @@ export class ExperienceSectionComponent {
   protected readonly profile: ProfileService = inject(ProfileService);
   protected readonly experiences: Experience[] =
     inject(ExperienceService).getExperiences();
-  protected readonly years: number = this.profile.yearsOfExperience();
 }

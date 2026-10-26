@@ -2,11 +2,13 @@ import {
   booleanAttribute,
   ChangeDetectionStrategy,
   Component,
+  inject,
   input,
   InputSignal,
   InputSignalWithTransform,
   output,
 } from '@angular/core';
+import { ProfileService } from '../../services/profile.service';
 
 /** Largeurs générées pour src/assets/images/portrait-{w}.{avif,webp}. */
 const WIDTHS = [192, 384, 576, 768] as const;
@@ -16,8 +18,7 @@ const srcset = (format: 'avif' | 'webp'): string =>
 
 /**
  * Portrait responsive : AVIF puis WebP selon le navigateur, JPEG en dernier
- * recours, la bonne largeur choisie via `sizes`. Le texte alternatif est
- * fixe — les mascottes repèrent la photo par lui.
+ * recours, la bonne largeur choisie via `sizes`.
  */
 @Component({
   selector: 'app-portrait',
@@ -29,7 +30,7 @@ const srcset = (format: 'avif' | 'webp'): string =>
       <source type="image/webp" [attr.srcset]="webp" [attr.sizes]="sizes()" />
       <img
         src="assets/images/portrait-768.jpg"
-        alt="Portrait de Hicham Guessab"
+        [alt]="alt"
         width="768"
         height="768"
         decoding="async"
@@ -55,6 +56,7 @@ export class PortraitComponent {
 
   readonly loaded = output<void>();
 
+  protected readonly alt = `Portrait de ${inject(ProfileService).name}`;
   protected readonly avif = srcset('avif');
   protected readonly webp = srcset('webp');
 }

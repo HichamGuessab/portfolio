@@ -1,42 +1,9 @@
-import { IconName } from './components/icon/icons';
-
-/**
- * Identifiants des technologies citées sur le site (compétences, projets,
- * expériences). Le libellé et le logo de chacune sont déclarés une seule
- * fois dans TECHNOLOGIES (src/app/data/technologies.ts).
- */
-export type TechId =
-  | 'android'
-  | 'angular'
-  | 'arduino'
-  | 'bash'
-  | 'capacitor'
-  | 'cpp'
-  | 'docker'
-  | 'express'
-  | 'figma'
-  | 'flutter'
-  | 'git'
-  | 'gitlab'
-  | 'ice'
-  | 'ionic'
-  | 'ios'
-  | 'java'
-  | 'mongodb'
-  | 'nodejs'
-  | 'npm'
-  | 'postgresql'
-  | 'python'
-  | 'raspberry-pi'
-  | 'react-native'
-  | 'redux'
-  | 'tailwind'
-  | 'typescript'
-  | 'xml';
+import { IconDef, IconName } from './components/icon/icons';
+import { TechId } from './data/technologies';
 
 export interface Technology {
   name: string;
-  icon: IconName;
+  icon: IconDef;
 }
 
 /**
@@ -110,8 +77,6 @@ export interface SocialLink {
   name: string;
   url: string;
   icon: IconName;
-  /** Texte visible quand il diffère du nom (adresse e-mail…). */
-  display?: string;
 }
 
 /** Ancres des sections de la page, dans l'ordre de lecture. */
@@ -119,7 +84,6 @@ export type SectionId =
   'profil' | 'experience' | 'projets' | 'competences' | 'formation' | 'contact';
 
 export enum Link {
-  Email = 'mailto:contact@hichamguessab.com',
   LinkedIn = 'https://www.linkedin.com/in/hicham-g-811573222/',
   Github = 'https://github.com/HichamGuessab',
 }

@@ -12,9 +12,9 @@
     ></span>
     <div
       data-spotlight
-      class="relative flex h-full flex-col overflow-hidden rounded-[15px] bg-nightBlue p-6 md:p-7"
+      class="flex h-full flex-col overflow-hidden rounded-[15px] bg-nightBlue p-6 md:p-7"
     >
-      <div class="relative flex items-start justify-between gap-4">
+      <div class="flex items-start justify-between gap-4">
         <span
           class="grid size-12 place-items-center rounded-xl border border-white/10 bg-darkBlue/70"
         >
@@ -29,7 +29,7 @@
       </div>
 
       <h3
-        class="relative mt-6 font-display text-2xl font-semibold tracking-tight text-wildSand"
+        class="mt-6 font-display text-2xl font-semibold tracking-tight text-wildSand"
       >
         <a
           [href]="project().repository"
@@ -42,18 +42,18 @@
           <span class="sr-only">— voir le code sur GitHub (nouvel onglet)</span>
         </a>
       </h3>
-      <p class="relative mt-3 leading-relaxed text-pretty text-white/70">
+      <p class="mt-3 leading-relaxed text-pretty text-white/70">
         {{ project().description }}
       </p>
 
-      <ul class="relative mt-5 flex flex-wrap gap-2" aria-label="Technologies">
+      <ul class="mt-5 flex flex-wrap gap-2" aria-label="Technologies">
         @for (tech of project().technologies; track tech) {
           <li><tech-chip [tech]="tech" /></li>
         }
       </ul>
 
       <div
-        class="relative mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-7 text-sm"
+        class="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-7 text-sm"
       >
         <span
           aria-hidden="true"
@@ -73,7 +73,7 @@
             rel="noopener noreferrer"
             class="relative z-10 inline-flex items-center gap-2 text-white/70 underline decoration-white/25 underline-offset-4 transition hover:text-wildSand hover:decoration-lightBlue"
           >
-            <app-icon name="figma" class="size-4" />
+            <app-icon [name]="figma" class="size-4" />
             Voir la maquette
             <span class="sr-only">Figma (nouvel onglet)</span>
           </a>
@@ -87,7 +87,7 @@
   <article
     data-perch="card"
     data-spotlight
-    class="group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-4 px-4 py-4 transition duration-300 hover:bg-white/[0.035] has-[.stretched-link:focus-visible]:bg-white/[0.05] has-[.stretched-link:focus-visible]:ring-2 has-[.stretched-link:focus-visible]:ring-lightBlue has-[.stretched-link:focus-visible]:ring-inset sm:px-6 md:grid-cols-[auto_minmax(0,1.5fr)_minmax(0,1fr)_auto] md:items-center md:gap-x-6"
+    class="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-4 px-4 py-4 transition duration-300 hover:bg-white/[0.035] has-[.stretched-link:focus-visible]:bg-white/[0.05] has-[.stretched-link:focus-visible]:ring-2 has-[.stretched-link:focus-visible]:ring-lightBlue has-[.stretched-link:focus-visible]:ring-inset sm:px-6 md:grid-cols-[auto_minmax(0,1.5fr)_minmax(0,1fr)_auto] md:items-center md:gap-x-6"
   >
     <span
       class="grid size-10 place-items-center rounded-xl border border-white/10 bg-darkBlue/60 transition duration-300 group-hover:border-lightBlue/40"
@@ -120,26 +120,19 @@
       <p class="mt-1 text-sm leading-relaxed text-pretty text-white/65">
         {{ project().description }}
       </p>
-      <ul
-        class="mt-2 flex flex-wrap gap-x-3 gap-y-1 md:hidden"
-        aria-label="Technologies"
-      >
-        @for (tech of technologies(); track tech.name) {
-          <li class="inline-flex items-center gap-1.5 text-xs text-white/65">
-            <app-icon [name]="tech.icon" class="size-3.5" />
-            {{ tech.name }}
-          </li>
-        }
-      </ul>
     </div>
 
+    <!-- Technologies : sous le résumé (2e ligne de la grille) sur mobile,
+         en colonne dédiée à partir de md. -->
     <ul
-      class="hidden flex-wrap gap-x-4 gap-y-1.5 md:flex"
+      class="mt-2 flex flex-wrap gap-x-3 gap-y-1 max-md:col-start-2 md:mt-0 md:gap-x-4 md:gap-y-1.5"
       aria-label="Technologies"
     >
       @for (tech of technologies(); track tech.name) {
-        <li class="inline-flex items-center gap-1.5 text-sm text-white/70">
-          <app-icon [name]="tech.icon" class="size-4" />
+        <li
+          class="inline-flex items-center gap-1.5 text-xs text-white/65 md:text-sm md:text-white/70"
+        >
+          <app-icon [name]="tech.icon" class="size-3.5 md:size-4" />
           {{ tech.name }}
         </li>
       }
@@ -147,7 +140,7 @@
 
     <app-icon
       name="arrow-up-right"
-      class="size-5 text-white/40 transition duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-lightBlue"
+      class="size-5 text-white/40 transition duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-lightBlue max-md:col-start-3 max-md:row-start-1"
     />
   </article>
 }

@@ -17,10 +17,7 @@
     >
       <!-- A — Identité -->
       <section
-        reveal
-        [revealDelay]="250"
-        [revealMargin]="'0px'"
-        class="relative flex min-h-0 flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+        class="board-cell relative flex min-h-0 flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 [animation-delay:250ms] 2xl:p-6 [@media(min-height:820px)]:p-4"
       >
         <span
           class="absolute top-3 right-4 text-[10px] text-lightBlue/60 tabular-nums"
@@ -33,10 +30,7 @@
 
       <!-- B — Projets : baie de modules + console de lecture -->
       <section
-        reveal
-        [revealDelay]="350"
-        [revealMargin]="'0px'"
-        class="relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+        class="board-cell relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 [animation-delay:350ms] 2xl:p-6 [@media(min-height:820px)]:p-4"
       >
         <section-header
           size="mini"
@@ -68,7 +62,7 @@
               <span class="flex gap-1.5 text-white/80">
                 @for (technology of project.technologies; track technology) {
                   <app-icon
-                    [name]="techIcon(technology)"
+                    [name]="tech[technology].icon"
                     class="size-3.5 2xl:size-4"
                   />
                 }
@@ -141,10 +135,7 @@
     >
       <!-- C — Expérience : accordéon-registre -->
       <section
-        reveal
-        [revealDelay]="450"
-        [revealMargin]="'0px'"
-        class="relative flex min-h-0 flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+        class="board-cell relative flex min-h-0 flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 [animation-delay:450ms] 2xl:p-6 [@media(min-height:820px)]:p-4"
       >
         <section-header
           size="mini"
@@ -235,10 +226,7 @@
       <!-- D — Compétences : 4 baies techniques 2×2, toutes les chips
            visibles en permanence. -->
       <section
-        reveal
-        [revealDelay]="550"
-        [revealMargin]="'0px'"
-        class="relative flex flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+        class="board-cell relative flex flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 [animation-delay:550ms] 2xl:p-6 [@media(min-height:820px)]:p-4"
       >
         <section-header size="mini" icon="cpu" title="Compétences" index="04" />
         <div
@@ -255,23 +243,20 @@
                 @for (skill of bay.skills; track skill.tech) {
                   <li data-circuit class="group flex items-center gap-1.5">
                     <app-icon
-                      [name]="techIcon(skill.tech)"
+                      [name]="tech[skill.tech].icon"
                       [gradient]="!!skill.primary"
                       class="size-4 text-white/85 transition duration-200 group-hover:drop-shadow-[0_0_6px_rgba(83,220,253,0.6)] 2xl:size-5"
                     />
-                    @if (skill.primary) {
-                      <span
-                        class="text-gradient text-[11px] font-semibold 2xl:text-xs"
-                      >
-                        {{ techName(skill.tech) }}
-                      </span>
-                    } @else {
-                      <span
-                        class="text-[11px] font-light text-white/85 transition duration-200 group-hover:text-white 2xl:text-xs"
-                      >
-                        {{ techName(skill.tech) }}
-                      </span>
-                    }
+                    <span
+                      class="text-[11px] 2xl:text-xs"
+                      [class]="
+                        skill.primary
+                          ? 'text-gradient font-semibold'
+                          : 'font-light text-white/85 transition duration-200 group-hover:text-white'
+                      "
+                    >
+                      {{ tech[skill.tech].name }}
+                    </span>
                   </li>
                 }
               </ul>
@@ -283,10 +268,7 @@
       <!-- E — Formation : timeline horizontale sur fil pointillé, dérivation
            du circuit (mêmes tirets, même cadence que le cadre). -->
       <section
-        reveal
-        [revealDelay]="650"
-        [revealMargin]="'0px'"
-        class="relative flex flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
+        class="board-cell relative flex flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 [animation-delay:650ms] 2xl:p-6 [@media(min-height:820px)]:p-4"
       >
         <section-header
           size="mini"
@@ -341,27 +323,25 @@
     <!-- F — Barre de statut : contacts + sol des mascottes + readout HUD.
          Pas de carte : elle appartient au sol du pont. -->
     <div
-      reveal
-      [revealDelay]="750"
-      [revealMargin]="'0px'"
-      class="col-span-12 flex h-12 items-center gap-4 px-1 2xl:h-14"
+      class="board-cell col-span-12 flex h-12 items-center gap-4 px-1 [animation-delay:750ms] 2xl:h-14"
     >
       <!-- Les mascottes (hôte fixe z-40) passent DEVANT les badges, comme
            devant le reste du pont : seul le corps d'un sprite intercepte
            ponctuellement le clic, le badge reste cliquable autour. -->
       <div class="compact-contacts relative flex items-center gap-2">
-        <badge data-circuit icon="github" [url]="Link.Github" name="GitHub" />
-        <badge
-          data-circuit
-          icon="linkedin"
-          [url]="Link.LinkedIn"
-          name="LinkedIn"
-        />
+        @for (link of [profile.github, profile.linkedin]; track link.name) {
+          <badge
+            data-circuit
+            [icon]="link.icon"
+            [url]="link.url"
+            [name]="link.name"
+          />
+        }
         <badge
           data-circuit
           icon="at-sign"
-          [url]="Link.Email"
-          name="contact&#64;hichamguessab.com"
+          [url]="profile.mail.url"
+          [name]="profile.email"
         />
       </div>
       <!-- Sol pointillé sur lequel le duo de mascottes (fixed, z-40) semble

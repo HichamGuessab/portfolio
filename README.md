@@ -78,8 +78,9 @@ de page 3,8 Mo → moins de 200 Ko, CLS 0).
 - **Hydratation incrémentale** : seuls l'en-tête et le héros s'hydratent au
   chargement ; chaque section suivante charge son code et s'hydrate en
   entrant à l'écran (les clics précoces sont rejoués).
-- **Zoneless**, sans routeur ni bibliothèque de carrousel : ~87 Ko compressés
-  de JS + CSS au premier chargement.
+- **Zoneless**, sans routeur ni bibliothèque de carrousel : ~79 Ko compressés
+  de JS + CSS au premier chargement. Les logos des technologies voyagent
+  avec les sections différées qui les affichent.
 - **Chargement différé** (`@defer`) : les mascottes arrivent quand le
   navigateur est inoccupé, le mode compact seulement quand il est activé.
 - **Images** : portrait en AVIF / WebP responsive (≈ 4 à 31 Ko au lieu de

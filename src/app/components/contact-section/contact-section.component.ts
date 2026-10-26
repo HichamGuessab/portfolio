@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { ProfileService } from '../../services/profile.service';
 import { IconComponent } from '../icon/icon.component';
+import { SectionEyebrowComponent } from '../section-header/section-header.component';
 import { RevealDirective } from '../../directives/reveal.directive';
 import { SpySectionDirective } from '../../directives/spy-section.directive';
 
@@ -22,7 +23,12 @@ const COPIED_FEEDBACK_MS = 2500;
 @Component({
   selector: 'contact-section',
   templateUrl: './contact-section.component.html',
-  imports: [IconComponent, RevealDirective, SpySectionDirective],
+  imports: [
+    IconComponent,
+    SectionEyebrowComponent,
+    RevealDirective,
+    SpySectionDirective,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
 })

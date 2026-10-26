@@ -1199,10 +1199,6 @@ export class MascotComponent implements OnDestroy {
   /** Changement de section mémorisé par l'effet du scroll-spy (la rAF
       consomme : surf, commentaire, descente express du perché). */
   private _sectionPending?: SectionId;
-  /** Après une bascule de mode, le scroll-spy se recale sur les sections
-      recréées : ce recalage-là ne vaut pas un changement de section du
-      visiteur (pas de surf ni de commentaire) jusqu'à cet horodatage. */
-  private _sectionSilentUntil = 0;
   /** Défilement de la page signalé par l'écouteur passif (drapeau seul). */
   private _scrollPending = false;
   /** Horodatage de la dernière visite guidée (numéro bridé à ~1 / 2 min). */
@@ -2076,7 +2072,6 @@ export class MascotComponent implements OnDestroy {
        profil désynchroniserait perchoirs et séisme. */
     this._activeSection = untracked(() => this._spy.active());
     this._sectionPending = undefined;
-    this._sectionSilentUntil = 0;
     this._scrollPending = false;
     this._contextCooldown = 0;
     this._sectionCooldown = 0;
@@ -5477,14 +5472,12 @@ export class MascotComponent implements OnDestroy {
     }
     this._perchGrace = PERCH_GRACE_MODE;
     this._nextPerchIn = Math.max(this._nextPerchIn, PERCH_AFTER_MODE_MIN);
-    /* Retour sur la page : les sections sont recréées (en haut de page) et
-       le scroll-spy se recale dans la foulée — ce recalage n'est pas un
-       changement de section du visiteur : ni surf ni commentaire pendant
-       la grâce de bascule. Lecture non suivie : on est dans l'effet de la
-       bascule, qui ne doit dépendre que du mode. */
+    /* La section lue repart de l'état du scroll-spy, qui revient au profil
+       quand les sections disparaissent : la page recréée (en haut) ne
+       signale donc aucun changement de section. Lecture non suivie : on est
+       dans l'effet de la bascule, qui ne doit dépendre que du mode. */
     this._activeSection = untracked(() => this._spy.active());
     this._sectionPending = undefined;
-    this._sectionSilentUntil = performance.now() + PERCH_GRACE_MODE;
     this.reactToModeChange();
   }
 
@@ -5525,7 +5518,7 @@ export class MascotComponent implements OnDestroy {
       this.abortPerch(350);
     }
     this._perchGrace = Math.max(this._perchGrace, PERCH_GRACE_SCROLL);
-    if (changed && timestamp >= this._sectionSilentUntil) {
+    if (changed) {
       /* « Le surf de transition » : horodatage seul, la vague est jouée
          par l'arbitre des réactions (couloir dédié SURF_COOLDOWN). */
       this._surfPokedAt = timestamp;

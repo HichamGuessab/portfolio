@@ -29,6 +29,12 @@ describe('period', () => {
         'août 2025 – aujourd’hui'
       );
     });
+
+    it('accepte un libellé court pour une période ouverte', () => {
+      expect(formatPeriod({ start: '2025-08' }, 'auj.')).toBe(
+        'août 2025 – auj.'
+      );
+    });
   });
 
   describe('periodMonths', () => {

@@ -1,34 +1,29 @@
 import {
   afterNextRender,
-  booleanAttribute,
   DestroyRef,
   Directive,
   ElementRef,
   inject,
   input,
   InputSignal,
-  InputSignalWithTransform,
 } from '@angular/core';
 
 /** Réaction d'un élément observé, appelée à chaque changement d'intersection. */
 type RevealHandler = (entry: IntersectionObserverEntry) => void;
 
-/* Un IntersectionObserver partagé par rootMargin (au lieu d'un par élément),
-   et la réaction de chaque élément suivi. */
-const observers = new Map<string, IntersectionObserver>();
+/* Un IntersectionObserver partagé par tous les éléments (au lieu d'un par
+   élément), et la réaction de chaque élément suivi. Léger retrait en bas du
+   viewport : l'élément n'apparaît qu'une fois réellement entré dans
+   l'écran. */
+let sharedObserver: IntersectionObserver | undefined;
 const handlers = new WeakMap<Element, RevealHandler>();
 
-function sharedObserver(rootMargin: string): IntersectionObserver {
-  let observer = observers.get(rootMargin);
-  if (!observer) {
-    observer = new IntersectionObserver(
-      (entries) =>
-        entries.forEach((entry) => handlers.get(entry.target)?.(entry)),
-      { rootMargin }
-    );
-    observers.set(rootMargin, observer);
-  }
-  return observer;
+function revealObserver(): IntersectionObserver {
+  return (sharedObserver ??= new IntersectionObserver(
+    (entries) =>
+      entries.forEach((entry) => handlers.get(entry.target)?.(entry)),
+    { rootMargin: '0px 0px -10% 0px' }
+  ));
 }
 
 /**
@@ -42,32 +37,13 @@ function sharedObserver(rootMargin: string): IntersectionObserver {
  * src/styles.css) puis révélé à son entrée. Aucune lecture de géométrie
  * synchrone (pas de reflow forcé), rien ne clignote au chargement, et sans
  * JavaScript tout reste lisible.
- *
- * `revealOnLoad` arme l'élément dès le premier rendu, même à l'écran :
- * réservé aux vues créées côté navigateur (mode compact), dont l'entrée est
- * chorégraphiée par les délais.
  */
 @Directive({
   selector: '[reveal]',
-  host: { class: 'reveal' },
 })
 export class RevealDirective {
   /** Délai d'apparition en millisecondes (stagger des listes). */
   revealDelay: InputSignal<number> = input(0);
-
-  /**
-   * rootMargin de l'observation. Par défaut, léger retrait en bas du
-   * viewport : l'élément n'apparaît qu'une fois réellement entré dans
-   * l'écran. À passer à '0px' pour les éléments collés au bord bas d'une
-   * vue plein écran (barre de statut du mode compact), sinon ils ne
-   * seraient jamais révélés.
-   */
-  revealMargin: InputSignal<string> = input('0px 0px -10% 0px');
-
-  /** Arme l'élément dès le premier rendu, même s'il est déjà visible. */
-  revealOnLoad: InputSignalWithTransform<boolean, unknown> = input(false, {
-    transform: booleanAttribute,
-  });
 
   constructor() {
     const element: HTMLElement = inject(ElementRef).nativeElement;
@@ -94,12 +70,8 @@ export class RevealDirective {
       if (this.revealDelay() > 0) {
         element.style.setProperty('--reveal-delay', `${this.revealDelay()}ms`);
       }
-      const onLoad = this.revealOnLoad();
-      if (onLoad) {
-        element.classList.add('reveal-pending');
-      }
 
-      let first = !onLoad;
+      let first = true;
       handlers.set(element, (entry) => {
         if (first) {
           /* Premier rapport : déjà visible (viewport entier, marge
@@ -119,7 +91,7 @@ export class RevealDirective {
           stop();
         }
       });
-      observer = sharedObserver(this.revealMargin());
+      observer = revealObserver();
       observer.observe(element);
       element.addEventListener('focusin', revealNow);
     });

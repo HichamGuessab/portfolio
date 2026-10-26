@@ -10,6 +10,7 @@ import {
   WritableSignal,
 } from '@angular/core';
 import { SectionId } from '../../interfaces';
+import { ProfileService } from '../../services/profile.service';
 import { SectionSpyService } from '../../services/section-spy.service';
 import { IconComponent } from '../icon/icon.component';
 
@@ -39,6 +40,7 @@ const SCROLLED_THRESHOLD = 8;
   },
 })
 export class SiteHeaderComponent {
+  protected readonly profile: ProfileService = inject(ProfileService);
   protected readonly spy: SectionSpyService = inject(SectionSpyService);
 
   protected readonly items: NavItem[] = [

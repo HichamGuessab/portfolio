@@ -3,20 +3,13 @@ import {
   Component,
   DestroyRef,
   inject,
-  NgZone,
   signal,
   WritableSignal,
 } from '@angular/core';
-import {
-  Degree,
-  Link,
-  Period,
-  Project,
-  SkillGroup,
-  TechId,
-} from '../../interfaces';
+import { Degree, Project, SkillGroup } from '../../interfaces';
 import { TECHNOLOGIES } from '../../data/technologies';
 import { formatPeriod } from '../../data/period';
+import { ProfileService } from '../../services/profile.service';
 import { ProjectService } from '../../services/project.service';
 import { ExperienceService } from '../../services/experience.service';
 import { EducationService } from '../../services/education.service';
@@ -26,8 +19,6 @@ import { SectionHeaderComponent } from '../section-header/section-header.compone
 import { BadgeComponent } from '../badge/badge.component';
 import { ScreenFrameComponent } from '../screen-frame/screen-frame.component';
 import { IconComponent } from '../icon/icon.component';
-import { IconName } from '../icon/icons';
-import { RevealDirective } from '../../directives/reveal.directive';
 
 /** Rangée de l'accordéon-registre : un poste (les organisations à plusieurs
     postes donnent plusieurs rangées, du plus récent au plus ancien). */
@@ -39,10 +30,6 @@ interface ExperienceRow {
   summary?: string;
   highlights: string[];
 }
-
-/** Libellé de date court du registre : « août 2025 – auj. ». */
-const shortPeriod = (period: Period): string =>
-  formatPeriod(period).replace('aujourd’hui', 'auj.');
 
 /**
  * « Circuit fermé » — le pont de commandement du mode compact : un unique
@@ -65,12 +52,42 @@ const shortPeriod = (period: Period): string =>
     BadgeComponent,
     ScreenFrameComponent,
     IconComponent,
-    RevealDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   styles: [
     `
+      /* Entrée du pont à la bascule : les cellules montent en cascade
+         (fondu seul en mouvement réduit). Animation CSS de création : toutes
+         les cellules sont à l'écran dès le premier rendu. */
+      @keyframes board-cell-in {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+      }
+
+      @keyframes board-cell-fade-in {
+        from {
+          opacity: 0;
+        }
+      }
+
+      /* Propriétés détaillées, sans raccourci : le délai de chaque cellule
+         vient de son utilitaire [animation-delay:…]. */
+      .board-cell {
+        animation-name: board-cell-in;
+        animation-duration: 0.45s;
+        animation-timing-function: var(--ease-out-soft);
+        animation-fill-mode: both;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .board-cell {
+          animation-name: board-cell-fade-in;
+        }
+      }
+
       /* Caret de la console : la console « lit » le module actif. Il ne
          clignote qu'une fois le cadre dessiné (delay 1.1s, pas de fill-mode :
          visible en continu avant). */
@@ -139,9 +156,7 @@ const shortPeriod = (period: Period): string =>
   ],
 })
 export class CompactBoardComponent {
-  private readonly _zone: NgZone = inject(NgZone);
-  private readonly _skillService: SkillService = inject(SkillService);
-
+  protected readonly profile: ProfileService = inject(ProfileService);
   protected readonly projects: Project[] = inject(ProjectService).getProjects();
 
   /** Un poste par rangée, du plus récent au plus ancien. */
@@ -150,7 +165,7 @@ export class CompactBoardComponent {
     .flatMap((experience) =>
       experience.roles.map((role) => ({
         id: `${experience.organization}-${role.period.start}`,
-        date: shortPeriod(role.period),
+        date: formatPeriod(role.period, 'auj.'),
         title: role.contract ? `${role.title} (${role.contract})` : role.title,
         organization: experience.organization,
         summary: role.summary,
@@ -158,13 +173,11 @@ export class CompactBoardComponent {
       }))
     );
 
-  /** Ordre chronologique gauche → droite (le service liste du plus récent). */
-  protected readonly degrees: Degree[] = [
-    ...inject(EducationService).getDegrees(),
-  ].reverse();
+  /** Ordre chronologique, de gauche à droite. */
+  protected readonly degrees: Degree[] = inject(EducationService).getDegrees();
 
   protected readonly skillBays: SkillGroup[] =
-    this._skillService.getSkillGroups();
+    inject(SkillService).getSkillGroups();
 
   /**
    * Projet « actif » lu par la console : Portfolio par défaut, puis le
@@ -188,27 +201,21 @@ export class CompactBoardComponent {
     window.innerHeight
   );
 
-  protected readonly Link = Link;
+  protected readonly tech = TECHNOLOGIES;
   protected readonly formatPeriod = formatPeriod;
 
   constructor() {
-    const destroyRef = inject(DestroyRef);
     let raf = 0;
-
     const onResize = (): void => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        this._zone.run(() => {
-          this.viewportWidth.set(window.innerWidth);
-          this.viewportHeight.set(window.innerHeight);
-        });
+        this.viewportWidth.set(window.innerWidth);
+        this.viewportHeight.set(window.innerHeight);
       });
     };
 
-    this._zone.runOutsideAngular(() =>
-      window.addEventListener('resize', onResize)
-    );
-    destroyRef.onDestroy(() => {
+    window.addEventListener('resize', onResize);
+    inject(DestroyRef).onDestroy(() => {
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(raf);
     });
@@ -226,14 +233,6 @@ export class CompactBoardComponent {
 
   protected onCircuitLeave(): void {
     this.frameExcited.set(false);
-  }
-
-  protected techIcon(tech: TechId): IconName {
-    return TECHNOLOGIES[tech].icon;
-  }
-
-  protected techName(tech: TechId): string {
-    return TECHNOLOGIES[tech].name;
   }
 
   /** Index HUD à deux chiffres (« 01 » … « 11 »). */

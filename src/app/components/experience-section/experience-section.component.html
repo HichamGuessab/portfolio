@@ -1,6 +1,6 @@
 <section
   id="experience"
-  spySection="experience"
+  spySection
   aria-labelledby="experience-title"
   class="py-20 md:py-28"
 >
@@ -14,9 +14,9 @@
         title="Expérience"
         titleId="experience-title"
       >
-        De l’alternance au CDI&nbsp;: {{ years }} an{{ years > 1 ? 's' : '' }} à
-        développer et maintenir des applications web et mobile, complétés par
-        des engagements associatifs et pédagogiques.
+        De l’alternance au CDI&nbsp;: {{ profile.experience }} à développer et
+        maintenir des applications web et mobile, complétés par des engagements
+        associatifs et pédagogiques.
       </section-header>
       <a
         [href]="profile.linkedin.url"

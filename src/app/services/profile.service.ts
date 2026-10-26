@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Link, SocialLink } from '../interfaces';
-import { periodMonths } from '../data/period';
+import { formatDuration, periodMonths } from '../data/period';
 
 /**
  * Identité et présentation : textes du héros, liens de contact et
@@ -12,14 +12,17 @@ import { periodMonths } from '../data/period';
 })
 export class ProfileService {
   readonly name = 'Hicham Guessab';
-  readonly greeting = 'Hello ! Je suis';
+  readonly greeting = 'Hello ! Je suis';
   readonly role = 'Ingénieur logiciel';
-  readonly headline = 'Développeur web et mobile, spécialisé Front-End';
+  readonly specialty = 'Développeur web et mobile';
   readonly availability = 'Ouvert aux opportunités';
   readonly email = 'contact@hichamguessab.com';
 
   /** Début de l'alternance chez CBA : point de départ de l'expérience pro. */
   readonly careerStart = '2023-09';
+
+  /** Expérience en entreprise, alternance comprise (« 3 ans »). */
+  readonly experience: string = formatDuration(12 * this.yearsOfExperience());
 
   readonly github: SocialLink = {
     name: 'GitHub',
@@ -35,9 +38,8 @@ export class ProfileService {
 
   readonly mail: SocialLink = {
     name: 'E-mail',
-    url: Link.Email,
+    url: `mailto:${this.email}`,
     icon: 'mail',
-    display: this.email,
   };
 
   /** Années pleines d'expérience en entreprise (alternance comprise). */

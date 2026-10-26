@@ -18,37 +18,31 @@ import { IconDef, IconName, ICONS } from './icons';
 const GRADIENT_PAINT = 'url(#icon-gradient) currentColor';
 
 /**
- * Icône SVG en ligne tirée du registre ICONS : nette à toute taille,
- * colorable par currentColor, sans requête réseau et présente dans le HTML
- * prérendu. Les tracés passent par des liaisons [attr.d] : le sanitizer
- * d'Angular viderait un innerHTML de son SVG.
+ * Icône SVG en ligne : une icône d'interface du registre ICONS, par son nom,
+ * ou un logo de logos.ts, par sa définition. Nette à toute taille, colorable
+ * par currentColor, sans requête réseau et présente dans le HTML prérendu.
+ * Les tracés passent par des liaisons [attr.d] : le sanitizer d'Angular
+ * viderait un innerHTML de son SVG.
  *
  * Le SVG remplit l'hôte, que le consommateur dimensionne
- * (`<app-icon name="mail" class="size-5" />`). Décorative par défaut
- * (aria-hidden) ; avec un `label`, l'hôte devient role="img" + aria-label.
+ * (`<app-icon name="mail" class="size-5" />`). Toujours décorative
+ * (aria-hidden) : le texte voisin porte le sens.
  */
 @Component({
   selector: 'app-icon',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    class: 'inline-block shrink-0 align-middle',
-    '[attr.aria-hidden]': 'label() ? null : "true"',
-    '[attr.role]': 'label() ? "img" : null',
-    '[attr.aria-label]': 'label() || null',
-  },
+  host: { class: 'inline-block shrink-0 align-middle', 'aria-hidden': 'true' },
   template: `
     <svg
       class="block size-full"
       focusable="false"
       aria-hidden="true"
-      [attr.viewBox]="def().viewBox ?? '0 0 24 24'"
+      viewBox="0 0 24 24"
       [attr.fill]="fill()"
       [attr.stroke]="stroke()"
-      [attr.stroke-width]="stroke() ? strokeWidth() : null"
+      [attr.stroke-width]="stroke() ? 1.75 : null"
       [attr.stroke-linecap]="stroke() ? 'round' : null"
       [attr.stroke-linejoin]="stroke() ? 'round' : null"
-      [attr.fill-rule]="def().evenOdd ? 'evenodd' : null"
-      [attr.clip-rule]="def().evenOdd ? 'evenodd' : null"
     >
       @for (d of paths(); track $index) {
         <path [attr.d]="d" />
@@ -57,26 +51,23 @@ const GRADIENT_PAINT = 'url(#icon-gradient) currentColor';
   `,
 })
 export class IconComponent {
-  /** Nom de l'icône dans le registre (voir ICONS). */
-  readonly name: InputSignal<IconName> = input.required<IconName>();
+  /** Nom d'une icône d'interface (voir ICONS) ou logo importé de logos.ts. */
+  readonly name: InputSignal<IconName | IconDef> = input.required<
+    IconName | IconDef
+  >();
 
   /**
    * Peint l'icône avec le dégradé signature lightBlue → purple (attribut
-   * seul accepté : `<app-icon name="angular" gradient />`).
+   * seul accepté : `<app-icon [name]="angular" gradient />`).
    */
   readonly gradient: InputSignalWithTransform<boolean, unknown> = input(false, {
     transform: booleanAttribute,
   });
 
-  /** Libellé accessible ; sans libellé, l'icône est décorative. */
-  readonly label: InputSignal<string | undefined> = input<string | undefined>(
-    undefined
-  );
-
-  /** Épaisseur du trait des icônes 'stroke', en unités du viewBox (24). */
-  readonly strokeWidth: InputSignal<number> = input(1.75);
-
-  protected readonly def: Signal<IconDef> = computed(() => ICONS[this.name()]);
+  protected readonly def: Signal<IconDef> = computed(() => {
+    const name = this.name();
+    return typeof name === 'string' ? ICONS[name] : name;
+  });
 
   private readonly _paint: Signal<string> = computed(() =>
     this.gradient() ? GRADIENT_PAINT : 'currentColor'
@@ -125,8 +116,8 @@ export class IconComponent {
     >
       <defs>
         <linearGradient id="icon-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#53DCFD" />
-          <stop offset="1" stop-color="#A88CFF" />
+          <stop offset="0" style="stop-color: var(--light-blue)" />
+          <stop offset="1" style="stop-color: var(--purple)" />
         </linearGradient>
       </defs>
     </svg>
