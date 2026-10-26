@@ -14,18 +14,34 @@
     }
   </main>
 } @else {
-  <!-- Page par défaut : une seule page qui défile, sections ancrées. -->
+  <!-- Page par défaut : une seule page qui défile, sections ancrées.
+       Tout est pré-rendu ; seuls l'en-tête et le héros s'hydratent au
+       chargement, chaque section suivante en entrant à l'écran (son code
+       arrive à ce moment-là). Créées côté navigateur (retour du mode
+       compact), elles s'affichent immédiatement. -->
   <a href="#contenu" class="skip-link">Aller au contenu</a>
   <site-header />
   <main id="contenu" tabindex="-1" spotlightZone>
     <profile-section />
-    <experience-section />
-    <projects-section />
-    <skills-section />
-    <education-section />
-    <contact-section />
+    @defer (on immediate; hydrate on viewport) {
+      <experience-section />
+    }
+    @defer (on immediate; hydrate on viewport) {
+      <projects-section />
+    }
+    @defer (on immediate; hydrate on viewport) {
+      <skills-section />
+    }
+    @defer (on immediate; hydrate on viewport) {
+      <education-section />
+    }
+    @defer (on immediate; hydrate on viewport) {
+      <contact-section />
+    }
   </main>
-  <site-footer />
+  @defer (on immediate; hydrate on viewport) {
+    <site-footer />
+  }
 }
 
 <!-- Duo de mascottes décoratif : le petit robot et son ami se promènent

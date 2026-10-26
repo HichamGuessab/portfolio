@@ -5,7 +5,7 @@ import {
 } from '@angular/core';
 import {
   provideClientHydration,
-  withEventReplay,
+  withIncrementalHydration,
 } from '@angular/platform-browser';
 
 export const appConfig: ApplicationConfig = {
@@ -13,8 +13,10 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     /* Sans zone.js : la détection de changement suit les signals. */
     provideZonelessChangeDetection(),
-    /* Le HTML pré-rendu est réutilisé tel quel ; les clics faits avant la
-       fin du chargement sont rejoués. */
-    provideClientHydration(withEventReplay()),
+    /* Le HTML pré-rendu est réutilisé tel quel. Hydratation incrémentale :
+       chaque section sous la ligne de flottaison ne s'hydrate qu'en entrant
+       à l'écran (voir app.component.html) ; les clics faits entre-temps
+       sont rejoués. */
+    provideClientHydration(withIncrementalHydration()),
   ],
 };

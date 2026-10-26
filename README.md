@@ -68,14 +68,17 @@ npx ng deploy      # publie dist/porte-folio/browser sur gh-pages (CNAME inclus)
 
 ## Performance
 
-Lighthouse **100 / 100 / 100 / 100** (performance, accessibilité, bonnes
-pratiques, SEO) sur mobile comme sur ordinateur — contre 60 en performance
-mobile avant la refonte (LCP 17,1 s → 1,4 s, poids de page 3,8 Mo → 192 Ko).
+Lighthouse (mesure locale, octobre 2026) : **99** en performance, **100** en
+accessibilité, bonnes pratiques et SEO, sur mobile comme sur ordinateur —
+contre 60 en performance mobile avant la refonte (LCP 17,1 s → 1,6 s, poids
+de page 3,8 Mo → moins de 200 Ko, CLS 0).
 
-- **HTML pré-rendu** au build : le contenu s'affiche avant le JavaScript, puis
-  Angular hydrate la page (les clics précoces sont rejoués). CSS critique en
-  ligne.
-- **Zoneless**, sans routeur ni bibliothèque de carrousel : ~94 Ko compressés
+- **HTML pré-rendu** au build : le contenu s'affiche avant le JavaScript. CSS
+  critique en ligne.
+- **Hydratation incrémentale** : seuls l'en-tête et le héros s'hydratent au
+  chargement ; chaque section suivante charge son code et s'hydrate en
+  entrant à l'écran (les clics précoces sont rejoués).
+- **Zoneless**, sans routeur ni bibliothèque de carrousel : ~87 Ko compressés
   de JS + CSS au premier chargement.
 - **Chargement différé** (`@defer`) : les mascottes arrivent quand le
   navigateur est inoccupé, le mode compact seulement quand il est activé.
