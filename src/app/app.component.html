@@ -1,52 +1,40 @@
-<main>
-  <!-- La bascule diaporama / compact n'a pas de bouton : c'est un secret des
-       mascottes — triple-clic sur l'un des deux compagnons (voir MascotComponent). -->
-  @if (viewMode.isCompact()) {
-    <!-- Mode compact « Circuit fermé » : pont de commandement une seule page
-         plein écran, sans aucun défilement, ceinturé du cadre-circuit -->
-    <compact-board />
-  } @else {
-    <!-- Mode diaporama : une section par écran (défaut) -->
-    <swiper-container
-      pagination="true"
-      pagination-clickable="true"
-      mousewheel="true"
-      keyboard="true"
-      direction="vertical"
-      class="view-fade-in h-screen w-full overflow-x-hidden text-wildSand"
-      css-mode="true"
-    >
-      <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-        <profile-section class="w-3/4" />
-      </swiper-slide>
-      <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-        <projects-section class="w-3/4" />
-      </swiper-slide>
-      <swiper-slide class="flex items-center justify-center overflow-x-hidden">
-        <skills-section class="w-3/4" />
-      </swiper-slide>
-      <swiper-slide
-        class="flex flex-col items-center justify-center overflow-x-hidden"
-      >
-        <experience-section class="w-3/4" />
-      </swiper-slide>
-      <swiper-slide
-        class="flex flex-col items-center justify-center overflow-x-hidden"
-      >
-        <education-section class="w-3/4" />
-      </swiper-slide>
-    </swiper-container>
-  }
+<!-- Dégradé signature partagé par les icônes (fill / stroke url(#icon-gradient)). -->
+<app-icon-defs />
 
-  <!-- Duo de mascottes décoratif : le petit robot et son ami se promènent
-       le long du bas de l'écran, discutent en bulles, réagissent à la page
-       et, par moments, escaladent l'interface (tuiles projets, console,
-       badges, cadre…) sans jamais la toucher ni bloquer un clic.
-       Sur ordinateur, un triple-clic sur l'un d'eux bascule diaporama /
-       compact (la « surprise » qu'ils teasent en bulles). Sur mobile, ils
-       sont réduits (~70 %) et réagissent aux mouvements du téléphone
-       (inclinaison, secousse) après un toucher qui active les capteurs.
-       Position fixe, aucun impact sur le layout ; le duo est permanent —
-       il porte le seul accès au mode compact. -->
+<!-- La bascule page / compact n'a pas de bouton : c'est un secret des
+     mascottes — triple-clic sur l'un des deux compagnons (voir MascotComponent). -->
+@if (viewMode.isCompact()) {
+  <!-- Mode compact « Circuit fermé » : pont de commandement une seule page
+       plein écran, sans aucun défilement, ceinturé du cadre-circuit. Chargé
+       à la demande : son code ne pèse rien tant que le secret n'est pas
+       découvert. -->
+  <main>
+    @defer {
+      <compact-board />
+    }
+  </main>
+} @else {
+  <!-- Page par défaut : une seule page qui défile, sections ancrées. -->
+  <a href="#contenu" class="skip-link">Aller au contenu</a>
+  <site-header />
+  <main id="contenu" tabindex="-1" spotlightZone>
+    <profile-section />
+    <experience-section />
+    <projects-section />
+    <skills-section />
+    <education-section />
+    <contact-section />
+  </main>
+  <site-footer />
+}
+
+<!-- Duo de mascottes décoratif : le petit robot et son ami se promènent
+     le long du bas de l'écran, discutent en bulles, réagissent à la page
+     et, par moments, escaladent l'interface (cartes, badges, cadre…) sans
+     jamais la toucher ni bloquer un clic. Sur ordinateur, un triple-clic sur
+     l'un d'eux bascule page / compact. Sur mobile, ils sont réduits (~70 %)
+     et réagissent aux mouvements du téléphone après un toucher.
+     Chargé quand le navigateur est inoccupé : le contenu passe d'abord. -->
+@defer (on idle) {
   <app-mascot />
-</main>
+}

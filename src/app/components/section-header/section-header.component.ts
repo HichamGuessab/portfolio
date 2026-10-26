@@ -1,10 +1,12 @@
 import { Component, input, ChangeDetectionStrategy } from '@angular/core';
-import { Image } from '../../interfaces';
+import { IconComponent } from '../icon/icon.component';
+import { IconName } from '../icon/icons';
 import { RevealDirective } from '../../directives/reveal.directive';
 
 /**
  * Variantes de l'en-tête de section :
- * - « default » : grand en-tête centré du diaporama (inchangé) ;
+ * - « default » : en-tête éditorial de la page (numéro HUD + sur-titre,
+ *   grand titre, chapô projeté via ng-content) ;
  * - « mini » : en-tête de cellule du pont de commandement (mode compact) —
  *   icône + libellé espacé + numéro HUD à droite.
  */
@@ -12,15 +14,16 @@ export type SectionHeaderSize = 'default' | 'mini';
 
 @Component({
   selector: 'section-header',
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RevealDirective],
+  imports: [IconComponent, RevealDirective],
   template: `
     @if (size() === 'mini') {
       <div class="mb-2 flex items-center gap-2 2xl:mb-3">
-        <img [src]="icon()" alt="" class="h-4 w-4 opacity-80" />
+        @if (icon(); as icon) {
+          <app-icon [name]="icon" class="size-4 text-lightBlue/80" />
+        }
         <h2
-          class="text-[11px] font-medium tracking-[0.22em] text-white/50 uppercase"
+          class="text-[11px] font-medium tracking-[0.22em] text-white/55 uppercase"
         >
           {{ title() }}
         </h2>
@@ -30,41 +33,53 @@ export type SectionHeaderSize = 'default' | 'mini';
           </span>
         }
         @if (index()) {
-          <span class="ml-auto text-[10px] text-lightBlue/40 tabular-nums">
+          <span class="ml-auto text-[10px] text-lightBlue/60 tabular-nums">
             {{ index() }}
           </span>
         }
       </div>
     } @else {
-      <!-- Tailles réduites < md : l'en-tête doit tenir dans le conteneur
-           w-3/4 des petits écrans (« Compétences » débordait à droite). -->
-      <div
-        reveal
-        class="mb-8 flex max-w-full gap-3 place-self-center md:mb-12 md:gap-5"
-      >
-        <img
-          [src]="icon()"
-          alt=""
-          class="h-10 w-10 place-self-center md:h-14 md:w-14"
-        />
+      <div reveal data-perch="title" class="mb-10 max-w-2xl md:mb-14">
+        <p
+          class="mb-4 flex items-center gap-3 font-mono text-xs tracking-[0.2em] text-lightBlue uppercase"
+        >
+          <span class="text-lightBlue/75 tabular-nums">{{ index() }}</span>
+          <span
+            aria-hidden="true"
+            class="h-px w-8 bg-linear-to-r from-lightBlue to-purple"
+          ></span>
+          {{ eyebrow() }}
+        </p>
         <h2
-          class="content-center bg-linear-to-r from-lightBlue to-purple bg-clip-text font-analogue text-4xl font-regular text-transparent md:text-5xl"
+          [id]="titleId()"
+          class="font-display text-4xl font-semibold tracking-tight text-balance text-wildSand md:text-5xl"
         >
           {{ title() }}
         </h2>
+        <div class="mt-5 text-lg leading-relaxed text-pretty text-white/70">
+          <ng-content />
+        </div>
       </div>
     }
   `,
 })
 export class SectionHeaderComponent {
-  icon = input.required<Image>();
   title = input.required<string>();
 
   /** Variante d'affichage (voir SectionHeaderSize). */
   size = input<SectionHeaderSize>('default');
 
-  /** Numéro HUD (« 02 »…) affiché à droite — variante mini uniquement. */
+  /** Numéro HUD (« 02 »…) : sur-titre (default) ou coin droit (mini). */
   index = input<string>('');
+
+  /** Sur-titre de la variante default (« Parcours »…). */
+  eyebrow = input<string>('');
+
+  /** Id du titre, cible de l'aria-labelledby de la section. */
+  titleId = input<string | null>(null);
+
+  /** Icône de la variante mini. */
+  icon = input<IconName | null>(null);
 
   /** Compteur optionnel (nombre d'éléments) — variante mini uniquement. */
   count = input<number | null>(null);

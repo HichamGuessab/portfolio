@@ -1,37 +1,153 @@
-<div
-  class="h-fit w-fit rounded-2xl bg-linear-to-b from-lightBlue to-purple p-px transition-transform duration-300 ease-out hover:-translate-y-1"
->
-  <div
-    class="flex h-52 w-72 flex-col justify-between rounded-2xl bg-nightBlue md:w-96"
+@if (variant() === 'featured') {
+  <!-- data-perch : point d'accroche des mascottes (cartes de la page). -->
+  <article
+    data-perch="card"
+    class="group relative h-full rounded-2xl bg-white/8 p-px outline-offset-4 outline-lightBlue transition-transform duration-300 hover:-translate-y-1 has-[.stretched-link:focus-visible]:outline-2"
   >
-    <div class="flex flex-col gap-1 py-4">
-      <h3 class="text-gradient text-center text-3xl font-bold md:text-4xl">
-        {{ project().name }}
-      </h3>
-      <p
-        class="px-4 text-center text-lg font-light italic"
-        [innerHTML]="project().description"
-      ></p>
-    </div>
-    <div class="mb-2 flex place-items-center justify-between px-7">
-      <a
-        [href]="project().url"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="flex cursor-pointer gap-2 rounded-2xl border border-white px-3 py-1 transition duration-200 ease-out hover:border-lightBlue hover:bg-navyBlue focus-visible:bg-navyBlue"
+    <!-- Liseré dégradé révélé au survol / focus (fondu d'opacité : un
+         dégradé ne se transitionne pas depuis une couleur unie). -->
+    <span
+      aria-hidden="true"
+      class="absolute inset-0 rounded-2xl bg-linear-to-br from-lightBlue to-purple opacity-0 transition-opacity duration-300 group-hover:opacity-80 group-has-[.stretched-link:focus-visible]:opacity-100"
+    ></span>
+    <div
+      data-spotlight
+      class="relative flex h-full flex-col overflow-hidden rounded-[15px] bg-nightBlue p-6 md:p-7"
+    >
+      <div class="relative flex items-start justify-between gap-4">
+        <span
+          class="grid size-12 place-items-center rounded-xl border border-white/10 bg-darkBlue/70"
+        >
+          <app-icon [name]="project().icon" gradient class="size-6" />
+        </span>
+        <span
+          class="font-mono text-[11px] tracking-[0.18em] text-white/55 uppercase"
+        >
+          <span class="text-lightBlue/70 tabular-nums">{{ number() }}</span>
+          · {{ category() }}
+        </span>
+      </div>
+
+      <h3
+        class="relative mt-6 font-display text-2xl font-semibold tracking-tight text-wildSand"
       >
-        <img [src]="WhiteImage.GithubMascot" class="h-5 w-5" alt="" />
-        <span class="font-light text-white">Voir le code</span>
-      </a>
-      <div class="flex gap-1">
-        @for (technology of project().technologies; track technology) {
-          <img
-            [src]="technology"
-            class="h-7 w-7"
-            [alt]="techName(technology)"
+        <a
+          [href]="project().repository"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-print-url
+          class="stretched-link"
+        >
+          {{ project().name }}
+          <span class="sr-only">— voir le code sur GitHub (nouvel onglet)</span>
+        </a>
+      </h3>
+      <p class="relative mt-3 leading-relaxed text-pretty text-white/70">
+        {{ project().description }}
+      </p>
+
+      <ul class="relative mt-5 flex flex-wrap gap-2" aria-label="Technologies">
+        @for (tech of project().technologies; track tech) {
+          <li><tech-chip [tech]="tech" /></li>
+        }
+      </ul>
+
+      <div
+        class="relative mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-7 text-sm"
+      >
+        <span
+          aria-hidden="true"
+          class="inline-flex items-center gap-2 font-medium text-lightBlue print:hidden"
+        >
+          <app-icon name="github" class="size-4" />
+          Voir le code
+          <app-icon
+            name="arrow-up-right"
+            class="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
           />
+        </span>
+        @if (project().design; as design) {
+          <a
+            [href]="design"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="relative z-10 inline-flex items-center gap-2 text-white/70 underline decoration-white/25 underline-offset-4 transition hover:text-wildSand hover:decoration-lightBlue"
+          >
+            <app-icon name="figma" class="size-4" />
+            Voir la maquette
+            <span class="sr-only">Figma (nouvel onglet)</span>
+          </a>
         }
       </div>
     </div>
-  </div>
-</div>
+  </article>
+} @else {
+  <!-- Ligne d'archive : pictogramme, nom et résumé, technologies, flèche.
+       Toute la ligne mène au dépôt (lien étiré depuis le nom). -->
+  <article
+    data-perch="card"
+    data-spotlight
+    class="group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-4 px-4 py-4 transition duration-300 hover:bg-white/[0.035] has-[.stretched-link:focus-visible]:bg-white/[0.05] has-[.stretched-link:focus-visible]:ring-2 has-[.stretched-link:focus-visible]:ring-lightBlue has-[.stretched-link:focus-visible]:ring-inset sm:px-6 md:grid-cols-[auto_minmax(0,1.5fr)_minmax(0,1fr)_auto] md:items-center md:gap-x-6"
+  >
+    <span
+      class="grid size-10 place-items-center rounded-xl border border-white/10 bg-darkBlue/60 transition duration-300 group-hover:border-lightBlue/40"
+    >
+      <app-icon [name]="project().icon" class="size-5 text-lightBlue" />
+    </span>
+
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h4 class="font-display font-semibold tracking-tight text-wildSand">
+          <a
+            [href]="project().repository"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-print-url
+            class="stretched-link"
+          >
+            {{ project().name }}
+            <span class="sr-only">
+              — voir le code sur GitHub (nouvel onglet)
+            </span>
+          </a>
+        </h4>
+        <span
+          class="font-mono text-[11px] tracking-[0.16em] text-white/55 uppercase"
+        >
+          {{ category() }}
+        </span>
+      </div>
+      <p class="mt-1 text-sm leading-relaxed text-pretty text-white/65">
+        {{ project().description }}
+      </p>
+      <ul
+        class="mt-2 flex flex-wrap gap-x-3 gap-y-1 md:hidden"
+        aria-label="Technologies"
+      >
+        @for (tech of technologies(); track tech.name) {
+          <li class="inline-flex items-center gap-1.5 text-xs text-white/65">
+            <app-icon [name]="tech.icon" class="size-3.5" />
+            {{ tech.name }}
+          </li>
+        }
+      </ul>
+    </div>
+
+    <ul
+      class="hidden flex-wrap gap-x-4 gap-y-1.5 md:flex"
+      aria-label="Technologies"
+    >
+      @for (tech of technologies(); track tech.name) {
+        <li class="inline-flex items-center gap-1.5 text-sm text-white/70">
+          <app-icon [name]="tech.icon" class="size-4" />
+          {{ tech.name }}
+        </li>
+      }
+    </ul>
+
+    <app-icon
+      name="arrow-up-right"
+      class="size-5 text-white/40 transition duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-lightBlue"
+    />
+  </article>
+}

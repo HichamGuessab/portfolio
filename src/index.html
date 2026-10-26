@@ -1,47 +1,143 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" dir="ltr">
   <head>
     <meta charset="utf-8" />
-    <title>Hicham Guessab — Développeur web et mobile</title>
+    <title>
+      Hicham Guessab — Ingénieur logiciel, développeur web et mobile
+    </title>
     <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <meta
       name="description"
-      content="Portfolio de Hicham Guessab, développeur web et mobile spécialisé Front-End (Angular, TypeScript), à la recherche de missions. Projets, compétences et parcours."
+      content="Hicham Guessab, ingénieur logiciel et développeur web et mobile spécialisé Front-End (Angular, TypeScript, Ionic, Capacitor). Expérience, projets, compétences et contact."
     />
+    <meta name="author" content="Hicham Guessab" />
     <meta name="theme-color" content="#040D39" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="canonical" href="https://hichamguessab.com/" />
+
+    <!-- Unique police web du site (titres) : préchargée pour éviter le saut
+         de typographie au premier affichage. -->
+    <link
+      rel="preload"
+      href="/assets/fonts/space-grotesk-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/icons/favicon-32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/assets/icons/favicon-16.png"
+    />
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Partage (LinkedIn, Slack, X…) : carte 1200 × 630 aux couleurs du site. -->
+    <meta property="og:type" content="profile" />
+    <meta property="og:site_name" content="Hicham Guessab" />
     <meta
       property="og:title"
-      content="Hicham Guessab — Développeur web et mobile"
+      content="Hicham Guessab — Ingénieur logiciel, développeur web et mobile"
     />
     <meta
       property="og:description"
-      content="Portfolio de Hicham Guessab, développeur web et mobile spécialisé Front-End (Angular, TypeScript), à la recherche de missions. Projets, compétences et parcours."
+      content="Développeur web et mobile spécialisé Front-End : Angular, TypeScript, Ionic et Capacitor. Ouvert aux opportunités."
     />
-    <meta property="og:type" content="website" />
-    <meta property="og:locale" content="fr_FR" />
     <meta property="og:url" content="https://hichamguessab.com/" />
+    <meta property="og:locale" content="fr_FR" />
     <meta
       property="og:image"
-      content="https://hichamguessab.com/assets/images/pp.png"
+      content="https://hichamguessab.com/assets/og-image.jpg"
     />
-    <meta name="twitter:card" content="summary" />
-    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.png" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Hicham Guessab, ingénieur logiciel et développeur web et mobile"
+    />
+    <meta property="profile:first_name" content="Hicham" />
+    <meta property="profile:last_name" content="Guessab" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Hicham Guessab — Ingénieur logiciel, développeur web et mobile"
+    />
+    <meta
+      name="twitter:description"
+      content="Développeur web et mobile spécialisé Front-End : Angular, TypeScript, Ionic et Capacitor. Ouvert aux opportunités."
+    />
+    <meta
+      name="twitter:image"
+      content="https://hichamguessab.com/assets/og-image.jpg"
+    />
+
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Person",
-        "name": "Hicham Guessab",
-        "jobTitle": "Développeur web et mobile",
-        "email": "contact@hichamguessab.com",
-        "sameAs": [
-          "https://github.com/HichamGuessab",
-          "https://www.linkedin.com/in/hicham-g-811573222/"
+        "@graph": [
+          {
+            "@type": "Person",
+            "@id": "https://hichamguessab.com/#person",
+            "name": "Hicham Guessab",
+            "givenName": "Hicham",
+            "familyName": "Guessab",
+            "url": "https://hichamguessab.com/",
+            "image": "https://hichamguessab.com/assets/images/portrait-768.jpg",
+            "jobTitle": "Ingénieur logiciel",
+            "description": "Développeur web et mobile spécialisé Front-End (Angular, TypeScript).",
+            "email": "mailto:contact@hichamguessab.com",
+            "worksFor": {
+              "@type": "Organization",
+              "name": "CBA Informatique Libéral"
+            },
+            "alumniOf": {
+              "@type": "CollegeOrUniversity",
+              "name": "Université d’Avignon"
+            },
+            "knowsAbout": [
+              "Angular",
+              "TypeScript",
+              "Ionic",
+              "Capacitor",
+              "Tailwind CSS",
+              "Figma",
+              "Node.js",
+              "Java",
+              "Docker"
+            ],
+            "knowsLanguage": "fr",
+            "sameAs": [
+              "https://github.com/HichamGuessab",
+              "https://www.linkedin.com/in/hicham-g-811573222/"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://hichamguessab.com/#website",
+            "url": "https://hichamguessab.com/",
+            "name": "Hicham Guessab — Portfolio",
+            "inLanguage": "fr-FR",
+            "author": { "@id": "https://hichamguessab.com/#person" }
+          }
         ]
       }
     </script>
   </head>
-  <body class="bg-darkBlue">
+  <body>
     <app-root></app-root>
   </body>
 </html>

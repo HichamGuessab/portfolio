@@ -1,30 +1,57 @@
 import {
+  afterNextRender,
+  booleanAttribute,
+  DestroyRef,
   Directive,
   ElementRef,
   inject,
   input,
   InputSignal,
-  NgZone,
-  OnDestroy,
-  OnInit,
+  InputSignalWithTransform,
 } from '@angular/core';
+
+/** Réaction d'un élément observé, appelée à chaque changement d'intersection. */
+type RevealHandler = (entry: IntersectionObserverEntry) => void;
+
+/* Un IntersectionObserver partagé par rootMargin (au lieu d'un par élément),
+   et la réaction de chaque élément suivi. */
+const observers = new Map<string, IntersectionObserver>();
+const handlers = new WeakMap<Element, RevealHandler>();
+
+function sharedObserver(rootMargin: string): IntersectionObserver {
+  let observer = observers.get(rootMargin);
+  if (!observer) {
+    observer = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((entry) => handlers.get(entry.target)?.(entry)),
+      { rootMargin }
+    );
+    observers.set(rootMargin, observer);
+  }
+  return observer;
+}
 
 /**
  * Révèle l'élément en douceur (opacité + légère translation) quand il entre
- * dans le viewport. IntersectionObserver fonctionne dans les deux modes
- * d'affichage (diaporama Swiper et page compacte), le déclenchement est donc
- * identique quel que soit le mode.
+ * dans le viewport.
  *
- * Les styles associés (.reveal / .reveal-visible) sont définis dans
- * src/styles.css. Les animations sont actives par défaut pour tous les
- * visiteurs (voir MotionService) ; si IntersectionObserver n'existe pas,
- * l'état visible est posé immédiatement pour ne jamais masquer de contenu.
+ * Amélioration progressive : le HTML pré-rendu est entièrement visible. Après
+ * le premier rendu navigateur, la directive observe l'élément ; au premier
+ * rapport de l'IntersectionObserver, un élément déjà à l'écran est laissé
+ * tel quel, un élément hors écran est « armé » (.reveal-pending, styles dans
+ * src/styles.css) puis révélé à son entrée. Aucune lecture de géométrie
+ * synchrone (pas de reflow forcé), rien ne clignote au chargement, et sans
+ * JavaScript tout reste lisible.
+ *
+ * `revealOnLoad` arme l'élément dès le premier rendu, même à l'écran :
+ * réservé aux vues créées côté navigateur (mode compact), dont l'entrée est
+ * chorégraphiée par les délais.
  */
 @Directive({
   selector: '[reveal]',
   host: { class: 'reveal' },
 })
-export class RevealDirective implements OnInit, OnDestroy {
+export class RevealDirective {
   /** Délai d'apparition en millisecondes (stagger des listes). */
   revealDelay: InputSignal<number> = input(0);
 
@@ -37,42 +64,66 @@ export class RevealDirective implements OnInit, OnDestroy {
    */
   revealMargin: InputSignal<string> = input('0px 0px -10% 0px');
 
-  private readonly _element: ElementRef<HTMLElement> = inject(ElementRef);
-  private readonly _zone: NgZone = inject(NgZone);
-  private _observer?: IntersectionObserver;
+  /** Arme l'élément dès le premier rendu, même s'il est déjà visible. */
+  revealOnLoad: InputSignalWithTransform<boolean, unknown> = input(false, {
+    transform: booleanAttribute,
+  });
 
-  ngOnInit(): void {
-    const element = this._element.nativeElement;
+  constructor() {
+    const element: HTMLElement = inject(ElementRef).nativeElement;
+    let observer: IntersectionObserver | undefined;
 
-    if (this.revealDelay() > 0) {
-      element.style.setProperty('--reveal-delay', `${this.revealDelay()}ms`);
-    }
+    const stop = (): void => {
+      observer?.unobserve(element);
+      handlers.delete(element);
+      observer = undefined;
+      element.removeEventListener('focusin', revealNow);
+    };
 
-    /* Environnement sans IntersectionObserver : afficher immédiatement,
-       le contenu ne doit jamais rester masqué. */
-    if (typeof IntersectionObserver === 'undefined') {
+    /* Le focus clavier n'attend pas l'animation : un élément focalisé doit
+       être visible immédiatement. */
+    const revealNow = (): void => {
       element.classList.add('reveal-visible');
-      return;
-    }
+      stop();
+    };
 
-    /* Hors zone Angular : l'observation ne déclenche aucune détection de
-       changement, seule la classe CSS est posée. */
-    this._zone.runOutsideAngular(() => {
-      this._observer = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) {
-            element.classList.add('reveal-visible');
-            this._observer?.disconnect();
-            this._observer = undefined;
+    afterNextRender(() => {
+      if (typeof IntersectionObserver === 'undefined') {
+        return;
+      }
+      if (this.revealDelay() > 0) {
+        element.style.setProperty('--reveal-delay', `${this.revealDelay()}ms`);
+      }
+      const onLoad = this.revealOnLoad();
+      if (onLoad) {
+        element.classList.add('reveal-pending');
+      }
+
+      let first = !onLoad;
+      handlers.set(element, (entry) => {
+        if (first) {
+          /* Premier rapport : déjà visible (viewport entier, marge
+             ignorée) → on n'y touche pas ; sinon on l'arme. Le rect est
+             fourni par l'observer : aucune lecture de layout. */
+          first = false;
+          const { top, bottom } = entry.boundingClientRect;
+          if (top < window.innerHeight && bottom > 0) {
+            stop();
+            return;
           }
-        },
-        { rootMargin: this.revealMargin() }
-      );
-      this._observer.observe(element);
+          element.classList.add('reveal-pending');
+          return;
+        }
+        if (entry.isIntersecting) {
+          element.classList.add('reveal-visible');
+          stop();
+        }
+      });
+      observer = sharedObserver(this.revealMargin());
+      observer.observe(element);
+      element.addEventListener('focusin', revealNow);
     });
-  }
 
-  ngOnDestroy(): void {
-    this._observer?.disconnect();
+    inject(DestroyRef).onDestroy(stop);
   }
 }

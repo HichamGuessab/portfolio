@@ -1,27 +1,65 @@
-<section-header [icon]="BlueImage.Technology" title="Compétences" />
-<div class="grid grid-cols-2 gap-x-10 gap-y-16 md:grid-cols-4 md:gap-14">
-  <skill-category
-    reveal
-    [revealDelay]="100"
-    name="Design"
-    [skills]="designSkills"
-  />
-  <skill-category
-    reveal
-    [revealDelay]="180"
-    name="Front-end"
-    [skills]="frontEndSkills"
-  />
-  <skill-category
-    reveal
-    [revealDelay]="260"
-    name="Back-end"
-    [skills]="backEndSkills"
-  />
-  <skill-category
-    reveal
-    [revealDelay]="340"
-    name="Outils"
-    [skills]="toolsSkills"
-  />
-</div>
+<section
+  id="competences"
+  spySection="competences"
+  aria-labelledby="competences-title"
+  class="py-20 md:py-28"
+>
+  <div class="mx-auto max-w-6xl px-5 sm:px-8">
+    <section-header
+      index="03"
+      eyebrow="Boîte à outils"
+      title="Compétences"
+      titleId="competences-title"
+    >
+      Une stack centrée sur le Front-End et le mobile, complétée par le back-end
+      et l’outillage du quotidien.
+    </section-header>
+
+    <!-- Grille bento : familles larges et étroites en alternance (lg). -->
+    <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      @for (group of groups; track group.name; let i = $index) {
+        <article
+          reveal
+          [revealDelay]="(i % 2) * 80"
+          data-perch="card"
+          data-spotlight
+          class="relative flex flex-col rounded-2xl border border-white/8 bg-nightBlue/40 p-6 transition duration-300 hover:border-lightBlue/30 md:p-7"
+          [class]="isWide(i) ? 'lg:col-span-2' : ''"
+        >
+          <header class="flex items-center gap-3">
+            <span
+              class="grid size-10 place-items-center rounded-xl border border-white/10 bg-darkBlue/60"
+            >
+              <app-icon [name]="group.icon" class="size-5 text-lightBlue" />
+            </span>
+            <h3
+              class="font-display text-lg font-semibold tracking-tight text-wildSand"
+            >
+              {{ group.name }}
+            </h3>
+          </header>
+          <p class="mt-4 text-sm leading-relaxed text-white/65">
+            {{ group.description }}
+          </p>
+          <ul class="mt-5 flex flex-wrap gap-2.5">
+            @for (skill of group.skills; track skill.tech) {
+              <li data-perch="chip">
+                <tech-chip [tech]="skill.tech" [primary]="!!skill.primary" />
+              </li>
+            }
+          </ul>
+        </article>
+      }
+    </div>
+
+    <p reveal class="mt-6 flex items-center gap-2.5 text-sm text-white/60">
+      <span
+        aria-hidden="true"
+        class="inline-flex rounded-full bg-linear-to-r from-lightBlue/70 to-purple/70 p-px"
+      >
+        <span class="block h-3 w-6 rounded-full bg-nightBlue"></span>
+      </span>
+      Liseré dégradé&nbsp;: ma stack principale.
+    </p>
+  </div>
+</section>

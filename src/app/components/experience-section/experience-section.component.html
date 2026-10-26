@@ -1,26 +1,52 @@
-<section-header [icon]="BlueImage.Work" title="Expérience" />
-
-<swiper-container
-  reveal
-  [revealDelay]="150"
-  navigation="true"
-  effect="cards"
-  cards-effect='{"slideShadows":false}'
-  class="container"
-  grab-cursor="true"
-  keyboard="true"
-  pagination="true"
-  pagination-clickable="true"
+<section
+  id="experience"
+  spySection="experience"
+  aria-labelledby="experience-title"
+  class="py-20 md:py-28"
 >
-  @for (experience of experiences; track experience) {
-    <swiper-slide>
-      <!-- pt-1 : réserve la place de l'élévation au survol (hover:-translate-y-1),
-           sinon le haut de la carte sort de la slide (overflow hidden, effet cards)
-           et se fait rogner. -->
-      <experience-item
-        [experience]="experience"
-        class="flex justify-center pt-1"
-      />
-    </swiper-slide>
-  }
-</swiper-container>
+  <div
+    class="mx-auto grid max-w-6xl gap-4 px-5 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16"
+  >
+    <div class="lg:sticky lg:top-28 lg:self-start">
+      <section-header
+        index="01"
+        eyebrow="Parcours"
+        title="Expérience"
+        titleId="experience-title"
+      >
+        De l’alternance au CDI&nbsp;: {{ years }} an{{ years > 1 ? 's' : '' }} à
+        développer et maintenir des applications web et mobile, complétés par
+        des engagements associatifs et pédagogiques.
+      </section-header>
+      <a
+        [href]="profile.linkedin.url"
+        target="_blank"
+        rel="noopener noreferrer"
+        data-print-url
+        class="link-arrow -mt-4 mb-8 md:-mt-6 lg:mb-0"
+      >
+        Parcours détaillé sur LinkedIn
+        <app-icon name="arrow-up-right" class="size-4" />
+        <span class="sr-only">(nouvel onglet)</span>
+      </a>
+    </div>
+
+    <ol class="timeline relative flex flex-col gap-6">
+      @for (
+        experience of experiences;
+        track experience.organization;
+        let first = $first;
+        let i = $index
+      ) {
+        <li
+          reveal
+          [revealDelay]="i * 60"
+          class="timeline-item relative pl-8 md:pl-10"
+          [class.timeline-item-current]="first"
+        >
+          <experience-item [experience]="experience" [current]="first" />
+        </li>
+      }
+    </ol>
+  </div>
+</section>

@@ -1,22 +1,61 @@
-<section-header [icon]="BlueImage.Stack" title="Projets" />
-<swiper-container
-  reveal
-  [revealDelay]="150"
-  effect="cards"
-  cards-effect='{"slideShadows":false}'
-  class="container"
-  grab-cursor="true"
-  keyboard="true"
-  pagination="true"
-  pagination-clickable="true"
-  navigation="true"
+<section
+  id="projets"
+  spySection="projets"
+  aria-labelledby="projets-title"
+  class="py-20 md:py-28"
 >
-  @for (project of projects; track project) {
-    <swiper-slide>
-      <!-- pt-1 : réserve la place de l'élévation au survol (hover:-translate-y-1),
-           sinon le haut de la carte sort de la slide (overflow hidden, effet cards)
-           et se fait rogner. -->
-      <project-item [project]="project" class="flex justify-center pt-1" />
-    </swiper-slide>
-  }
-</swiper-container>
+  <div class="mx-auto max-w-6xl px-5 sm:px-8">
+    <section-header
+      index="02"
+      eyebrow="Réalisations"
+      title="Projets"
+      titleId="projets-title"
+    >
+      Une sélection de projets personnels et universitaires, du web au mobile
+      jusqu’à l’embarqué. Le code de chacun est ouvert sur GitHub.
+    </section-header>
+
+    <ul class="grid gap-5 md:grid-cols-2">
+      @for (project of featured; track project.name; let i = $index) {
+        <li reveal [revealDelay]="(i % 2) * 80">
+          <project-item [project]="project" [index]="i" />
+        </li>
+      }
+    </ul>
+
+    <h3
+      reveal
+      class="mt-16 mb-5 flex items-center gap-3 font-display text-xl font-semibold tracking-tight text-wildSand md:mt-20"
+    >
+      Autres projets
+      <span
+        class="font-mono text-xs font-normal text-lightBlue/70 tabular-nums"
+      >
+        {{ others.length }}
+      </span>
+    </h3>
+    <ul
+      reveal
+      class="divide-y divide-white/8 overflow-hidden rounded-2xl border border-white/8 bg-nightBlue/30"
+    >
+      @for (project of others; track project.name) {
+        <li>
+          <project-item variant="compact" [project]="project" />
+        </li>
+      }
+    </ul>
+
+    <a
+      reveal
+      [href]="profile.github.url"
+      target="_blank"
+      rel="noopener noreferrer"
+      data-print-url
+      class="link-arrow mt-10"
+    >
+      Tous mes dépôts sur GitHub
+      <app-icon name="arrow-up-right" class="size-4" />
+      <span class="sr-only">(nouvel onglet)</span>
+    </a>
+  </div>
+</section>

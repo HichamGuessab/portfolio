@@ -1,21 +1,102 @@
-<div
-  class="flex h-auto min-h-120 w-80 flex-col justify-between gap-6 rounded-2xl border border-lightBlue bg-navyBlue p-6 transition duration-300 ease-out hover:-translate-y-1 hover:border-purple"
+<!-- data-perch : point d'accroche des mascottes (cartes de la page). -->
+<article
+  data-perch="card"
+  class="rounded-2xl p-px transition duration-300"
+  [class]="
+    current()
+      ? 'bg-linear-to-br from-lightBlue/60 via-white/8 to-purple/50 hover:from-lightBlue hover:to-purple'
+      : 'bg-white/8 hover:bg-lightBlue/35'
+  "
 >
-  <div class="flex flex-col">
-    <h3 class="pb-2 text-2xl font-medium text-white">
-      {{ experience().name }}
-    </h3>
-    <p
-      class="pl-3 text-lg font-light italic"
-      [innerHTML]="experience().description"
-    ></p>
+  <div data-spotlight class="relative rounded-[15px] bg-nightBlue p-6 md:p-7">
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      <div class="min-w-0">
+        <h3
+          class="font-display text-xl font-semibold tracking-tight text-wildSand md:text-2xl"
+        >
+          {{ experience().organization }}
+        </h3>
+        @if (experience().context) {
+          <p class="mt-1 text-sm text-white/60">{{ experience().context }}</p>
+        }
+      </div>
+      @if (tenure(); as tenure) {
+        <p
+          class="mt-1 rounded-full border border-lightBlue/25 px-2.5 py-1 font-mono text-[11px] tracking-wider text-lightBlue uppercase"
+        >
+          {{ tenure }}
+        </p>
+      }
+    </header>
+
+    <ol class="mt-6 flex flex-col gap-7">
+      @for (role of roles(); track role.title + role.period.start) {
+        <li
+          class="relative"
+          [class.role-step]="roles().length > 1"
+          [class.role-step-current]="role.current"
+        >
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h4 class="text-lg font-medium text-wildSand">{{ role.title }}</h4>
+            @if (role.contract) {
+              <span
+                class="rounded-md bg-white/6 px-2 py-0.5 text-xs font-medium text-white/75"
+              >
+                {{ role.contract }}
+              </span>
+            }
+            @if (role.current) {
+              <span
+                class="inline-flex items-center gap-1.5 rounded-md bg-lightBlue/10 px-2 py-0.5 text-xs font-medium text-lightBlue"
+              >
+                <span
+                  aria-hidden="true"
+                  class="availability-ping-static size-1.5 rounded-full bg-lightBlue"
+                ></span>
+                En poste
+              </span>
+            }
+          </div>
+          <p
+            class="mt-1.5 font-mono text-xs tracking-wider text-lightBlue/80 uppercase"
+          >
+            <time [attr.datetime]="role.period.start">
+              {{ role.periodLabel }}
+            </time>
+            @if (role.duration) {
+              <span class="text-white/55">
+                <span aria-hidden="true" class="mx-1.5">·</span>
+                {{ role.duration }}
+              </span>
+            }
+          </p>
+          @if (role.summary) {
+            <p class="mt-3 leading-relaxed text-pretty text-white/75">
+              {{ role.summary }}
+            </p>
+          }
+          @if (role.highlights?.length) {
+            <ul class="mt-3 flex flex-col gap-1.5">
+              @for (highlight of role.highlights; track highlight) {
+                <li class="flex gap-3 leading-relaxed text-white/75">
+                  <span
+                    aria-hidden="true"
+                    class="mt-[0.6em] size-1.5 shrink-0 rounded-full bg-linear-to-br from-lightBlue to-purple"
+                  ></span>
+                  {{ highlight }}
+                </li>
+              }
+            </ul>
+          }
+          @if (role.technologies?.length) {
+            <ul class="mt-4 flex flex-wrap gap-2" aria-label="Technologies">
+              @for (tech of role.technologies; track tech) {
+                <li><tech-chip [tech]="tech" /></li>
+              }
+            </ul>
+          }
+        </li>
+      }
+    </ol>
   </div>
-  <div class="flex flex-col pl-3">
-    <p class="text-end italic">
-      {{ experience().company }}
-    </p>
-    <p class="text-end italic">
-      {{ experience().date }}
-    </p>
-  </div>
-</div>
+</article>

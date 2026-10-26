@@ -23,7 +23,7 @@
         class="relative flex min-h-0 flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
       >
         <span
-          class="absolute top-3 right-4 text-[10px] text-lightBlue/40 tabular-nums"
+          class="absolute top-3 right-4 text-[10px] text-lightBlue/60 tabular-nums"
           aria-hidden="true"
         >
           01
@@ -40,7 +40,7 @@
       >
         <section-header
           size="mini"
-          [icon]="BlueImage.Stack"
+          icon="layers"
           title="Projets"
           [count]="projects.length"
           index="02"
@@ -48,7 +48,7 @@
         <div class="grid min-h-0 grid-cols-4 grid-rows-3 gap-2">
           @for (project of projects; track project.name; let i = $index) {
             <a
-              [href]="project.url"
+              [href]="project.repository"
               target="_blank"
               rel="noopener noreferrer"
               data-circuit
@@ -57,7 +57,7 @@
               (focus)="activeProject.set(project)"
               class="group flex min-h-0 flex-col justify-between overflow-hidden rounded-lg border border-white/8 bg-navyBlue/35 px-3 py-2 transition duration-200 hover:-translate-y-0.5 hover:border-lightBlue/50 focus-visible:-translate-y-0.5 focus-visible:border-lightBlue/50"
             >
-              <span class="text-[9px] text-lightBlue/40 tabular-nums">
+              <span class="text-[9px] text-lightBlue/60 tabular-nums">
                 {{ padIndex(i) }}
               </span>
               <span
@@ -65,12 +65,11 @@
               >
                 {{ project.name }}
               </span>
-              <span class="flex gap-1.5">
+              <span class="flex gap-1.5 text-white/80">
                 @for (technology of project.technologies; track technology) {
-                  <img
-                    [src]="technology"
-                    class="h-3.5 w-3.5 object-contain 2xl:h-4 2xl:w-4"
-                    alt=""
+                  <app-icon
+                    [name]="techIcon(technology)"
+                    class="size-3.5 2xl:size-4"
                   />
                 }
               </span>
@@ -82,7 +81,11 @@
             aria-hidden="true"
             class="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10"
           >
-            <span class="text-xs text-white/20">···</span>
+            <span class="flex gap-1">
+              <span class="h-1 w-1 rounded-full bg-white/20"></span>
+              <span class="h-1 w-1 rounded-full bg-white/20"></span>
+              <span class="h-1 w-1 rounded-full bg-white/20"></span>
+            </span>
             <span class="slot-dot h-1 w-1 rounded-full bg-lightBlue"></span>
           </div>
         </div>
@@ -101,14 +104,25 @@
                 </p>
                 <p
                   class="line-clamp-2 text-[11px] font-light text-white/75 italic 2xl:text-xs"
-                  [innerHTML]="project.description"
-                ></p>
+                >
+                  {{ project.description }}
+                </p>
               </div>
+              @if (project.design; as design) {
+                <a
+                  [href]="design"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="shrink-0 text-[11px] text-white/55 transition duration-200 hover:text-lightBlue focus-visible:text-lightBlue"
+                >
+                  maquette ↗
+                </a>
+              }
               <a
-                [href]="project.url"
+                [href]="project.repository"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="shrink-0 text-[11px] text-lightBlue/70 transition duration-200 hover:text-lightBlue focus-visible:text-lightBlue"
+                class="shrink-0 text-[11px] text-lightBlue/80 transition duration-200 hover:text-lightBlue focus-visible:text-lightBlue"
               >
                 ouvrir ↗
               </a>
@@ -134,7 +148,7 @@
       >
         <section-header
           size="mini"
-          [icon]="BlueImage.Work"
+          icon="briefcase"
           title="Expérience"
           index="03"
         />
@@ -142,8 +156,8 @@
           class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto [@media(min-height:820px)]:gap-1.5"
         >
           @for (
-            experience of experiences;
-            track experience.name;
+            experience of experienceRows;
+            track experience.id;
             let i = $index
           ) {
             <div
@@ -151,7 +165,7 @@
               [class]="
                 activeExperience() === i
                   ? 'border-lightBlue bg-navyBlue/30'
-                  : 'border-white/10 opacity-70 hover:opacity-100'
+                  : 'border-white/10 opacity-85 hover:opacity-100'
               "
             >
               <button
@@ -165,19 +179,19 @@
                 (focus)="activeExperience.set(i)"
               >
                 <span
-                  class="w-24 shrink-0 text-[10px] text-lightBlue/70 tabular-nums"
+                  class="w-24 shrink-0 text-[10px] text-lightBlue/85 tabular-nums"
                 >
                   {{ experience.date }}
                 </span>
                 <span
                   class="shrink-0 text-[13px] font-medium text-white 2xl:text-sm"
                 >
-                  {{ experience.name }}
+                  {{ experience.title }}
                 </span>
                 <span
-                  class="min-w-0 flex-1 truncate text-[11px] text-white/55 italic"
+                  class="min-w-0 flex-1 truncate text-[11px] text-white/65 italic"
                 >
-                  {{ experience.company }}
+                  {{ experience.organization }}
                 </span>
               </button>
               <!-- Expansion grid-rows 0fr → 1fr : uniquement
@@ -194,10 +208,23 @@
                 <!-- max-h + scroll interne : absorbe les viewports courts,
                      plus d'air dès que la fenêtre est haute. -->
                 <div class="min-h-0 overflow-hidden">
-                  <p
+                  <div
                     class="max-h-16 overflow-y-auto pr-1 pb-2 text-[11px] leading-snug font-light text-white/80 2xl:text-xs [@media(min-height:780px)]:max-h-28 [@media(min-height:860px)]:max-h-36"
-                    [innerHTML]="experience.description"
-                  ></p>
+                  >
+                    @if (experience.summary) {
+                      <p>{{ experience.summary }}</p>
+                    }
+                    @if (experience.highlights.length) {
+                      <ul class="mt-1.5 flex flex-col gap-0.5">
+                        @for (
+                          highlight of experience.highlights;
+                          track highlight
+                        ) {
+                          <li>– {{ highlight }}</li>
+                        }
+                      </ul>
+                    }
+                  </div>
                 </div>
               </div>
             </div>
@@ -213,41 +240,36 @@
         [revealMargin]="'0px'"
         class="relative flex flex-col rounded-2xl border border-white/5 bg-nightBlue/40 p-3.5 2xl:p-6 [@media(min-height:820px)]:p-4"
       >
-        <section-header
-          size="mini"
-          [icon]="BlueImage.Technology"
-          title="Compétences"
-          index="04"
-        />
+        <section-header size="mini" icon="cpu" title="Compétences" index="04" />
         <div
           class="grid grid-cols-2 gap-x-4 gap-y-2 [@media(min-height:820px)]:gap-y-3"
         >
           @for (bay of skillBays; track bay.name) {
             <div>
               <h3
-                class="mb-1.5 text-[10px] tracking-[0.2em] text-white/45 uppercase"
+                class="mb-1.5 text-[10px] tracking-[0.2em] text-white/55 uppercase"
               >
                 {{ bay.name }}
               </h3>
               <ul class="flex flex-wrap gap-x-3 gap-y-1.5">
-                @for (skill of bay.skills; track skill.name) {
+                @for (skill of bay.skills; track skill.tech) {
                   <li data-circuit class="group flex items-center gap-1.5">
-                    <img
-                      [src]="skill.image"
-                      alt=""
-                      class="h-4 w-4 object-contain transition duration-200 group-hover:drop-shadow-[0_0_6px_rgba(83,220,253,0.6)] 2xl:h-5 2xl:w-5"
+                    <app-icon
+                      [name]="techIcon(skill.tech)"
+                      [gradient]="!!skill.primary"
+                      class="size-4 text-white/85 transition duration-200 group-hover:drop-shadow-[0_0_6px_rgba(83,220,253,0.6)] 2xl:size-5"
                     />
-                    @if (skill.type === SkillType.Shiny) {
+                    @if (skill.primary) {
                       <span
                         class="text-gradient text-[11px] font-semibold 2xl:text-xs"
                       >
-                        {{ skill.name }}
+                        {{ techName(skill.tech) }}
                       </span>
                     } @else {
                       <span
                         class="text-[11px] font-light text-white/85 transition duration-200 group-hover:text-white 2xl:text-xs"
                       >
-                        {{ skill.name }}
+                        {{ techName(skill.tech) }}
                       </span>
                     }
                   </li>
@@ -268,7 +290,7 @@
       >
         <section-header
           size="mini"
-          [icon]="BlueImage.Study"
+          icon="graduation-cap"
           title="Formation"
           index="05"
         />
@@ -300,15 +322,15 @@
                 {{ degree.name }}
               </p>
               <p class="text-gradient text-[11px] font-medium 2xl:text-xs">
-                {{ degree.type }}
+                {{ degree.field }}
               </p>
               <p
-                class="truncate text-[10px] font-light text-white/55 italic transition duration-200 group-hover:text-white/85"
+                class="truncate text-[10px] font-light text-white/65 italic transition duration-200 group-hover:text-white/85"
               >
                 {{ degree.institution }}
               </p>
               <p class="mt-0.5 text-[11px] text-lightBlue/80 tabular-nums">
-                {{ degree.date }}
+                {{ formatPeriod(degree.period) }}
               </p>
             </div>
           }
@@ -328,24 +350,16 @@
            devant le reste du pont : seul le corps d'un sprite intercepte
            ponctuellement le clic, le badge reste cliquable autour. -->
       <div class="compact-contacts relative flex items-center gap-2">
+        <badge data-circuit icon="github" [url]="Link.Github" name="GitHub" />
         <badge
           data-circuit
-          size="sm"
-          [image]="BlueImage.Github"
-          [url]="Link.Github"
-          name="Github"
-        />
-        <badge
-          data-circuit
-          size="sm"
-          [image]="BlueImage.Linkedin"
+          icon="linkedin"
           [url]="Link.LinkedIn"
           name="LinkedIn"
         />
         <badge
           data-circuit
-          size="sm"
-          [image]="BlueImage.At"
+          icon="at-sign"
           [url]="Link.Email"
           name="contact&#64;hichamguessab.com"
         />
@@ -356,7 +370,10 @@
         class="mb-1 flex-1 self-end border-t border-dashed border-white/12"
         aria-hidden="true"
       ></div>
-      <p class="shrink-0 text-[10px] text-white/30 tabular-nums">
+      <p
+        aria-hidden="true"
+        class="shrink-0 text-[10px] text-white/55 tabular-nums"
+      >
         {{ viewportWidth() }} × {{ viewportHeight() }}
       </p>
     </div>
