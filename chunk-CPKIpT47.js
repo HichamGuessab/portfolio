@@ -1,0 +1,1 @@
+var i;(function(t){t.LinkedIn=`https://www.linkedin.com/in/hicham-g-811573222/`,t.Github=`https://github.com/HichamGuessab`,t.SiteRepository=`https://github.com/HichamGuessab/portfolio`})(i||(i={}));export{i as t};
