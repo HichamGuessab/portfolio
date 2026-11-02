@@ -40,12 +40,14 @@ describe('period', () => {
   describe('periodMonths', () => {
     const now = new Date(2026, 9, 26); // 26 octobre 2026
 
-    it('compte les mois entiers d’une période close', () => {
-      expect(periodMonths({ start: '2023-09', end: '2025-08' }, now)).toBe(23);
+    it('compte les mois d’une période close, bornes comprises', () => {
+      expect(periodMonths({ start: '2023-09', end: '2025-08' }, now)).toBe(24);
+      expect(periodMonths({ start: '2024-09', end: '2025-06' }, now)).toBe(10);
+      expect(periodMonths({ start: '2025-08', end: '2025-08' }, now)).toBe(1);
     });
 
-    it('compte jusqu’à aujourd’hui pour une période ouverte', () => {
-      expect(periodMonths({ start: '2023-09' }, now)).toBe(37);
+    it('compte jusqu’au mois en cours pour une période ouverte', () => {
+      expect(periodMonths({ start: '2023-09' }, now)).toBe(38);
     });
 
     it('renvoie null dès qu’une borne n’est connue qu’à l’année', () => {

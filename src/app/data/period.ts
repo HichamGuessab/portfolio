@@ -33,8 +33,10 @@ export function formatPeriod(period: Period, ongoing = 'aujourd’hui'): string 
 }
 
 /**
- * Nombre de mois entiers d'une période datée au mois (null si une borne
- * n'est connue qu'à l'année : la durée serait approximative).
+ * Nombre de mois d'une période datée au mois, mois de début et de fin
+ * compris, comme sur LinkedIn : sept. 2023 – août 2025 → 24 (2 ans). Une
+ * période ouverte court jusqu'au mois en cours inclus. Null si une borne
+ * n'est connue qu'à l'année : la durée serait approximative.
  */
 export function periodMonths(
   period: Period,
@@ -52,7 +54,7 @@ export function periodMonths(
       return null;
     }
   }
-  return Math.max(0, (endYear - startYear) * 12 + (endMonth - startMonth));
+  return Math.max(0, (endYear - startYear) * 12 + (endMonth - startMonth) + 1);
 }
 
 /** 26 → « 2 ans et 2 mois », 11 → « 11 mois », 24 → « 2 ans ». */

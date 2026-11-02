@@ -6,6 +6,7 @@ import {
   ElementRef,
   inject,
 } from '@angular/core';
+import { Link } from '../../interfaces';
 import { ProfileService } from '../../services/profile.service';
 import { SectionSpyService } from '../../services/section-spy.service';
 import { IconComponent } from '../icon/icon.component';
@@ -25,6 +26,7 @@ import { IconComponent } from '../icon/icon.component';
 export class SiteFooterComponent {
   protected readonly profile: ProfileService = inject(ProfileService);
   protected readonly year: number = new Date().getFullYear();
+  protected readonly sourceCode: string = Link.SiteRepository;
 
   constructor() {
     const element: HTMLElement = inject(ElementRef).nativeElement;

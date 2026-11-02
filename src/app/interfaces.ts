@@ -86,4 +86,6 @@ export type SectionId =
 export enum Link {
   LinkedIn = 'https://www.linkedin.com/in/hicham-g-811573222/',
   Github = 'https://github.com/HichamGuessab',
+  /** Code source de ce site (carte Portfolio, pied de page). */
+  SiteRepository = 'https://github.com/HichamGuessab/portfolio',
 }

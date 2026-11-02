@@ -584,16 +584,16 @@ body:has(compact-board) {
 /* La directive n'arme (.reveal-pending) que les éléments encore hors   */
 /* écran après le premier rendu : le HTML pré-rendu reste visible.      */
 /* ------------------------------------------------------------------ */
+/* Pas de will-change : il promouvrait en calque composité chaque élément
+   armé, toute la page durant, pour une transition de 0,6 s. */
 .reveal-pending {
   opacity: 0;
   transform: translate3d(0, 18px, 0);
-  will-change: opacity, transform;
 }
 
 .reveal-pending.reveal-visible {
   opacity: 1;
   transform: none;
-  will-change: auto;
   transition:
     opacity 0.6s var(--ease-out-soft),
     transform 0.6s var(--ease-out-soft);
@@ -824,7 +824,7 @@ body:has(compact-board) {
 }
 
 /* Fissures lumineuses : overlay SVG PUR (document.body), sous les
-   mascottes et l'en-tête collant (z-index 40), jamais cliquable. Fixed
+   mascottes (z-index 40) et l'en-tête collant (45), jamais cliquable. Fixed
    comme les sprites : la page qui défile remet tout en place. Les
    polylignes portent pathLength=1 : dashoffset 1 → 0, la fissure
    « court ». */

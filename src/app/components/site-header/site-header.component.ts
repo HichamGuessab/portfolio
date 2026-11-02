@@ -22,6 +22,9 @@ interface NavItem {
 /** Au-delà de ce défilement (px), l'en-tête prend son fond opaque. */
 const SCROLLED_THRESHOLD = 8;
 
+/** Breakpoint lg de Tailwind : la navigation complète remplace le menu. */
+const DESKTOP_NAV_QUERY = '(min-width: 1024px)';
+
 /**
  * En-tête collant : monogramme, navigation par ancres avec la section en
  * cours mise en évidence (scroll-spy), appel à l'action « Me contacter ».
@@ -34,7 +37,10 @@ const SCROLLED_THRESHOLD = 8;
   imports: [IconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'sticky top-0 z-40 block',
+    /* z-45 : au-dessus du duo de mascottes (hôte fixed z-40, plus loin
+       dans le DOM) — ni sprite ni bulle ne passe devant l'en-tête ou son
+       menu mobile ; sous le lien d'évitement (z-50). */
+    class: 'sticky top-0 z-45 block',
     '(document:keydown.escape)': 'closeMenu(true)',
     '(document:click)': 'onDocumentClick($event)',
   },
@@ -75,8 +81,21 @@ export class SiteHeaderComponent {
       };
       update();
       window.addEventListener('scroll', onScroll, { passive: true });
+
+      /* Passage en lg : le menu mobile disparaît (lg:hidden) — il est
+         refermé, sinon l'en-tête garderait son fond opaque et le bouton
+         masqué resterait « déplié ». */
+      const desktop = window.matchMedia(DESKTOP_NAV_QUERY);
+      const onBreakpoint = (event: MediaQueryListEvent): void => {
+        if (event.matches) {
+          this.closeMenu();
+        }
+      };
+      desktop.addEventListener('change', onBreakpoint);
+
       destroyRef.onDestroy(() => {
         window.removeEventListener('scroll', onScroll);
+        desktop.removeEventListener('change', onBreakpoint);
         cancelAnimationFrame(frame);
       });
     });

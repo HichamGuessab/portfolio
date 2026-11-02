@@ -130,7 +130,7 @@ const PERCH_GRACE_MODE = 1400;
     aucun perchoir n'est planifié avant ~1 s d'immobilité de la page. */
 const PERCH_GRACE_SCROLL = 1000;
 
-/** En-tête collant de la page (h-16, z-40) : cette bande du haut d'écran
+/** En-tête collant de la page (h-16, z-45) : cette bande du haut d'écran
     n'est jamais « visible » pour les perchoirs ni pour le séisme. Elle
     n'existe pas en mode compact (pas d'en-tête). */
 const HEADER_BAND = 64;
@@ -3637,24 +3637,28 @@ export class MascotComponent implements OnDestroy {
   private buildFunambule(
     robot: Character
   ): { who: Character; steps: PerchStep[] } | null {
-    const info = this._viewMode.isCompact()
+    const compact = this._viewMode.isCompact();
+    const info = compact
       ? this.firstRect(PERCH_SELECTORS.console)
       : /* Page : la carte visible la plus centrale parmi celles qui
            laissent la place d'une traversée (et, sur mobile, restent sous
-           le plafond de saut). */
+           le plafond de saut) — pickCard garantit déjà visibilité et
+           dégagement sous l'en-tête. */
         this.pickCard(
           robot.height,
           (rect) =>
             rect.width - robot.width - 16 >= 40 &&
             this.withinJumpCap(rect.top + 2)
         );
-    if (!info || info.rect.top < 60 || !this.rectInViewport(info.rect)) {
+    /* Console du pont compact (ordinateur seulement : aucun plafond de
+       saut) : visible et assez bas pour la tête du robot. */
+    if (
+      !info ||
+      (compact && (info.rect.top < 60 || !this.rectInViewport(info.rect)))
+    ) {
       return null;
     }
     const el = info.el;
-    if (!this.withinJumpCap(info.rect.top + 2)) {
-      return null;
-    }
     /* Traversée limitée à ~110 px (12 px/s pendant 8-10 s au total). */
     const span = Math.min(info.rect.width - robot.width - 16, 110);
     if (span < 40) {

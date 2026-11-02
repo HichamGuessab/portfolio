@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Project, ProjectCategory } from '../interfaces';
+import { Link, Project, ProjectCategory } from '../interfaces';
 
 /** Libellés des catégories de projets. */
 export const PROJECT_CATEGORIES: Record<ProjectCategory, string> = {
@@ -21,7 +21,7 @@ export class ProjectService {
       category: 'web',
       icon: 'sparkles',
       technologies: ['figma', 'angular', 'tailwind'],
-      repository: 'https://github.com/HichamGuessab/portfolio',
+      repository: Link.SiteRepository,
       design:
         'https://www.figma.com/design/5EQNpkJoka4iXvDkSkv1Rs/Portfolio---Hicham-Guessab?node-id=0-1&t=MQ0xp0VIZ6Lf1iZu-1',
       featured: true,

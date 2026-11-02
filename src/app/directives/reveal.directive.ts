@@ -56,21 +56,33 @@ export class RevealDirective {
       element.removeEventListener('focusin', revealNow);
     };
 
-    /* Le focus clavier n'attend pas l'animation : un élément focalisé doit
-       être visible immédiatement. */
+    /* Fin de l'apparition : les classes et le délai sont retirés, pour que
+       l'élément retrouve ses propres transitions (survol des cartes…) —
+       la règle de révélation, hors couche, les écraserait sinon. */
+    const settle = (event: TransitionEvent): void => {
+      if (event.target !== element) {
+        return;
+      }
+      element.removeEventListener('transitionend', settle);
+      element.classList.remove('reveal-pending', 'reveal-visible');
+      element.style.removeProperty('--reveal-delay');
+    };
+
+    /* Révélation, à l'entrée dans le viewport ou au focus clavier (qui
+       n'attend pas : un élément focalisé doit être visible immédiatement). */
     const revealNow = (): void => {
-      element.classList.add('reveal-visible');
       stop();
+      if (!element.classList.contains('reveal-pending')) {
+        return;
+      }
+      element.addEventListener('transitionend', settle);
+      element.classList.add('reveal-visible');
     };
 
     afterNextRender(() => {
       if (typeof IntersectionObserver === 'undefined') {
         return;
       }
-      if (this.revealDelay() > 0) {
-        element.style.setProperty('--reveal-delay', `${this.revealDelay()}ms`);
-      }
-
       let first = true;
       handlers.set(element, (entry) => {
         if (first) {
@@ -83,12 +95,17 @@ export class RevealDirective {
             stop();
             return;
           }
+          if (this.revealDelay() > 0) {
+            element.style.setProperty(
+              '--reveal-delay',
+              `${this.revealDelay()}ms`
+            );
+          }
           element.classList.add('reveal-pending');
           return;
         }
         if (entry.isIntersecting) {
-          element.classList.add('reveal-visible');
-          stop();
+          revealNow();
         }
       });
       observer = revealObserver();

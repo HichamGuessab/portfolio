@@ -7,9 +7,11 @@
   <!-- Mode compact « Circuit fermé » : pont de commandement une seule page
        plein écran, sans aucun défilement, ceinturé du cadre-circuit. Chargé
        à la demande : son code ne pèse rien tant que le secret n'est pas
-       découvert. -->
+       découvert. Chargement immédiat (pas « on idle » par défaut) : au
+       retour d'un visiteur resté en compact, la page pré-rendue disparaît
+       dès l'hydratation, <main> ne doit pas rester vide en attendant. -->
   <main>
-    @defer {
+    @defer (on immediate) {
       <compact-board />
     }
   </main>
