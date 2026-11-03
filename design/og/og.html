@@ -247,6 +247,9 @@
         height: 372px;
         border-radius: 50%;
         object-fit: cover;
+        /* Cadrage serré sur le visage (portrait 768 px) : zoom ×1,26,
+           visage remonté de 20 px. Rendu Chromium uniquement (Playwright). */
+        object-view-box: inset(112px 81px 47px 78px);
       }
     </style>
   </head>
@@ -270,16 +273,16 @@
             <p class="subtitle">
               Ingénieur logiciel
               <span class="sep">·</span>
-              Développeur web &amp; mobile
+              AI-native product engineer
             </p>
             <p class="stack">
-              Front-End
+              Web &amp; mobile
               <span class="sep">·</span>
               Angular
               <span class="sep">·</span>
               TypeScript
               <span class="sep">·</span>
-              Ionic
+              Capacitor
             </p>
           </div>
           <div class="domain">hichamguessab.com</div>

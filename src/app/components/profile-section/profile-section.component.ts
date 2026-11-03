@@ -17,11 +17,11 @@ import { PortraitComponent } from '../portrait/portrait.component';
 
 /**
  * Mise en page de la section profil :
- * - « hero » : ouverture de la page (accroche, appels à l'action, chiffres
- *   clés, portrait en orbite) ;
+ * - « hero » : ouverture de la page (les deux titres et leur définition,
+ *   appels à l'action, chiffres clés, portrait en orbite) ;
  * - « compact » : cellule identité du pont de commandement — photo dans un
- *   liseré dégradé, titres à sa droite, accroche intégrale dessous (le cadre
- *   en tirets appartient à l'écran, voir ScreenFrameComponent).
+ *   liseré dégradé, nom à sa droite, titres définis côte à côte dessous (le
+ *   cadre en tirets appartient à l'écran, voir ScreenFrameComponent).
  */
 export type ProfileLayout = 'hero' | 'compact';
 

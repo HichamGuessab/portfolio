@@ -1,8 +1,8 @@
 # Portfolio — Hicham Guessab
 
-Portfolio personnel de Hicham Guessab, ingénieur logiciel et développeur web
-et mobile spécialisé Front-End. Application Angular d'une seule page, en
-français, pré-rendue en HTML statique et déployée sur GitHub Pages.
+Portfolio personnel de Hicham Guessab, ingénieur logiciel et AI-native
+product engineer. Application Angular d'une seule page, en français,
+pré-rendue en HTML statique et déployée sur GitHub Pages.
 
 **En ligne : [hichamguessab.com](https://hichamguessab.com/)**
 
@@ -18,8 +18,9 @@ français, pré-rendue en HTML statique et déployée sur GitHub Pages.
 Une page qui défile, pensée pour être lue en trente secondes par un
 recruteur :
 
-1. **Profil** — disponibilité, identité, accroche, appels à l'action
-   (projets, contact) et chiffres clés calculés depuis les données.
+1. **Profil** — disponibilité, identité, les deux titres et leur
+   définition, appels à l'action (projets, contact) et chiffres clés
+   calculés depuis les données.
 2. **Expérience** — frise chronologique ; l'alternance puis le CDI chez CBA
    forment une seule carte pour rendre la progression lisible.
 3. **Projets** — quatre projets mis en avant, puis une liste d'archive.

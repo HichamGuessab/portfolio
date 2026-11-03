@@ -13,8 +13,9 @@ import { formatDuration, periodMonths } from '../data/period';
 export class ProfileService {
   readonly name = 'Hicham Guessab';
   readonly greeting = 'Hello ! Je suis';
+  /** Les deux titres affichés sous le nom, chacun défini dans le héros. */
   readonly role = 'Ingénieur logiciel';
-  readonly specialty = 'Développeur web et mobile';
+  readonly specialty = 'AI-native product engineer';
   readonly availability = 'Ouvert aux opportunités';
   readonly email = 'contact@hichamguessab.com';
 
