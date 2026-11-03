@@ -5,13 +5,14 @@ import { Degree } from '../interfaces';
   providedIn: 'root',
 })
 export class EducationService {
-  /** Ordre chronologique : du baccalauréat au diplôme le plus élevé. */
+  /** Du plus récent au plus ancien : le diplôme le plus élevé en tête. */
   private readonly _degrees: Degree[] = [
     {
-      name: 'Baccalauréat',
-      field: 'Scientifique',
-      institution: 'Villeneuve-lès-Avignon',
-      period: { start: '2017', end: '2020' },
+      name: 'Master',
+      field: 'Ingénierie du logiciel',
+      institution: 'Université d’Avignon · CERI',
+      period: { start: '2023', end: '2025' },
+      level: 'Bac+5',
     },
     {
       name: 'Licence',
@@ -21,11 +22,10 @@ export class EducationService {
       level: 'Bac+3',
     },
     {
-      name: 'Master',
-      field: 'Ingénierie du logiciel',
-      institution: 'Université d’Avignon · CERI',
-      period: { start: '2023', end: '2025' },
-      level: 'Bac+5',
+      name: 'Baccalauréat',
+      field: 'Scientifique',
+      institution: 'Villeneuve-lès-Avignon',
+      period: { start: '2017', end: '2020' },
     },
   ];
 
@@ -33,8 +33,8 @@ export class EducationService {
     return this._degrees;
   }
 
-  /** Diplôme le plus élevé (le dernier obtenu). */
+  /** Diplôme le plus élevé (le dernier obtenu, en tête de liste). */
   getHighestDegree(): Degree {
-    return this._degrees[this._degrees.length - 1];
+    return this._degrees[0];
   }
 }

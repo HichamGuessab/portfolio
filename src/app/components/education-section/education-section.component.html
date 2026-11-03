@@ -15,16 +15,17 @@
       logiciel de l’Université d’Avignon.
     </section-header>
 
-    <!-- Frise chronologique : ligne de vie horizontale (md+) ou verticale. -->
+    <!-- Frise antichronologique : ligne de vie horizontale (md+) ou
+         verticale, le diplôme le plus récent en tête. -->
     <ol class="degree-line relative grid gap-5 md:grid-cols-3">
       @for (
         degree of degrees;
         track degree.name;
         let i = $index;
-        let last = $last
+        let first = $first
       ) {
         <li reveal [revealDelay]="i * 90" class="degree-step relative">
-          <education-item [education]="degree" [highlight]="last" />
+          <education-item [education]="degree" [highlight]="first" />
         </li>
       }
     </ol>

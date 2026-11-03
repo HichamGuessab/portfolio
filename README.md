@@ -25,7 +25,8 @@ recruteur :
 3. **Projets** — quatre projets mis en avant, puis une liste d'archive.
 4. **Compétences** — grille bento par famille, stack principale au liseré
    dégradé.
-5. **Formation** — frise du baccalauréat au Master.
+5. **Formation** — frise antichronologique : le Master en tête, jusqu'au
+   baccalauréat.
 6. **Contact** — e-mail (avec copie en un clic), LinkedIn, GitHub et une
    version imprimable propre (export PDF).
 

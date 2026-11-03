@@ -515,7 +515,8 @@
   border: 2px solid transparent;
 }
 
-.degree-step:last-child::before {
+/* Nœud plein et halo : le diplôme le plus récent, en tête de frise. */
+.degree-step:first-child::before {
   background: linear-gradient(135deg, var(--light-blue), var(--purple));
   box-shadow: 0 0 14px color-mix(in srgb, var(--purple) 70%, transparent);
 }

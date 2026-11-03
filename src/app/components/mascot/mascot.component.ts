@@ -4283,11 +4283,13 @@ export class MascotComponent implements OnDestroy {
 
   /**
    * « Les marches du diplôme » : le blob saute sur le bord supérieur de la
-   * cellule Formation, redescend sur le PREMIER nœud de la timeline et
-   * gravit les nœuds comme des marches (réutilisation exacte du motif trio
+   * cellule Formation, redescend sur le nœud du PLUS ANCIEN diplôme (à
+   * droite : la frise est antichronologique) et gravit les nœuds comme des
+   * marches jusqu'au Master, à gauche (réutilisation exacte du motif trio
    * du trampoline). Sur le nœud Master (halo), pose fière + bulle, puis
-   * 50/50 : toboggan le long du fil pointillé (traverse en phase 'slide',
-   * 90 px/s) éjecté en parabole, ou grande vrille directe au sol. ~9-11 s.
+   * 50/50 : toboggan le long du fil pointillé vers le passé (traverse en
+   * phase 'slide', 90 px/s) éjecté en parabole, ou grande vrille directe
+   * au sol. ~9-11 s.
    */
   private buildMarches(
     buddy: Character
@@ -4313,8 +4315,9 @@ export class MascotComponent implements OnDestroy {
     ) {
       return null;
     }
-    /* Les nœuds ronds (h-4) posés sur le fil, triés de gauche à droite —
-       le dernier est le Master au halo violet. */
+    /* Les nœuds ronds (h-4) posés sur le fil, triés de droite à gauche
+       (ordre de l'ascension, du baccalauréat au Master) — le dernier est
+       le Master au halo violet. */
     const nodes: { el: Element; rect: DOMRect }[] = [];
     cellE.querySelectorAll('.group > span.rounded-full').forEach((el) => {
       const rect = el.getBoundingClientRect();
@@ -4322,7 +4325,7 @@ export class MascotComponent implements OnDestroy {
         nodes.push({ el, rect });
       }
     });
-    nodes.sort((a, b) => a.rect.left - b.rect.left);
+    nodes.sort((a, b) => b.rect.left - a.rect.left);
     if (nodes.length < 2) {
       return null;
     }
@@ -4351,8 +4354,9 @@ export class MascotComponent implements OnDestroy {
       },
       { kind: 'pose', phase: 'crouch', ms: 120 },
     ];
-    /* …puis redescente sur le premier nœud et ascension marche à marche,
-       un petit saut par nœud (rects frais à chaque étape, comme partout). */
+    /* …puis redescente sur le nœud le plus ancien et ascension marche à
+       marche, un petit saut par nœud (rects frais à chaque étape, comme
+       partout). */
     nodes.forEach((node, index) => {
       steps.push({
         kind: 'jump',
@@ -4377,7 +4381,8 @@ export class MascotComponent implements OnDestroy {
     );
     if (Math.random() < 0.5) {
       /* Toboggan de la ligne de vie : le suivi d'ancre pose le blob sur le
-         fil pointillé, glissade jusqu'à son départ, éjection en parabole. */
+         fil pointillé, glissade vers son extrémité droite (le passé),
+         éjection en parabole. */
       const tlPoint = (rect: DOMRect) => ({
         x: this._perchWho?.x ?? buddy.x,
         y: this.elevationTo(rect.top),
@@ -4399,14 +4404,14 @@ export class MascotComponent implements OnDestroy {
               return null;
             }
             const rect = railEl.getBoundingClientRect();
-            return rect.width > 0 ? rect.left + 8 : null;
+            return rect.width > 0 ? rect.right - buddy.width - 8 : null;
           },
           speed: 90,
           phase: 'slide',
         },
         {
           kind: 'jump',
-          to: () => ({ x: buddy.x - 70, y: 0 }),
+          to: () => ({ x: buddy.x + 70, y: 0 }),
           height: 60,
           ms: 550,
         },
@@ -4416,7 +4421,7 @@ export class MascotComponent implements OnDestroy {
       steps.push(
         {
           kind: 'jump',
-          to: () => ({ x: buddy.x - 90, y: 0 }),
+          to: () => ({ x: buddy.x + 90, y: 0 }),
           height: 110,
           ms: 700,
           phase: 'twirl',

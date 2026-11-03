@@ -70,7 +70,8 @@ métadonnées `text-xs` mono.
 - Breakpoints Tailwind uniquement (`sm` 640, `md` 768, `lg` 1024).
 - Expérience : colonne d'intro collante + frise (`lg`). Projets : grille
   2 × 2 puis liste d'archive. Compétences : bento 3 colonnes. Formation :
-  frise horizontale (`md`) ou verticale.
+  frise horizontale (`md`) ou verticale, du diplôme le plus récent au plus
+  ancien.
 
 ## 5. Composants
 

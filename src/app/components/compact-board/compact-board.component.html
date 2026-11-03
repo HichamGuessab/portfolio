@@ -286,18 +286,20 @@
           >
             <line class="timeline-dashes" x1="0" y1="1" x2="100%" y2="1" />
           </svg>
-          @for (degree of degrees; track degree.name; let last = $last) {
+          @for (degree of degrees; track degree.name; let first = $first) {
             <div class="group flex min-w-0 flex-col gap-0.5 leading-tight">
               <!-- Nœud : anneau dégradé lightBlue→purple posé sur la ligne de
-                   vie. Le dernier (Master, diplôme le plus élevé) est plein et
+                   vie. Le premier (Master, diplôme le plus récent) est plein et
                    porte un halo. relative : passe devant la ligne (svg absolu). -->
               <span
                 class="relative mb-1.5 ml-0.5 flex h-4 w-4 shrink-0 rounded-full bg-linear-to-b from-lightBlue to-purple p-[2px] transition-transform duration-200 group-hover:scale-110"
-                [class]="last ? 'shadow-[0_0_12px_rgba(168,140,255,0.75)]' : ''"
+                [class]="
+                  first ? 'shadow-[0_0_12px_rgba(168,140,255,0.75)]' : ''
+                "
               >
                 <span
                   class="h-full w-full rounded-full"
-                  [class]="last ? 'bg-transparent' : 'bg-darkBlue'"
+                  [class]="first ? 'bg-transparent' : 'bg-darkBlue'"
                 ></span>
               </span>
               <p class="text-[13px] font-semibold text-white 2xl:text-sm">
