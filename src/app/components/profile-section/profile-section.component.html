@@ -162,7 +162,8 @@
       </div>
 
       <!-- Colonne portrait : halo, orbite en tirets (écho du circuit),
-           liseré dégradé, pastilles de la stack en apesanteur. -->
+           liseré dégradé, pastilles de la stack en apesanteur (data-perch
+           « float » : les mascottes les chevauchent). -->
       <div
         class="hero-enter-portrait relative order-first ml-1 w-24 sm:ml-2 sm:w-40 lg:order-none lg:mx-auto lg:w-full lg:max-w-[25rem]"
       >
@@ -201,6 +202,7 @@
           </div>
           <span
             aria-hidden="true"
+            data-perch="float"
             class="tech-float absolute top-[10%] -left-[10%]"
           >
             <app-icon name="angular" gradient class="size-4" />
@@ -208,6 +210,7 @@
           </span>
           <span
             aria-hidden="true"
+            data-perch="float"
             class="tech-float absolute top-[52%] -right-[4%] [animation-delay:-2.5s] xl:-right-[12%]"
           >
             <app-icon name="typescript" gradient class="size-4" />
@@ -215,6 +218,7 @@
           </span>
           <span
             aria-hidden="true"
+            data-perch="float"
             class="tech-float absolute bottom-[2%] left-[2%] [animation-delay:-5s]"
           >
             <app-icon name="capacitor" gradient class="size-4" />
@@ -226,6 +230,7 @@
 
     <a
       href="#experience"
+      data-perch="cue"
       class="group absolute bottom-6 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-xs tracking-[0.2em] text-white/55 uppercase transition hover:text-lightBlue print:hidden lg:[@media(min-height:820px)]:flex"
     >
       <span

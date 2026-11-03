@@ -119,13 +119,17 @@ métadonnées `text-xs` mono.
 Les mascottes lisent la page sans jamais la modifier ; les composants
 exposent des attributs stables :
 
-| Attribut              | Éléments                                                      |
-| --------------------- | ------------------------------------------------------------- |
-| `data-perch="photo"`  | cadre du portrait du héros                                    |
-| `data-perch="title"`  | en-têtes de section                                           |
-| `data-perch="card"`   | cartes (expérience, projets, compétences, formation, contact) |
-| `data-perch="chip"`   | pastilles de compétences                                      |
-| `data-perch="social"` | liens GitHub, LinkedIn, e-mail                                |
+| Attribut              | Éléments                                                            |
+| --------------------- | ------------------------------------------------------------------- |
+| `data-perch="photo"`  | cadre du portrait du héros                                          |
+| `data-perch="float"`  | pastilles de la stack qui flottent autour du portrait (lg)          |
+| `data-perch="cue"`    | indice de défilement « Découvrir » du héros                         |
+| `data-perch="title"`  | en-têtes de section                                                 |
+| `data-perch="card"`   | cartes (expérience, projets, compétences, formation, contact)       |
+| `data-perch="chip"`   | pastilles de compétences                                            |
+| `data-perch="social"` | liens GitHub, LinkedIn, e-mail                                      |
+| `data-perch="copy"`   | bouton « Copier l'adresse » (`data-copied` après une copie réussie) |
+| `data-perch="footer"` | pied de page (son bord supérieur sert de banc)                      |
 
 La section lue est fournie par `SectionSpyService` ; le mode compact garde
 ses propres accroches (`data-circuit`, `#project-console`…).

@@ -1120,6 +1120,21 @@
   }
 }
 
+/* « Le muret » : le blob passe DERRIÈRE le bord supérieur d'une carte.
+   La hauteur du dessin passée sous le bord (--peek-clip, recalculée en
+   TypeScript à chaque position) est découpée — zone de clic comprise :
+   rien n'intercepte les clics sur la carte. Le polygone déborde largement
+   en haut et sur les côtés (sauts, étincelles) ; la bulle, sœur du
+   bouton, n'est jamais découpée. La carte, elle, ne reçoit rien. */
+.is-peeking .duo-sprite {
+  clip-path: polygon(
+    -200px -200px,
+    calc(100% + 200px) -200px,
+    calc(100% + 200px) calc(100% - var(--peek-clip, 0px)),
+    -200px calc(100% - var(--peek-clip, 0px))
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Capteurs de mouvement (mobile) — en fin de fichier pour prendre     */
 /* le pas sur les cycles de phase à spécificité égale.                 */

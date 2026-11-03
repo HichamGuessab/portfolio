@@ -40,9 +40,13 @@ des deux compagnons**.
 
 Le duo de mascottes est permanent : les personnages se promènent en bas de
 l'écran, discutent en bulles, commentent la section lue et escaladent par
-moments l'interface (cartes, badges, cadre) sans jamais bloquer un clic. Sur
-mobile, ils sont réduits et réagissent aux capteurs du téléphone (inclinaison,
-secousse) après un premier toucher.
+moments l'interface (cartes, badges, cadre) sans jamais bloquer un clic. Ils
+jouent avec le décor : cache-cache derrière le bord d'une carte (seuls les
+yeux dépassent), surf sur les pastilles qui flottent autour du portrait,
+sauts de diplôme en diplôme, rappel de l'indice « Découvrir », fête quand
+l'adresse e-mail est copiée et pause sur le pied de page en fin de visite.
+Sur mobile, ils sont réduits et réagissent aux capteurs du téléphone
+(inclinaison, secousse) après un premier toucher.
 
 ## Stack
 
