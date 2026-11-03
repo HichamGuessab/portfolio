@@ -41,9 +41,16 @@
       <contact-section />
     }
   </main>
-  @defer (on immediate; hydrate on viewport) {
-    <site-footer />
-  }
+  <!-- Enveloppe indispensable : le bloc différé doit appartenir à un élément
+       de la branche. À la bascule vers le mode compact, Angular retire cet
+       élément avec tout son contenu — y compris un pied de page pas encore
+       hydraté, qui resterait sinon sous le pont, puis en haut de la page au
+       retour (les sections, elles, partent avec <main>). -->
+  <div>
+    @defer (on immediate; hydrate on viewport) {
+      <site-footer />
+    }
+  </div>
 }
 
 <!-- Duo de mascottes décoratif : le petit robot et son ami se promènent

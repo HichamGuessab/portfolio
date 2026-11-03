@@ -2833,6 +2833,9 @@ export class MascotComponent implements OnDestroy {
         : this.rectInViewport(rect);
       if (
         !visible ||
+        /* Pas encore révélée (.reveal-pending : invisible, décalée de
+           18 px) ou en pleine apparition : ce n'est pas encore un décor. */
+        card.el.closest('.reveal-pending') !== null ||
         !this.clearsHeader(rect, clearance) ||
         this.headroomTaken(card, clearance, rect.left, rect.right, cards) ||
         !accept(rect)
@@ -5286,9 +5289,19 @@ export class MascotComponent implements OnDestroy {
     if (this._viewMode.isCompact()) {
       return null;
     }
+    /* Profondeur (px) du bas du sprite sous le bord : 2 = debout dessus,
+       `hidden` = entièrement caché, `eyes` = crâne, oreilles et yeux
+       seulement, `high` = presque tout entier (il se hisse pour saluer).
+       Le bord doit laisser sous lui la place de se cacher entièrement :
+       trop près du bas de l'écran, le sprite toucherait le sol à
+       mi-hauteur et resterait à moitié visible. */
+    const hidden = buddy.height + 6;
     const info = this.pickCard(
       buddy.height,
-      (rect) => rect.width >= 150 && this.withinJumpCap(rect.top + 2),
+      (rect) =>
+        rect.width >= 150 &&
+        this.withinJumpCap(rect.top + 2) &&
+        rect.top + hidden <= window.innerHeight - SPRITE_GROUND,
       true
     );
     if (!info) {
@@ -5304,10 +5317,6 @@ export class MascotComponent implements OnDestroy {
     }
     const fromLeft = Math.random() < 0.5;
     const spot = (frac: number): number => (fromLeft ? frac : 1 - frac);
-    /* Profondeur (px) du bas du sprite sous le bord : 2 = debout dessus,
-       `hidden` = entièrement caché, `eyes` = crâne, oreilles et yeux
-       seulement, `high` = presque tout entier (il se hisse pour saluer). */
-    const hidden = buddy.height + 6;
     const eyes = Math.round(buddy.height * 0.36);
     const high = Math.round(buddy.height * 0.12);
     let frac = spot(0.12);
@@ -5744,10 +5753,17 @@ export class MascotComponent implements OnDestroy {
     );
     const robotX = center - robot.width - 4;
     const buddyX = center + 8;
-    const seat = (rect: DOMRect) => ({
-      x: robotX,
-      y: this.elevationTo(rect.top + 2),
-    });
+    /* Le blob, escorté, n'a pas d'ancre à lui : chaque re-mesure du banc
+       (resize pendant l'assise) le rassoit à la hauteur du robot. */
+    let buddySeated = false;
+    const seat = (rect: DOMRect) => {
+      const y = this.elevationTo(rect.top + 2);
+      if (buddySeated && !buddy.flight && Math.abs(buddy.y - y) > 0.5) {
+        buddy.y = y;
+        this.applyPosition(buddy);
+      }
+      return { x: robotX, y };
+    };
     return {
       who: robot,
       steps: [
@@ -5800,6 +5816,7 @@ export class MascotComponent implements OnDestroy {
                   undefined,
                   () => {
                     if (this._perchWho === robot) {
+                      buddySeated = true;
                       this.setPhase(buddy, 'sit', 60000);
                     }
                   }
@@ -5826,6 +5843,7 @@ export class MascotComponent implements OnDestroy {
         {
           kind: 'do',
           run: () => {
+            buddySeated = false;
             if (buddy.y > 0.5 && !buddy.flight) {
               this.setPhase(buddy, 'twirl', 900);
               this.launchFlight(buddy, buddy.x + 70, 0, 60, 650);
@@ -6614,23 +6632,19 @@ export class MascotComponent implements OnDestroy {
       char.dir = center >= this.centerOf(char) ? 1 : -1;
       this.applyDirection(char);
     }
-    const speaker = grounded[0];
-    if (speaker === robot) {
+    if (grounded.includes(robot)) {
       this.setPhase(robot, 'cheer', 1800);
     }
     if (grounded.includes(buddy)) {
       this.setPhase(buddy, 'excited', 1500);
       this.launchFlight(buddy, buddy.x, 0, 30, 420);
     }
-    /* Réponse directe au geste du visiteur : elle prend la parole, même
-       sur une bulle déjà ouverte (commentaire de section, bavardage). */
-    if (speaker) {
-      this.say(
-        speaker,
-        speaker === robot ? this.pickLine(COPIE_LINES, robot) : COPIE_BUDDY_LINE
-      );
-    }
-    if (speaker === robot && grounded.includes(buddy)) {
+    /* Réponse directe au geste du visiteur : le robot prend la parole même
+       sur une bulle déjà ouverte (commentaire de section, bavardage), et
+       même en pleine descente d'un perchoir interrompu — sa bulle le suit
+       (banc du pied de page, funambule…). */
+    this.say(robot, this.pickLine(COPIE_LINES, robot));
+    if (grounded.includes(buddy)) {
       this._delayed.push({
         in: 900,
         run: () => {
@@ -8030,7 +8044,9 @@ export class MascotComponent implements OnDestroy {
 
     const robotCenterX = this.centerOf(robot);
     const robotDx = this._mouseX - robotCenterX;
-    const robotDy = this._mouseY - (viewportHeight - 44);
+    /* Hauteur réelle des yeux : un perché (y > 0) regarde depuis son
+       perchoir — le muret ne montre que ses yeux, ils doivent viser juste. */
+    const robotDy = this._mouseY - (viewportHeight - 44 - robot.y);
     const robotDist = Math.hypot(robotDx, robotDy);
     let lookX = 0;
     let lookY = 0;
@@ -8060,7 +8076,7 @@ export class MascotComponent implements OnDestroy {
 
     const buddyCenterX = this.centerOf(buddy);
     const buddyDx = this._mouseX - buddyCenterX;
-    const buddyDy = this._mouseY - (viewportHeight - 30);
+    const buddyDy = this._mouseY - (viewportHeight - 30 - buddy.y);
     const buddyDist = Math.hypot(buddyDx, buddyDy);
     let buddyLookX: number;
     let buddyLookY = 0;
