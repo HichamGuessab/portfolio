@@ -5,6 +5,7 @@ import {
   apple,
   arduino,
   bash,
+  bot,
   cpp,
   docker,
   express,
@@ -33,6 +34,7 @@ import {
  * différées : les logos de logos.ts restent hors du bundle initial.
  */
 export const TECHNOLOGIES = {
+  agentic: { name: 'IA agentique', icon: bot },
   android: { name: 'Android', icon: android },
   angular: { name: 'Angular', icon: ICONS.angular },
   arduino: { name: 'Arduino', icon: arduino },

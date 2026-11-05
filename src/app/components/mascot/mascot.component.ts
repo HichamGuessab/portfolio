@@ -750,6 +750,7 @@ const ROBOT_LINES: readonly string[] = [
   'Vous êtes encore là ? Hicham va être ravi !',
   'Je ne suis qu’un robot, mais je reconnais le talent.',
   'Un ingénieur AI-native ? Moi, je suis carrément 100 % code.',
+  'Développement agentique ? Je suis moi-même un agent : je confirme, il gère.',
 ] as const;
 
 /** Bulles ambiantes de l'ami — plus rares, plus courtes, toutes mignonnes. */

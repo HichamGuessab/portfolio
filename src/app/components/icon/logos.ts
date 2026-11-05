@@ -42,6 +42,20 @@ export const redux: IconDef = {
   ],
 };
 
+// Développement agentique : pas de marque, le robot de Lucide (contour),
+// rectangle de la tête converti en tracé.
+export const bot: IconDef = {
+  type: 'stroke',
+  paths: [
+    'M12 8V4H8',
+    'M6 8h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z',
+    'M2 14h2',
+    'M20 14h2',
+    'M15 13v2',
+    'M9 13v2',
+  ],
+};
+
 // Simple Icons n'a pas de logo Java : la tasse de café de Lucide (contour),
 // plus reconnaissable aux petites tailles que Duke, la mascotte d'OpenJDK.
 export const java: IconDef = {

@@ -41,9 +41,11 @@ export class SkillService {
     },
     {
       name: 'Outils',
-      description: 'Versionnement, conteneurs et automatisation du quotidien.',
+      description:
+        'Agents d’IA, versionnement, conteneurs et automatisation du quotidien.',
       icon: 'wrench',
       skills: [
+        { tech: 'agentic', primary: true },
         { tech: 'git' },
         { tech: 'gitlab' },
         { tech: 'docker' },
